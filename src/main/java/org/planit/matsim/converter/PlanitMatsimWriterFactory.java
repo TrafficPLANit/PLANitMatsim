@@ -13,7 +13,7 @@ public class PlanitMatsimWriterFactory {
    * @return create matsim writer
    */
   public static PlanitMatsimWriter createWriter(String outputDirectory) {
-    return new PlanitMatsimWriter();    
+    return new PlanitMatsimWriter(outputDirectory);    
   }
     
 }
