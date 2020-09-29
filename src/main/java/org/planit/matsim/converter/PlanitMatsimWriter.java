@@ -5,7 +5,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.function.Consumer;
+import java.util.Collections;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -20,7 +21,6 @@ import org.planit.network.converter.IdMapper;
 import org.planit.network.converter.NetworkWriterImpl;
 import org.planit.network.physical.macroscopic.MacroscopicNetwork;
 import org.planit.utils.exceptions.PlanItException;
-import org.planit.utils.graph.EdgeSegment;
 import org.planit.utils.id.IdGenerator;
 import org.planit.utils.id.IdGroupingToken;
 import org.planit.utils.misc.Pair;
@@ -43,21 +43,13 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
    * the logger of this class
    */
   private static final Logger LOGGER = Logger.getLogger(PlanitMatsimWriter.class.getCanonicalName());
-  
-  /** the doc type of MATSIM network */
-  public static final String DOCTYPE = "<!DOCTYPE network SYSTEM \"http://www.matsim.org/files/dtd/network_v2.dtd\">";
-  
+    
   /** id token to use to generate id's if required */
-  IdGroupingToken matsimWriterIdToken; 
+  private IdGroupingToken matsimWriterIdToken; 
   
   /** track indentation level */
   private int indentLevel = 0;  
-  
-  /**
-   * the decimal format to apply to coordinates
-   */
-  protected String coordinateDecimalFormat;
-    
+      
   /** write a new line to the stream, e.g. "\n"
    * @param xmlWriter to use
    * @throws XMLStreamException thrown if error 
@@ -177,9 +169,8 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
     /* create writer */
     try {    
       FileWriter theWriter = new FileWriter(absoluteMatsimPath.toFile());
-      XMLOutputFactory xMLOutputFactory = XMLOutputFactory.newInstance();
-      return new Pair<XMLStreamWriter,FileWriter>(
-          xMLOutputFactory.createXMLStreamWriter(theWriter),theWriter);
+      XMLOutputFactory xmlOutputFactory = XMLOutputFactory.newInstance();
+      return new Pair<XMLStreamWriter,FileWriter>(xmlOutputFactory.createXMLStreamWriter(theWriter),theWriter);
     } catch (XMLStreamException | IOException e) {
       LOGGER.severe(e.getMessage());
       throw new PlanItException("Could not instantiate XML writer for MATSIM network",e);
@@ -255,12 +246,23 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
   /** write a MATSIM link for given PLANit link segment
    * @param xmlWriter to use
    * @param linkSegment link segment to write
+   * @param planitModeToMatsimModeMapping quick mapping from PLANit mode to MATSIM mode string
    * @param linkIdMapping function to map PLANit link segment id to MATSIM link id
    * @param nodeIdMapping function to map PLANit node id to MATSIM node id
    * @throws PlanItException thrown if error
    */
   private void writeMatsimLink(
-      XMLStreamWriter xmlWriter, MacroscopicLinkSegment linkSegment, Function<MacroscopicLinkSegment, String> linkIdMapping, Function<Node, String> nodeIdMapping) throws PlanItException {
+      XMLStreamWriter xmlWriter, 
+      MacroscopicLinkSegment linkSegment, 
+      Map<Mode, String> planitModeToMatsimModeMapping, 
+      Function<MacroscopicLinkSegment, String> linkIdMapping, 
+      Function<Node, String> nodeIdMapping) throws PlanItException {
+        
+    
+    if(Collections.disjoint(planitModeToMatsimModeMapping.keySet(), linkSegment.getAllowedModes())) {
+      /* link segment has no modes that are activated on the MATSIM network -> ignore */
+      return;
+    }
     
     try {
       writeEmptyElement(xmlWriter, MatsimNetworkXmlElements.LINK);           
@@ -290,7 +292,7 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
         {
           /* SPEED */
           xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.FREESPEED_METER_SECOND, 
-              String.format("%.2f",UnitUtils.convert(Units.KM_HOUR, Units.METER_SECOND, linkSegment.getMaximumSpeedKmH())));
+              String.format("%.2f",UnitUtils.convert(Units.KM_HOUR, Units.METER_SECOND, linkSegment.getPhysicalSpeedLimitKmH())));
           
           /* CAPACITY */
           xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.CAPACITY_HOUR, String.format("%.1f",linkSegment.computeCapacityPcuH()));
@@ -299,8 +301,7 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
           xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.PERMLANES, String.valueOf(linkSegment.getNumberOfLanes()));
           
           /* MODES */
-          // TODO: NOT PROPERLY DONE <-- MAPPING REQUIRED BETWEEN PLANit MODES AND MATSIM MODES!!!
-          String allowedModes = linkSegment.getAllowedModes().stream().map(mode -> mode.getName()).collect(Collectors.joining(","));
+          String allowedModes = linkSegment.getAllowedModes().stream().map(mode -> planitModeToMatsimModeMapping.get(mode)).collect(Collectors.joining(","));
           xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.MODES,allowedModes);
         }
         
@@ -317,18 +318,18 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
           /** USER DEFINED **/
           
           /* NT_CATEGORY */
-          if(linkNtCategoryfunction != null) {
-            xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.NT_CATEGORY, linkNtCategoryfunction.apply(linkSegment));
+          if(settings.linkNtCategoryfunction != null) {
+            xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.NT_CATEGORY, settings.linkNtCategoryfunction.apply(linkSegment));
           }
           
           /* NT_CATEGORY */
-          if(linkNtTypefunction != null) {
-            xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.NT_TYPE, linkNtTypefunction.apply(linkSegment));
+          if(settings.linkNtTypefunction != null) {
+            xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.NT_TYPE, settings.linkNtTypefunction.apply(linkSegment));
           }
           
           /* TYPE */
-          if(linkTypefunction != null) {
-            xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.NT_TYPE, linkTypefunction.apply(linkSegment));
+          if(settings.linkTypefunction != null) {
+            xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.NT_TYPE, settings.linkTypefunction.apply(linkSegment));
           }  
           
         }                     
@@ -340,27 +341,32 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
       LOGGER.severe(e.getMessage());
       throw new PlanItException(String.format("error while writing MATSIM link XML element %s (id:%d)",linkSegment.getExternalId(), linkSegment.getId()));
     }
-  }  
-  
+  }    
+
   /** Write a PLANit link with one or two link segments as MATSIM link(s) 
    * 
    * @param xmlWriter to use
    * @param link to extract MATSIM link(s) from
+   * @param planitModeIdToMatsimModeMapping quick mapping from PLANit mode to MATSIM mode string
    * @param linkIdMapping function to map PLANit link segment id to MATSIM link id
    * @param nodeIdMapping function to map PLANit node id to MATSIM node id
    * @throws PlanItException thrown if error
    */
   private void writeMatsimLink(
-      XMLStreamWriter xmlWriter, Link link, Function<MacroscopicLinkSegment, String> linkIdMapping, Function<Node, String> nodeIdMapping) throws PlanItException {     
+      XMLStreamWriter xmlWriter, 
+      Link link, 
+      Map<Mode, String> planitModeToMatsimModeMapping, 
+      Function<MacroscopicLinkSegment, String> linkIdMapping, 
+      Function<Node, String> nodeIdMapping) throws PlanItException {     
     
     /* A --> B */
     if(link.hasEdgeSegmentAb()) {
-      writeMatsimLink(xmlWriter, (MacroscopicLinkSegment) link.getEdgeSegmentAb(), linkIdMapping, nodeIdMapping);
+      writeMatsimLink(xmlWriter, (MacroscopicLinkSegment) link.getEdgeSegmentAb(), planitModeToMatsimModeMapping, linkIdMapping, nodeIdMapping);
     }
     
     /* A <-- B */
     if(link.hasEdgeSegmentBa()) {
-      writeMatsimLink(xmlWriter, (MacroscopicLinkSegment) link.getEdgeSegmentBa(), linkIdMapping, nodeIdMapping);
+      writeMatsimLink(xmlWriter, (MacroscopicLinkSegment) link.getEdgeSegmentBa(), planitModeToMatsimModeMapping, linkIdMapping, nodeIdMapping);
     }
     
   }  
@@ -378,9 +384,10 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
     try {
       writeStartElementNewLine(xmlWriter,MatsimNetworkXmlElements.LINKS, true /* ++indent */);
       
+      Map<Mode, String> planitModeToMatsimModeMapping = settings.createPlanitModeToMatsimModeMapping(network);
       /* write link(segments) one by one */
       for(Link link : network.links) {
-        writeMatsimLink(xmlWriter, link, linkIdMapping, nodeIdMapping);
+        writeMatsimLink(xmlWriter, link, planitModeToMatsimModeMapping, linkIdMapping, nodeIdMapping);
       }
       
       writeEndElementNewLine(xmlWriter, true /*-- indent */); // LINKS
@@ -476,7 +483,7 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
       try {
         writeStartElementNewLine(xmlWriter,MatsimNetworkXmlElements.NETWORK, true /* add indentation*/);
         
-        /* mapping for how to generated id's for varous entities */
+        /* mapping for how to generated id's for various entities */
         Function<Node, String> nodeIdMapping = createNodeIdValueGenerator();
         Function<MacroscopicLinkSegment, String> linkIdMapping = createLinkSegmentIdValueGenerator();
         
@@ -496,43 +503,30 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
   /**
    * the output directory on where to persist the MATSIM network
    */
-  protected final String outputDirectory;
+  protected final String outputDirectory;  
   
+  /**
+   * the decimal format to apply to coordinates
+   */
+  protected String coordinateDecimalFormat;  
   
   /**
    * the output file name to use, default is set to DEFAULT_NETWORK_FILE_NAME
    */
   protected String outputFileName = DEFAULT_NETWORK_FILE_NAME;
-  
+        
   /**
-   * number of decimals to use
+   * MATSIM writer settings 
    */
-  protected int coordinateDecimals = COORDINATE_DECIMALS;
+  protected final PlanitMatsimWriterSettings settings;
   
-  /**
-   * optional function used to populate the MATSIM link's nt_category field if set
-   */
-  protected Function<MacroscopicLinkSegment,String> linkNtCategoryfunction = null;
-
-  /**
-   * optional function used to populate the MATSIM link's nt_type field if set
-   */  
-  protected Function<MacroscopicLinkSegment,String> linkNtTypefunction = null;
-
-  /**
-   * optional function used to populate the MATSIM link's type field if set
-   */    
-  protected Function<MacroscopicLinkSegment,String> linkTypefunction = null;
+  /** the doc type of MATSIM network */
+  public static final String DOCTYPE = "<!DOCTYPE network SYSTEM \"http://www.matsim.org/files/dtd/network_v2.dtd\">";  
     
   /**
    * default names used for MATSIM network file that is being generated
    */
-  public static final String DEFAULT_NETWORK_FILE_NAME = "network.xml";
-  
-  /**
-   * default number of coordinate decimals used
-   */
-  public static final int COORDINATE_DECIMALS = 6;
+  public static final String DEFAULT_NETWORK_FILE_NAME = "network.xml";  
       
   
   /**
@@ -544,6 +538,9 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
     super(IdMapper.EXTERNAL_ID);    
     this.matsimWriterIdToken = IdGenerator.createIdGroupingToken(PlanitMatsimWriter.class.getCanonicalName());    
     this.outputDirectory = outputDirectory;
+    
+    /* config settings for writer are found here */
+    this.settings = new PlanitMatsimWriterSettings();
   }
 
   /**
@@ -556,8 +553,9 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
     Path matsimNetworkPath =  Paths.get(outputDirectory, outputFileName);    
     Pair<XMLStreamWriter,FileWriter> xmlFileWriterPair = createXMLWriter(matsimNetworkPath);
     
-    coordinateDecimalFormat = String.format("%%.%df", coordinateDecimals);
-            
+    coordinateDecimalFormat = String.format("%%.%df", settings.getCoordinateDecimals());
+    
+    settings.logSettings();            
     try {
       /* start */
       startXmlDocument(xmlFileWriterPair);
@@ -572,51 +570,14 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
       throw new PlanItException(String.format("error while persisting MATSIM network to %s", matsimNetworkPath));
     }
   }
+   
   
-  
-  /** collect number of decimals used in writing coordinates
-   * @return number of decimals used
+  /** Collect the settings
+   * 
+   * @return settings for configuration
    */
-  public int getCoordinateDecimals() {
-    return coordinateDecimals;
+  public PlanitMatsimWriterSettings getSettings() {
+    return this.settings;
   }
-
-  /** set number of decimals used in writing coordinates
-   * 
-   * @param coordinateDecimals number of decimals
-   */
-  public void setCoordinateDecimals(int coordinateDecimals) {
-    this.coordinateDecimals = coordinateDecimals;
-  }
-  
-  /**
-   * allow the user to provide their own function on how to populate the nt_category field of a MATSIM link
-   * based on the link segment that is provided to it
-   * 
-   * @param linkNtCategoryfunction to apply
-   */
-  public void setNtCategoryFunction(Function<MacroscopicLinkSegment,String> linkNtCategoryfunction) {
-    this.linkNtCategoryfunction = linkNtCategoryfunction;
-  }
-  
-  /**
-   * allow the user to provide their own function on how to populate the nt_type field of a MATSIM link
-   * based on the link segment that is provided to it
-   * 
-   * @param linkNtTypefunction to apply
-   */
-  public void setNtTypeFunction(Function<MacroscopicLinkSegment,String> linkNtTypefunction) {
-    this.linkNtTypefunction = linkNtTypefunction;
-  }  
-  
-  /**
-   * allow the user to provide their own function on how to populate the type field of a MATSIM link
-   * based on the link segment that is provided to it
-   * 
-   * @param linkNtTypefunction to apply
-   */
-  public void setTypeFunction(Function<MacroscopicLinkSegment,String> linkTypefunction) {
-    this.linkTypefunction = linkTypefunction;
-  }   
 
 }
