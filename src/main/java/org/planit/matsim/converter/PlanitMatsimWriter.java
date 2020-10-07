@@ -227,12 +227,12 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
           /* when present on link segment use that external id, otherwise try link */
           if(macroscopicLinkSegment.getExternalId() != null) {
             return String.format("%s",macroscopicLinkSegment.getExternalId());          
-          }else if(macroscopicLinkSegment.getParentLink().getExternalId() != null) {
+          }else if(macroscopicLinkSegment.getParentLink() != null && macroscopicLinkSegment.getParentLink().getExternalId() != null) {
             return String.format("%s_%s",
                 macroscopicLinkSegment.getParentLink().getExternalId(),
                 macroscopicLinkSegment.isDirectionAb() ? "ab" : "ba");                
           }else {
-            LOGGER.severe(String.format("unable to extract id for MATSIM link, PLANit link (segment) external id not available (id:%d)",macroscopicLinkSegment.getId()));
+            LOGGER.severe(String.format("unable to extract id for MATSIM link, PLANit link segment external id not available or parent link missing (id:%d)",macroscopicLinkSegment.getId()));
             return "-1";
           }
         };      
