@@ -6,7 +6,11 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -49,6 +53,14 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
   
   /** track indentation level */
   private int indentLevel = 0;  
+  
+  /** when external ids are used for mapping, they need not be unqiue, in Matsim ids must be unique, we use this map to track
+   * for duplicates, if found, we append unique identifier */
+  private Map<String,LongAdder> usedExternalMatsimLinkIds = new HashMap<String,LongAdder>();
+  
+  /** when external ids are used for mapping, they need not be unqiue, in Matsim ids must be unique, we use this map to track
+   * for duplicates, if found, we append unique identifier */  
+  private Map<String,LongAdder> usedExternalMatsimNodeIds = new HashMap<String,LongAdder>();
       
   /** write a new line to the stream, e.g. "\n"
    * @param xmlWriter to use
@@ -144,6 +156,25 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
       decreaseIndentation(); 
     }
     writeEndElementNewLine(xmlWriter);
+  }  
+  
+  /** Make sure that if external id is used that is is unique even if it is not originally
+   * @param matsimId to evrify
+   * @param usedExternalMatsimIds that are used already
+   * @return unique externalId (if not external id then copy of original is returned
+   */
+  private String ensureUniqueExternalId(final String matsimId, final Map<String, LongAdder> usedExternalMatsimIds) {    
+    String uniqueExternalId = matsimId;
+    if(getIdMapper() == IdMapper.EXTERNAL_ID) {
+      if(usedExternalMatsimIds.containsKey(matsimId)) {
+        LongAdder duplicateCount = usedExternalMatsimLinkIds.get(matsimId);
+        uniqueExternalId = matsimId.concat(duplicateCount.toString());
+        duplicateCount.increment();
+      }else {
+        usedExternalMatsimIds.put(matsimId, new LongAdder());
+      }
+    } 
+    return uniqueExternalId;
   }  
   
   /**
@@ -272,7 +303,8 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
         /** GEOGRAPHY **/
         {
           /* ID */
-          xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.ID, linkIdMapping.apply(linkSegment));
+          String matsimLinkId = ensureUniqueExternalId(linkIdMapping.apply(linkSegment), usedExternalMatsimLinkIds);
+          xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.ID, matsimLinkId);
     
           /* FROM node */
           xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.FROM, nodeIdMapping.apply((Node) linkSegment.getUpstreamVertex()));
@@ -429,7 +461,8 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
       /* attributes  of element*/
       {
         /* ID */
-        xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.ID, nodeIdGenerator.apply(node));
+        String matsimNodeId = ensureUniqueExternalId(nodeIdGenerator.apply(node), usedExternalMatsimNodeIds);
+        xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.ID, matsimNodeId);
         
         double[]  nodeCoordinate = node.getCentrePointGeometry().getDirectPosition().getCoordinate();
         /* X */
