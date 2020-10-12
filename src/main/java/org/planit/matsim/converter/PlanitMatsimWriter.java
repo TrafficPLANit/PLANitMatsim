@@ -464,7 +464,7 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
         String matsimNodeId = ensureUniqueExternalId(nodeIdGenerator.apply(node), usedExternalMatsimNodeIds);
         xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.ID, matsimNodeId);
         
-        double[]  nodeCoordinate = node.getCentrePointGeometry().getDirectPosition().getCoordinate();
+        double[]  nodeCoordinate = node.getPosition().getDirectPosition().getCoordinate();
         /* X */
         xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.X, String.format(coordinateDecimalFormat,nodeCoordinate[0]));
         /* Y */
