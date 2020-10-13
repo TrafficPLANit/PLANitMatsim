@@ -7,9 +7,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Function;
 import java.util.logging.Logger;
@@ -34,6 +32,8 @@ import org.planit.utils.network.physical.Node;
 import org.planit.utils.network.physical.macroscopic.MacroscopicLinkSegment;
 import org.planit.utils.unit.UnitUtils;
 import org.planit.utils.unit.Units;
+
+import com.vividsolutions.jts.geom.Coordinate;
 
 /**
  * A class that takes a PLANit network and writes it as a MATSIM network. 
@@ -464,11 +464,11 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
         String matsimNodeId = ensureUniqueExternalId(nodeIdGenerator.apply(node), usedExternalMatsimNodeIds);
         xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.ID, matsimNodeId);
         
-        double[]  nodeCoordinate = node.getPosition().getDirectPosition().getCoordinate();
+        Coordinate nodeCoordinate = node.getPosition().getCoordinate();
         /* X */
-        xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.X, String.format(coordinateDecimalFormat,nodeCoordinate[0]));
+        xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.X, String.format(coordinateDecimalFormat,nodeCoordinate.x));
         /* Y */
-        xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.Y, String.format(coordinateDecimalFormat,nodeCoordinate[1]));
+        xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.Y, String.format(coordinateDecimalFormat,nodeCoordinate.y));
         /* Z coordinate not yet supported */
         
         /* TYPE not yet supported */
