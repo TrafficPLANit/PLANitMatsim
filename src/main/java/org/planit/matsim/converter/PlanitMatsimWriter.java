@@ -6,7 +6,9 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -31,6 +33,8 @@ import org.planit.utils.network.physical.macroscopic.MacroscopicLinkSegment;
 import org.planit.utils.unit.UnitUtils;
 import org.planit.utils.unit.Units;
 
+import com.vividsolutions.jts.geom.Coordinate;
+
 /**
  * A class that takes a PLANit network and writes it as a MATSIM network. 
  * MATSIM Id's are by default mapped based on the PLANit external id's.
@@ -49,6 +53,14 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
   
   /** track indentation level */
   private int indentLevel = 0;  
+  
+  /** when external ids are used for mapping, they need not be unqiue, in Matsim ids must be unique, we use this map to track
+   * for duplicates, if found, we append unique identifier */
+  private Map<String,LongAdder> usedExternalMatsimLinkIds = new HashMap<String,LongAdder>();
+  
+  /** when external ids are used for mapping, they need not be unqiue, in Matsim ids must be unique, we use this map to track
+   * for duplicates, if found, we append unique identifier */  
+  private Map<String,LongAdder> usedExternalMatsimNodeIds = new HashMap<String,LongAdder>();
       
   /** write a new line to the stream, e.g. "\n"
    * @param xmlWriter to use
@@ -146,6 +158,25 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
     writeEndElementNewLine(xmlWriter);
   }  
   
+  /** Make sure that if external id is used that is is unique even if it is not originally
+   * @param matsimId to evrify
+   * @param usedExternalMatsimIds that are used already
+   * @return unique externalId (if not external id then copy of original is returned
+   */
+  private String ensureUniqueExternalId(final String matsimId, final Map<String, LongAdder> usedExternalMatsimIds) {    
+    String uniqueExternalId = matsimId;
+    if(getIdMapper() == IdMapper.EXTERNAL_ID) {
+      if(usedExternalMatsimIds.containsKey(matsimId)) {
+        LongAdder duplicateCount = usedExternalMatsimLinkIds.get(matsimId);
+        uniqueExternalId = matsimId.concat(duplicateCount.toString());
+        duplicateCount.increment();
+      }else {
+        usedExternalMatsimIds.put(matsimId, new LongAdder());
+      }
+    } 
+    return uniqueExternalId;
+  }  
+  
   /**
    * create the writer
    * @param matsimNetworkPath to create the writer for
@@ -227,12 +258,12 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
           /* when present on link segment use that external id, otherwise try link */
           if(macroscopicLinkSegment.getExternalId() != null) {
             return String.format("%s",macroscopicLinkSegment.getExternalId());          
-          }else if(macroscopicLinkSegment.getParentLink().getExternalId() != null) {
+          }else if(macroscopicLinkSegment.getParentLink() != null && macroscopicLinkSegment.getParentLink().getExternalId() != null) {
             return String.format("%s_%s",
                 macroscopicLinkSegment.getParentLink().getExternalId(),
                 macroscopicLinkSegment.isDirectionAb() ? "ab" : "ba");                
           }else {
-            LOGGER.severe(String.format("unable to extract id for MATSIM link, PLANit link (segment) external id not available (id:%d)",macroscopicLinkSegment.getId()));
+            LOGGER.severe(String.format("unable to extract id for MATSIM link, PLANit link segment external id not available or parent link missing (id:%d)",macroscopicLinkSegment.getId()));
             return "-1";
           }
         };      
@@ -272,7 +303,8 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
         /** GEOGRAPHY **/
         {
           /* ID */
-          xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.ID, linkIdMapping.apply(linkSegment));
+          String matsimLinkId = ensureUniqueExternalId(linkIdMapping.apply(linkSegment), usedExternalMatsimLinkIds);
+          xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.ID, matsimLinkId);
     
           /* FROM node */
           xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.FROM, nodeIdMapping.apply((Node) linkSegment.getUpstreamVertex()));
@@ -429,13 +461,14 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
       /* attributes  of element*/
       {
         /* ID */
-        xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.ID, nodeIdGenerator.apply(node));
+        String matsimNodeId = ensureUniqueExternalId(nodeIdGenerator.apply(node), usedExternalMatsimNodeIds);
+        xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.ID, matsimNodeId);
         
-        double[]  nodeCoordinate = node.getCentrePointGeometry().getDirectPosition().getCoordinate();
+        Coordinate nodeCoordinate = node.getPosition().getCoordinate();
         /* X */
-        xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.X, String.format(coordinateDecimalFormat,nodeCoordinate[0]));
+        xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.X, String.format(coordinateDecimalFormat,nodeCoordinate.x));
         /* Y */
-        xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.Y, String.format(coordinateDecimalFormat,nodeCoordinate[1]));
+        xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.Y, String.format(coordinateDecimalFormat,nodeCoordinate.y));
         /* Z coordinate not yet supported */
         
         /* TYPE not yet supported */
