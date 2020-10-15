@@ -17,6 +17,8 @@ import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.planit.matsim.xml.MatsimNetworkXmlAttributes;
 import org.planit.matsim.xml.MatsimNetworkXmlElements;
 import org.planit.network.converter.IdMapper;
@@ -159,16 +161,18 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
   }  
   
   /** Make sure that if external id is used that is is unique even if it is not originally
-   * @param matsimId to evrify
+   * @param linkSegment to check for
+   * @param matsimId to verify
    * @param usedExternalMatsimIds that are used already
    * @return unique externalId (if not external id then copy of original is returned
    */
-  private String ensureUniqueExternalId(final String matsimId, final Map<String, LongAdder> usedExternalMatsimIds) {    
+  private String setUniqueExternalIdIfNeeded(MacroscopicLinkSegment linkSegment, final String matsimId, final Map<String, LongAdder> usedExternalMatsimIds) {    
     String uniqueExternalId = matsimId;
     if(getIdMapper() == IdMapper.EXTERNAL_ID) {
       if(usedExternalMatsimIds.containsKey(matsimId)) {
         LongAdder duplicateCount = usedExternalMatsimLinkIds.get(matsimId);
         uniqueExternalId = matsimId.concat(duplicateCount.toString());
+        linkSegment.setExternalId(uniqueExternalId);
         duplicateCount.increment();
       }else {
         usedExternalMatsimIds.put(matsimId, new LongAdder());
@@ -303,7 +307,10 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
         /** GEOGRAPHY **/
         {
           /* ID */
-          String matsimLinkId = ensureUniqueExternalId(linkIdMapping.apply(linkSegment), usedExternalMatsimLinkIds);
+          String matsimLinkId = setUniqueExternalIdIfNeeded(linkSegment, linkIdMapping.apply(linkSegment), usedExternalMatsimLinkIds);
+          if(matsimLinkId.equals("151454218_ba")){
+            int bla = 4;
+          }
           xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.ID, matsimLinkId);
     
           /* FROM node */
@@ -313,7 +320,7 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
           xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.TO, nodeIdMapping.apply((Node) linkSegment.getDownstreamVertex()));
           
           /* LENGTH */
-          xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.LENGTH, String.format("%.2f",linkSegment.getParentLink().getLengthKm()*1000));  
+          xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.LENGTH, String.format("%.2f",UnitUtils.convert(Units.KM, Units.METER, linkSegment.getParentLink().getLengthKm())));  
         }
         
         if(linkSegment.getLinkSegmentType() == null) {
@@ -461,8 +468,7 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
       /* attributes  of element*/
       {
         /* ID */
-        String matsimNodeId = ensureUniqueExternalId(nodeIdGenerator.apply(node), usedExternalMatsimNodeIds);
-        xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.ID, matsimNodeId);
+        xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.ID, nodeIdGenerator.apply(node));
         
         Coordinate nodeCoordinate = node.getPosition().getCoordinate();
         /* X */
@@ -553,42 +559,16 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
    */
   protected final PlanitMatsimWriterSettings settings;
   
-  /** the doc type of MATSIM network */
-  public static final String DOCTYPE = "<!DOCTYPE network SYSTEM \"http://www.matsim.org/files/dtd/network_v2.dtd\">";  
-    
   /**
-   * default names used for MATSIM network file that is being generated
-   */
-  public static final String DEFAULT_NETWORK_FILE_NAME = "network.xml";  
-      
-  
-  /**
-   * Constructor
+   * write the xml MATSIM network
    * 
-   * @param outputDirectory to use
+   * @param network to draw from
+   * @throws PlanItException thrown if error
    */
-  public PlanitMatsimWriter(String outputDirectory) {
-    super(IdMapper.EXTERNAL_ID);    
-    this.matsimWriterIdToken = IdGenerator.createIdGroupingToken(PlanitMatsimWriter.class.getCanonicalName());    
-    this.outputDirectory = outputDirectory;
-    
-    /* config settings for writer are found here */
-    this.settings = new PlanitMatsimWriterSettings();
-  }
-
-  /**
-   * {@inheritDoc}
-   * @throws PlanItException 
-   */
-  @Override
-  public void write(MacroscopicNetwork network) throws PlanItException {
-    PlanItException.throwIfNull(network, "network is null, cannot write undefined network to MATSIM format");
-    Path matsimNetworkPath =  Paths.get(outputDirectory, outputFileName);    
+  protected void writeXmlNetworkFile(MacroscopicNetwork network) throws PlanItException { 
+    Path matsimNetworkPath =  Paths.get(outputDirectory, outputFileName.concat(DEFAULT_NETWORK_FILE_NAME_EXTENSION));    
     Pair<XMLStreamWriter,FileWriter> xmlFileWriterPair = createXMLWriter(matsimNetworkPath);
     
-    coordinateDecimalFormat = String.format("%%.%df", settings.getCoordinateDecimals());
-    
-    settings.logSettings();            
     try {
       /* start */
       startXmlDocument(xmlFileWriterPair);
@@ -602,9 +582,108 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
       LOGGER.severe(e.getMessage());
       throw new PlanItException(String.format("error while persisting MATSIM network to %s", matsimNetworkPath));
     }
-  }
-   
+  }  
   
+  /**
+   * Create detailed geometry file compatible with VIA viewer
+   * 
+   * @param network to draw from
+   * @throws PlanItException 
+   */
+  protected void writeDetailedGeometryFile(MacroscopicNetwork network) throws PlanItException {
+    Path matsimNetworkGeometryPath =  Paths.get(outputDirectory, DEFAULT_NETWORK_GEOMETRY_FILE_NAME.concat(DEFAULT_NETWORK_GEOMETRY_FILE_NAME_EXTENSION)).toAbsolutePath();
+    LOGGER.info(String.format("persisting MATSIM network geometry to: %s",matsimNetworkGeometryPath.toString()));
+    
+    try {
+      CSVPrinter csvPrinter = new CSVPrinter(new FileWriter(matsimNetworkGeometryPath.toFile()), CSVFormat.TDF);      
+      csvPrinter.printRecord("LINK_ID", "GEOMETRY");
+      
+      Function<MacroscopicLinkSegment, String> linkIdMapping = createLinkSegmentIdValueGenerator();
+      for(MacroscopicLinkSegment linkSegment : network.linkSegments) {
+        Coordinate[] coordinates = linkSegment.getParentLink().getGeometry().getCoordinates();
+        if(!linkSegment.isDirectionAb()) {
+          /* invert direction of geometry */
+          coordinates = linkSegment.getParentLink().getGeometry().reverse().getCoordinates();
+        }
+        
+        /* only when it has internal coordinates */
+        if(coordinates.length > 2) {
+          String lineStringString = "LINESTRING (";
+          int firstInternal = 1;
+          int lastInternal = coordinates.length-1;
+          for(int index = firstInternal ; index < lastInternal; ++index) {
+            Coordinate coordinate = coordinates[index];           
+            if(index>firstInternal) {
+              lineStringString += ",";
+            }         
+            lineStringString += String.format("%s %s", String.format(coordinateDecimalFormat,coordinate.x), String.format(coordinateDecimalFormat,coordinate.y));
+          }
+          lineStringString += ")";
+          csvPrinter.printRecord(linkIdMapping.apply(linkSegment),lineStringString);          
+        }
+      }
+      csvPrinter.close();
+    } catch (IOException e) {
+      throw new PlanItException("unable to write detailed gemoetry file %d an error occured during writing", e);
+    }
+  }  
+  
+  /** the doc type of MATSIM network */
+  public static final String DOCTYPE = "<!DOCTYPE network SYSTEM \"http://www.matsim.org/files/dtd/network_v2.dtd\">";  
+    
+  /**
+   * default names used for MATSIM network file that is being generated
+   */
+  public static final String DEFAULT_NETWORK_FILE_NAME = "network";
+  
+  /**
+   * default names used for MATSIM network file that is being generated
+   */
+  public static final String DEFAULT_NETWORK_FILE_NAME_EXTENSION = ".xml";
+  
+  /**
+   * default names used for MATSIM network file that is being generated
+   */
+  public static final String DEFAULT_NETWORK_GEOMETRY_FILE_NAME_EXTENSION = ".txt";      
+  
+  /**
+   * default names used for MATSIM network file that is being generated
+   */
+  public static final String DEFAULT_NETWORK_GEOMETRY_FILE_NAME = "network_geometry";     
+      
+  
+  /**
+   * Constructor
+   * 
+   * @param outputDirectory to use
+   */
+  public PlanitMatsimWriter(String outputDirectory) {
+    super(IdMapper.EXTERNAL_ID);    
+    this.matsimWriterIdToken = IdGenerator.createIdGroupingToken(PlanitMatsimWriter.class.getCanonicalName());    
+    this.outputDirectory = outputDirectory;
+    
+    /* config settings for writer are found here */
+    this.settings = new PlanitMatsimWriterSettings();    
+  }
+
+  /**
+   * {@inheritDoc}
+   * @throws PlanItException 
+   */
+  @Override
+  public void write(MacroscopicNetwork network) throws PlanItException {
+    PlanItException.throwIfNull(network, "network is null, cannot write undefined network to MATSIM format");
+    
+    coordinateDecimalFormat = String.format("%%.%df", settings.getCoordinateDecimals());
+    settings.logSettings();
+    
+    writeXmlNetworkFile(network);
+    if(settings.isGenerateDetailedLinkGeometryFile()) {
+      writeDetailedGeometryFile(network);
+    }
+  }
+    
+
   /** Collect the settings
    * 
    * @return settings for configuration
