@@ -23,7 +23,7 @@ import org.planit.utils.network.physical.macroscopic.MacroscopicLinkSegment;
  */
 public class PlanitMatsimWriterSettings {
   
-  private static final Logger LOGGER = Logger.getLogger(PlanitMatsimWriterSettings.class.getCanonicalName());
+  private static final Logger LOGGER = Logger.getLogger(PlanitMatsimWriterSettings.class.getCanonicalName());    
   
   /** provides the default mapping from planit modes ((predefined) mode name)  to MATSIM mode (string) */
   protected static final Map<String, String> defaultPlanit2MatsimModeMapping;
@@ -36,12 +36,7 @@ public class PlanitMatsimWriterSettings {
   
   /** track the PLANit modes that we include in the network to write */
   protected final Set<String> activatedPlanitModes;
-  
-  /**
-   * number of decimals to use
-   */
-  protected int coordinateDecimals = COORDINATE_DECIMALS; 
-  
+    
   /**
    * optional function used to populate the MATSIM link's nt_category field if set
    */
@@ -55,9 +50,18 @@ public class PlanitMatsimWriterSettings {
   /**
    * optional function used to populate the MATSIM link's type field if set
    */    
-  protected Function<MacroscopicLinkSegment,String> linkTypefunction = null;  
+  protected Function<MacroscopicLinkSegment,String> linkTypefunction = null;
   
+  /**
+   * number of decimals to use
+   */
+  protected int coordinateDecimals = COORDINATE_DECIMALS; 
   
+  /** when set to tru a separate detailed geometry file is generated that provides the detailed geometry of each link
+   * it can be used in the VIA viewer to enhance the look of the network which otherwise only depicts the end and start node, default is false
+   */
+  protected boolean generateDetailedLinkGeometryFile = false;
+    
   /**
    * initialise the predefined PLANit modes to MATSIM mode mapping, based on the (predefined) mode names. MATSIM
    * seems not to have any predefined modes, so any name can be given to them. We therefore apply
@@ -209,6 +213,20 @@ public class PlanitMatsimWriterSettings {
     return modeToMatsimMapping;
   }
 
-  
+  /** Check if a detailed geometry file is generated
+   * 
+   * @return true when active, false otherwise
+   */
+  public boolean isGenerateDetailedLinkGeometryFile() {
+    return generateDetailedLinkGeometryFile;
+  }
+
+  /** set the choice for whether or not a detailed geometry file for each link is created. this geometry is extracted from the PLANit link geometry
+   * 
+   * @param generateDetailedLinkGeometryFile
+   */
+  public void setGenerateDetailedLinkGeometryFile(boolean generateDetailedLinkGeometryFile) {
+    this.generateDetailedLinkGeometryFile = generateDetailedLinkGeometryFile;
+  }  
   
 }
