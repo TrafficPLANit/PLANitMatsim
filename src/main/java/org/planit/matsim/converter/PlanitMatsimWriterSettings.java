@@ -97,7 +97,7 @@ public class PlanitMatsimWriterSettings {
   /**
    * default number of coordinate decimals used
    */
-  public static final int COORDINATE_DECIMALS = 6;  
+  public static final int COORDINATE_DECIMALS = 8;  
   
   /** constructor 
    */
