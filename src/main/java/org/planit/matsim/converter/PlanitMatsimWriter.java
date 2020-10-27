@@ -63,6 +63,9 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
   /** when external ids are used for mapping, they need not be unqiue, in Matsim ids must be unique, we use this map to track
    * for duplicates, if found, we append unique identifier */  
   private Map<String,LongAdder> usedExternalMatsimNodeIds = new HashMap<String,LongAdder>();
+  
+  /** in case MATSIM nodes are created with newly generated ids, we track them here for the link mapping */
+  private Map<Node,String> generatedNodeIds = new HashMap<Node,String>();
       
   /** write a new line to the stream, e.g. "\n"
    * @param xmlWriter to use
@@ -449,7 +452,12 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
     case EXTERNAL_ID:
       return (node) -> { return String.format("%s",node.getExternalId());};      
     case GENERATED:
-      return (node) -> { return Long.toString(IdGenerator.generateId(matsimWriterIdToken, Node.class));};
+      return (node) -> {
+        if(!generatedNodeIds.containsKey(node)) {
+          String generatedId = Long.toString(IdGenerator.generateId(matsimWriterIdToken, Node.class));
+          generatedNodeIds.put(node,generatedId);
+        }
+        return generatedNodeIds.get(node);};
     default:
       throw new PlanItException(String.format("unknown id mapping type found for MATSIM nodes %s",getIdMapper().toString()));
     }
