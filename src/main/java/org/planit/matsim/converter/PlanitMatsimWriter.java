@@ -60,7 +60,7 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
    * for duplicates, if found, we append unique identifier */
   private Map<String,LongAdder> usedExternalMatsimLinkIds = new HashMap<String,LongAdder>();
   
-  /** when external ids are used for mapping, they need not be unqiue, in Matsim ids must be unique, we use this map to track
+  /** when external ids are used for mapping, they might not be unique, in Matsim, ids must be unique, we use this map to track
    * for duplicates, if found, we append unique identifier */  
   private Map<String,LongAdder> usedExternalMatsimNodeIds = new HashMap<String,LongAdder>();
   
@@ -208,7 +208,7 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
     try {    
       FileWriter theWriter = new FileWriter(absoluteMatsimPath.toFile());
       XMLOutputFactory xmlOutputFactory = XMLOutputFactory.newInstance();
-      return new Pair<XMLStreamWriter,FileWriter>(xmlOutputFactory.createXMLStreamWriter(theWriter),theWriter);
+      return Pair.create(xmlOutputFactory.createXMLStreamWriter(theWriter),theWriter);
     } catch (XMLStreamException | IOException e) {
       LOGGER.severe(e.getMessage());
       throw new PlanItException("Could not instantiate XML writer for MATSIM network",e);
