@@ -222,8 +222,8 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
    * @throws IOException thrown if error
    */
   private void endXmlDocument(Pair<XMLStreamWriter, FileWriter> xmlFileWriterPair) throws XMLStreamException, IOException {
-    XMLStreamWriter xmlWriter = xmlFileWriterPair.getFirst();
-    FileWriter fileWriter = xmlFileWriterPair.getSecond();
+    XMLStreamWriter xmlWriter = xmlFileWriterPair.first();
+    FileWriter fileWriter = xmlFileWriterPair.second();
     xmlWriter.writeEndDocument();
    
     xmlWriter.flush();
@@ -238,7 +238,7 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
    * @throws XMLStreamException thrown if exception
    */
   private void startXmlDocument(Pair<XMLStreamWriter, FileWriter> xmlFileWriterPair) throws XMLStreamException {
-    XMLStreamWriter xmlWriter = xmlFileWriterPair.getFirst();
+    XMLStreamWriter xmlWriter = xmlFileWriterPair.first();
     
     /* <xml tag> */
     xmlWriter.writeStartDocument("UTF-8", "1.0");
@@ -582,7 +582,7 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
       startXmlDocument(xmlFileWriterPair);
       
       /* body */
-      writeMatsimNetworkXML(xmlFileWriterPair.getFirst(), network);
+      writeMatsimNetworkXML(xmlFileWriterPair.first(), network);
       
       /* end */
       endXmlDocument(xmlFileWriterPair);
