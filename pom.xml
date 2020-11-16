@@ -32,8 +32,7 @@
 		<dependency>
 			<groupId>org.planit</groupId>
 			<artifactId>PLANit</artifactId>
-		</dependency>
-
+		</dependency>		
    
 		<dependency>
 		  <groupId>junit</groupId>
