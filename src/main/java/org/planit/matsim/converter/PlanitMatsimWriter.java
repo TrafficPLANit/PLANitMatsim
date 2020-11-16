@@ -19,11 +19,17 @@ import javax.xml.stream.XMLStreamWriter;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
+import org.geotools.geometry.jts.JTS;
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import org.opengis.referencing.operation.MathTransform;
+import org.opengis.referencing.operation.TransformException;
+import org.planit.geo.PlanitOpenGisUtils;
 import org.planit.matsim.xml.MatsimNetworkXmlAttributes;
 import org.planit.matsim.xml.MatsimNetworkXmlElements;
 import org.planit.network.converter.IdMapper;
 import org.planit.network.converter.NetworkWriterImpl;
 import org.planit.network.physical.macroscopic.MacroscopicNetwork;
+import org.planit.utils.epsg.EpsgCodesByCountry;
 import org.planit.utils.exceptions.PlanItException;
 import org.planit.utils.id.IdGenerator;
 import org.planit.utils.id.IdGroupingToken;
@@ -36,6 +42,8 @@ import org.planit.utils.unit.UnitUtils;
 import org.planit.utils.unit.Units;
 
 import com.vividsolutions.jts.geom.Coordinate;
+import com.vividsolutions.jts.geom.LineString;
+import com.vividsolutions.jts.geom.Point;
 
 /**
  * A class that takes a PLANit network and writes it as a MATSIM network. 
@@ -66,6 +74,9 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
   
   /** in case MATSIM nodes are created with newly generated ids, we track them here for the link mapping */
   private Map<Node,String> generatedNodeIds = new HashMap<Node,String>();
+  
+  /** when the destination CRS differs from the network CRS all geometries require transforming, for which this transformer will be initialised */
+  private MathTransform destinationCrsTransformer;
       
   /** write a new line to the stream, e.g. "\n"
    * @param xmlWriter to use
@@ -311,9 +322,7 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
         {
           /* ID */
           String matsimLinkId = setUniqueExternalIdIfNeeded(linkSegment, linkIdMapping.apply(linkSegment), usedExternalMatsimLinkIds);
-          if(matsimLinkId.equals("151454218_ba")){
-            int bla = 4;
-          }
+
           xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.ID, matsimLinkId);
     
           /* FROM node */
@@ -478,12 +487,20 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
         /* ID */
         xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.ID, nodeIdGenerator.apply(node));
         
-        Coordinate nodeCoordinate = node.getPosition().getCoordinate();
-        /* X */
-        xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.X, String.format(coordinateDecimalFormat,nodeCoordinate.x));
-        /* Y */
-        xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.Y, String.format(coordinateDecimalFormat,nodeCoordinate.y));
-        /* Z coordinate not yet supported */
+        /* geometry of the node (optional) */
+        Coordinate nodeCoordinate = null;
+        if(destinationCrsTransformer!=null) {
+          nodeCoordinate = ((Point)JTS.transform(node.getPosition(), destinationCrsTransformer)).getCoordinate();
+        }else {
+          nodeCoordinate = node.getPosition().getCoordinate();  
+        }
+        if(nodeCoordinate != null) {        
+          /* X */
+          xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.X, String.format(coordinateDecimalFormat,nodeCoordinate.x));
+          /* Y */
+          xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.Y, String.format(coordinateDecimalFormat,nodeCoordinate.y));
+          /* Z coordinate not yet supported */
+        }
         
         /* TYPE not yet supported */
         
@@ -491,7 +508,7 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
       }
       
       writeNewLine(xmlWriter);
-    } catch (XMLStreamException e) {
+    } catch (XMLStreamException | TransformException e) {
       LOGGER.severe(e.getMessage());
       throw new PlanItException(String.format("error while writing MATSIM node XML element %s (id:%d)",node.getExternalId(), node.getId()));
     }
@@ -608,11 +625,21 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
       
       Function<MacroscopicLinkSegment, String> linkIdMapping = createLinkSegmentIdValueGenerator();
       for(MacroscopicLinkSegment linkSegment : network.linkSegments) {
-        Coordinate[] coordinates = linkSegment.getParentLink().getGeometry().getCoordinates();
-        if(!linkSegment.isDirectionAb()) {
-          /* invert direction of geometry */
-          coordinates = linkSegment.getParentLink().getGeometry().reverse().getCoordinates();
+        
+        /* extract geometry to write */
+        LineString destinationCrsGeometry = null;
+        if(destinationCrsTransformer!=null) {
+          destinationCrsGeometry = ((LineString)JTS.transform(linkSegment.getParentLink().getGeometry(), destinationCrsTransformer));
+        }else {
+          destinationCrsGeometry = linkSegment.getParentLink().getGeometry();  
+        }        
+        if(destinationCrsGeometry==null) {
+          LOGGER.severe(String.format("geometry unavailable for link (segment id:%d) even though request for detailed geometry is made, link ignored",linkSegment.getId()));
+          continue;
         }
+        
+        /* get correct coordinate sequence, reverse when segment is reverse direction */
+        Coordinate[] coordinates = linkSegment.isDirectionAb() ? destinationCrsGeometry.getCoordinates() : destinationCrsGeometry.reverse().getCoordinates();
         
         /* only when it has internal coordinates */
         if(coordinates.length > 2) {
@@ -631,7 +658,8 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
         }
       }
       csvPrinter.close();
-    } catch (IOException e) {
+    } catch (IOException | TransformException e) {
+      LOGGER.severe(e.getMessage());
       throw new PlanItException("unable to write detailed gemoetry file %d an error occured during writing", e);
     }
   }  
@@ -679,12 +707,32 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
    * @throws PlanItException 
    */
   @Override
-  public void write(MacroscopicNetwork network) throws PlanItException {
+  public void write(MacroscopicNetwork network, String country) throws PlanItException {
     PlanItException.throwIfNull(network, "network is null, cannot write undefined network to MATSIM format");
     
+    /* CRS and transformer (if needed) */
+    CoordinateReferenceSystem destinationCrs = null;
+    if(settings.getDestinationCoordinateReferenceSystem() !=null) {
+      destinationCrs = settings.getDestinationCoordinateReferenceSystem(); 
+    }else {
+      destinationCrs = PlanitOpenGisUtils.createCoordinateReferenceSystem(EpsgCodesByCountry.getEpsg(country));
+      if(destinationCrs == null) {
+        destinationCrs = network.getCoordinateReferenceSystem();
+      }
+    }
+    PlanItException.throwIfNull(destinationCrs, "destination Coordinate Reference System is null, this is not allowed");
+    settings.setDestinationCoordinateReferenceSystem(destinationCrs);
+    
     coordinateDecimalFormat = String.format("%%.%df", settings.getCoordinateDecimals());
+    /* configure crs transformer if required, to be able to convert geometries to preferred CRS while writing */
+    if(!destinationCrs.equals(network.getCoordinateReferenceSystem())) {
+      destinationCrsTransformer = PlanitOpenGisUtils.findMathTransform(network.getCoordinateReferenceSystem(), settings.getDestinationCoordinateReferenceSystem());
+    }
+    
+    /* log settings */
     settings.logSettings();
     
+    /* write */
     writeXmlNetworkFile(network);
     if(settings.isGenerateDetailedLinkGeometryFile()) {
       writeDetailedGeometryFile(network);
