@@ -7,6 +7,10 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.logging.Logger;
 
+import org.geotools.referencing.CRS;
+import org.opengis.referencing.FactoryException;
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import org.planit.geo.PlanitOpenGisUtils;
 import org.planit.network.physical.macroscopic.MacroscopicNetwork;
 import org.planit.utils.mode.Mode;
 import org.planit.utils.mode.PredefinedModeType;
@@ -18,6 +22,11 @@ import org.planit.utils.network.physical.macroscopic.MacroscopicLinkSegment;
  * to include custom modes as well, then they must be added manually via the class' available functionality. In case the user wants to exclude certain modes that
  * are available in the network that is provided, they must be removed manually here as well.
  * 
+ * The CRS used for the writer is based on the CRS defined in the settings, if this is not set, we utilise the CRS corresponding to 
+ * the provided country, if no country is provided, it will retain the CRS of the network provided. If the network has no CRS an exception will be 
+ * thrown
+ * 
+ * 
  * @author markr
  *
  */
@@ -26,16 +35,19 @@ public class PlanitMatsimWriterSettings {
   private static final Logger LOGGER = Logger.getLogger(PlanitMatsimWriterSettings.class.getCanonicalName());    
   
   /** provides the default mapping from planit modes ((predefined) mode name)  to MATSIM mode (string) */
-  protected static final Map<String, String> defaultPlanit2MatsimModeMapping;
+  protected static final Map<String, String> DEFAULT_PLANIT2MATSIM_MODE_MAPPING;
   
   /** track the PLANit modes that we include in the network to write */
-  protected static final Set<String> defaultActivatedPlanitModes;  
+  protected static final Set<String> DEFAULT_ACTIVATED_MODES;  
 
   /** provides the mapping from planit modes ((predefined) mode name)  to MATSIM mode (string) */
   protected final Map<String, String> planit2MatsimModeMapping;
   
   /** track the PLANit modes that we include in the network to write */
   protected final Set<String> activatedPlanitModes;
+  
+  /** the coordinate reference system used for writing entities of this network */
+  protected CoordinateReferenceSystem destinationCoordinateReferenceSystem = null;
     
   /**
    * optional function used to populate the MATSIM link's nt_category field if set
@@ -88,22 +100,23 @@ public class PlanitMatsimWriterSettings {
     return theActivatedPlanitModes;
   }  
   
+  
   /* initialise defaults */
   static {
-    defaultPlanit2MatsimModeMapping = createDefaultPredefinedModeMapping();
-    defaultActivatedPlanitModes = createDefaultActivatedPlanitModes();
+    DEFAULT_PLANIT2MATSIM_MODE_MAPPING = createDefaultPredefinedModeMapping();
+    DEFAULT_ACTIVATED_MODES = createDefaultActivatedPlanitModes();
   }
   
   /**
    * default number of coordinate decimals used
    */
-  public static final int COORDINATE_DECIMALS = 8;  
+  public static final int COORDINATE_DECIMALS = 8;      
   
   /** constructor 
    */
   public PlanitMatsimWriterSettings(){
-    this.planit2MatsimModeMapping = new HashMap<String, String>(defaultPlanit2MatsimModeMapping);
-    this.activatedPlanitModes = new HashSet<String>(defaultActivatedPlanitModes);
+    this.planit2MatsimModeMapping = new HashMap<String, String>(DEFAULT_PLANIT2MATSIM_MODE_MAPPING);
+    this.activatedPlanitModes = new HashSet<String>(DEFAULT_ACTIVATED_MODES);
   }
   
   /** Overwrite a mapping from a predefined planit mode to a particular matsim mode
@@ -145,6 +158,11 @@ public class PlanitMatsimWriterSettings {
    * Convenience method to log all the current settings
    */
   public void logSettings() {
+    LOGGER.info(String.format("Decimal fidelity set to %s", getCoordinateDecimals()));
+    if(getDestinationCoordinateReferenceSystem() != null) {
+      LOGGER.info(String.format("Destination Coordinate Reference System set to: %s", getDestinationCoordinateReferenceSystem().getName()));
+    }
+    
     for(String planitMode : activatedPlanitModes) {
       LOGGER.info(String.format("[ACTIVATED] PLANit mode:%s -> MATSIM mode:%s", planitMode, planit2MatsimModeMapping.get(planitMode)));
     }
@@ -227,6 +245,21 @@ public class PlanitMatsimWriterSettings {
    */
   public void setGenerateDetailedLinkGeometryFile(boolean generateDetailedLinkGeometryFile) {
     this.generateDetailedLinkGeometryFile = generateDetailedLinkGeometryFile;
+  }  
+  
+  /** Collect the currently used CRS for writing the output geometries
+   * 
+   * @return crs
+   */
+  public CoordinateReferenceSystem getDestinationCoordinateReferenceSystem() {
+    return destinationCoordinateReferenceSystem;
+  }
+
+  /** Explicitly set a particular crs for writing geometries
+   * @param destinationCoordinateReferenceSystem
+   */
+  public void setDestinationCoordinateReferenceSystem(CoordinateReferenceSystem destinationCoordinateReferenceSystem) {
+    this.destinationCoordinateReferenceSystem = destinationCoordinateReferenceSystem;
   }  
   
 }
