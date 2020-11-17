@@ -41,9 +41,9 @@ import org.planit.utils.network.physical.macroscopic.MacroscopicLinkSegment;
 import org.planit.utils.unit.UnitUtils;
 import org.planit.utils.unit.Units;
 
-import com.vividsolutions.jts.geom.Coordinate;
-import com.vividsolutions.jts.geom.LineString;
-import com.vividsolutions.jts.geom.Point;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.Point;
 
 /**
  * A class that takes a PLANit network and writes it as a MATSIM network. 
