@@ -33,6 +33,7 @@ import org.planit.utils.epsg.EpsgCodesByCountry;
 import org.planit.utils.exceptions.PlanItException;
 import org.planit.utils.id.IdGenerator;
 import org.planit.utils.id.IdGroupingToken;
+import org.planit.utils.locale.CountryNames;
 import org.planit.utils.misc.Pair;
 import org.planit.utils.mode.Mode;
 import org.planit.utils.network.physical.Link;
@@ -694,20 +695,31 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
    * @param outputDirectory to use
    */
   public PlanitMatsimWriter(String outputDirectory) {
+    this(outputDirectory, CountryNames.WORLD);   
+  }
+  
+  /**
+   * Constructor
+   * 
+   * @param outputDirectory to use
+   * @param countryName country to base CRd on if a more appropriate CRS is available than the one used in the memory model
+   */
+  public PlanitMatsimWriter(String outputDirectory, String countryName) {
     super(IdMapper.EXTERNAL_ID);    
     this.matsimWriterIdToken = IdGenerator.createIdGroupingToken(PlanitMatsimWriter.class.getCanonicalName());    
     this.outputDirectory = outputDirectory;
     
     /* config settings for writer are found here */
-    this.settings = new PlanitMatsimWriterSettings();    
-  }
+    this.settings = new PlanitMatsimWriterSettings();
+    settings.setCountry(countryName);
+  }  
 
   /**
    * {@inheritDoc}
    * @throws PlanItException 
    */
   @Override
-  public void write(MacroscopicNetwork network, String country) throws PlanItException {
+  public void write(MacroscopicNetwork network) throws PlanItException {
     PlanItException.throwIfNull(network, "network is null, cannot write undefined network to MATSIM format");
     
     /* CRS and transformer (if needed) */
@@ -715,7 +727,7 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
     if(settings.getDestinationCoordinateReferenceSystem() !=null) {
       destinationCrs = settings.getDestinationCoordinateReferenceSystem(); 
     }else {
-      destinationCrs = PlanitOpenGisUtils.createCoordinateReferenceSystem(EpsgCodesByCountry.getEpsg(country));
+      destinationCrs = PlanitOpenGisUtils.createCoordinateReferenceSystem(EpsgCodesByCountry.getEpsg(settings.getCountry()));
       if(destinationCrs == null) {
         destinationCrs = network.getCoordinateReferenceSystem();
       }
@@ -747,5 +759,6 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
   public PlanitMatsimWriterSettings getSettings() {
     return this.settings;
   }
+
 
 }
