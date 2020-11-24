@@ -7,10 +7,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.logging.Logger;
 
-import org.geotools.referencing.CRS;
-import org.opengis.referencing.FactoryException;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.planit.geo.PlanitOpenGisUtils;
 import org.planit.network.physical.macroscopic.MacroscopicNetwork;
 import org.planit.utils.mode.Mode;
 import org.planit.utils.mode.PredefinedModeType;
@@ -73,6 +70,9 @@ public class PlanitMatsimWriterSettings {
    * it can be used in the VIA viewer to enhance the look of the network which otherwise only depicts the end and start node, default is false
    */
   protected boolean generateDetailedLinkGeometryFile = false;
+  
+  /** the country */
+  protected String countryName;  
     
   /**
    * initialise the predefined PLANit modes to MATSIM mode mapping, based on the (predefined) mode names. MATSIM
@@ -260,6 +260,22 @@ public class PlanitMatsimWriterSettings {
    */
   public void setDestinationCoordinateReferenceSystem(CoordinateReferenceSystem destinationCoordinateReferenceSystem) {
     this.destinationCoordinateReferenceSystem = destinationCoordinateReferenceSystem;
+  }  
+  
+  /**
+   * set the country
+   * 
+   * @param country to use
+   */
+  public void setCountry(String countryName) {
+    this.countryName = countryName;
+  }  
+
+  /**
+   * @return
+   */
+  public String getCountry() {
+    return countryName;
   }  
   
 }
