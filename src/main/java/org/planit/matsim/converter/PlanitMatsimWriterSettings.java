@@ -1,5 +1,6 @@
 package org.planit.matsim.converter;
 
+import java.text.DecimalFormat;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -9,6 +10,7 @@ import java.util.logging.Logger;
 
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.planit.network.physical.macroscopic.MacroscopicNetwork;
+import org.planit.utils.math.Precision;
 import org.planit.utils.mode.Mode;
 import org.planit.utils.mode.PredefinedModeType;
 import org.planit.utils.network.physical.macroscopic.MacroscopicLinkSegment;
@@ -62,9 +64,9 @@ public class PlanitMatsimWriterSettings {
   protected Function<MacroscopicLinkSegment,String> linkTypefunction = null;
   
   /**
-   * number of decimals to use
+   * number of decimals to use, default is {@link Precision.DEFAULT_DECIMAL_FORMAT}
    */
-  protected int coordinateDecimals = COORDINATE_DECIMALS; 
+  protected DecimalFormat decimalFormat = Precision.DEFAULT_DECIMAL_FORMAT; 
   
   /** when set to tru a separate detailed geometry file is generated that provides the detailed geometry of each link
    * it can be used in the VIA viewer to enhance the look of the network which otherwise only depicts the end and start node, default is false
@@ -105,12 +107,7 @@ public class PlanitMatsimWriterSettings {
   static {
     DEFAULT_PLANIT2MATSIM_MODE_MAPPING = createDefaultPredefinedModeMapping();
     DEFAULT_ACTIVATED_MODES = createDefaultActivatedPlanitModes();
-  }
-  
-  /**
-   * default number of coordinate decimals used
-   */
-  public static final int COORDINATE_DECIMALS = 8;      
+  }  
   
   /** constructor 
    */
@@ -158,7 +155,7 @@ public class PlanitMatsimWriterSettings {
    * Convenience method to log all the current settings
    */
   public void logSettings() {
-    LOGGER.info(String.format("Decimal fidelity set to %s", getCoordinateDecimals()));
+    LOGGER.info(String.format("Decimal fidelity set to %s", decimalFormat.getMaximumFractionDigits()));
     if(getDestinationCoordinateReferenceSystem() != null) {
       LOGGER.info(String.format("Destination Coordinate Reference System set to: %s", getDestinationCoordinateReferenceSystem().getName()));
     }
@@ -173,16 +170,16 @@ public class PlanitMatsimWriterSettings {
   /** collect number of decimals used in writing coordinates
    * @return number of decimals used
    */
-  public int getCoordinateDecimals() {
-    return coordinateDecimals;
+  public DecimalFormat getDecimalFormat() {
+    return decimalFormat;
   }
 
   /** set number of decimals used in writing coordinates
    * 
    * @param coordinateDecimals number of decimals
    */
-  public void setCoordinateDecimals(int coordinateDecimals) {
-    this.coordinateDecimals = coordinateDecimals;
+  public void setDecimalFormat(DecimalFormat decimalFormat) {
+    this.decimalFormat = decimalFormat;
   }
   
   /**
