@@ -269,7 +269,9 @@ public class PlanitMatsimWriterSettings {
   }  
 
   /**
-   * @return
+   * the country name set 
+   * 
+   * @return countryName used
    */
   public String getCountry() {
     return countryName;
