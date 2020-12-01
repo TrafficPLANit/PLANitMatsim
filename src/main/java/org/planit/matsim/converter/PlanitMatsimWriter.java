@@ -70,7 +70,7 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
   private Map<String,LongAdder> usedExternalMatsimNodeIds = new HashMap<String,LongAdder>();
     
   /** when the destination CRS differs from the network CRS all geometries require transforming, for which this transformer will be initialised */
-  private MathTransform destinationCrsTransformer;
+  private MathTransform destinationCrsTransformer = null;
       
   /** write a new line to the stream, e.g. "\n"
    * @param xmlWriter to use
@@ -603,6 +603,24 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
     }
   }  
   
+  /** prepare the Crs transformer (if any) based on the user configuration settings
+   * 
+   * @param network the network extract current Crs if no user specific settings can be found
+   * @throws PlanItException thrown if error
+   */
+  protected void prepareCoordinateReferenceSystem(MacroscopicNetwork network) throws PlanItException {
+    /* CRS and transformer (if needed) */
+    CoordinateReferenceSystem destinationCrs = identifyDestinationCoordinateReferenceSystem(
+        settings.getDestinationCoordinateReferenceSystem(),settings.getCountry(), network.getCoordinateReferenceSystem());    
+    PlanItException.throwIfNull(destinationCrs, "destination Coordinate Reference System is null, this is not allowed");
+    settings.setDestinationCoordinateReferenceSystem(destinationCrs);
+    
+    /* configure crs transformer if required, to be able to convert geometries to preferred CRS while writing */
+    if(!destinationCrs.equals(network.getCoordinateReferenceSystem())) {
+      destinationCrsTransformer = PlanitOpenGisUtils.findMathTransform(network.getCoordinateReferenceSystem(), settings.getDestinationCoordinateReferenceSystem());
+    }
+  }  
+  
   /** the doc type of MATSIM network */
   public static final String DOCTYPE = "<!DOCTYPE network SYSTEM \"http://www.matsim.org/files/dtd/network_v2.dtd\">";  
     
@@ -658,24 +676,9 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
   @Override
   public void write(MacroscopicNetwork network) throws PlanItException {
     PlanItException.throwIfNull(network, "network is null, cannot write undefined network to MATSIM format");
-    
-    /* CRS and transformer (if needed) */
-    CoordinateReferenceSystem destinationCrs = null;
-    if(settings.getDestinationCoordinateReferenceSystem() !=null) {
-      destinationCrs = settings.getDestinationCoordinateReferenceSystem(); 
-    }else {
-      destinationCrs = PlanitOpenGisUtils.createCoordinateReferenceSystem(EpsgCodesByCountry.getEpsg(settings.getCountry()));
-      if(destinationCrs == null) {
-        destinationCrs = network.getCoordinateReferenceSystem();
-      }
-    }
-    PlanItException.throwIfNull(destinationCrs, "destination Coordinate Reference System is null, this is not allowed");
-    settings.setDestinationCoordinateReferenceSystem(destinationCrs);
-    
-    /* configure crs transformer if required, to be able to convert geometries to preferred CRS while writing */
-    if(!destinationCrs.equals(network.getCoordinateReferenceSystem())) {
-      destinationCrsTransformer = PlanitOpenGisUtils.findMathTransform(network.getCoordinateReferenceSystem(), settings.getDestinationCoordinateReferenceSystem());
-    }
+
+    /* CRS */
+    prepareCoordinateReferenceSystem(network);
     
     /* log settings */
     settings.logSettings();
