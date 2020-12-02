@@ -30,7 +30,6 @@ import org.planit.network.converter.IdMapperFunctionFactory;
 import org.planit.network.converter.IdMapperType;
 import org.planit.network.converter.NetworkWriterImpl;
 import org.planit.network.physical.macroscopic.MacroscopicNetwork;
-import org.planit.utils.epsg.EpsgCodesByCountry;
 import org.planit.utils.exceptions.PlanItException;
 import org.planit.utils.locale.CountryNames;
 import org.planit.utils.misc.Pair;
@@ -64,11 +63,7 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
   /** when external ids are used for mapping, they need not be unqiue, in Matsim ids must be unique, we use this map to track
    * for duplicates, if found, we append unique identifier */
   private Map<String,LongAdder> usedExternalMatsimLinkIds = new HashMap<String,LongAdder>();
-  
-  /** when external ids are used for mapping, they might not be unique, in Matsim, ids must be unique, we use this map to track
-   * for duplicates, if found, we append unique identifier */  
-  private Map<String,LongAdder> usedExternalMatsimNodeIds = new HashMap<String,LongAdder>();
-    
+      
   /** when the destination CRS differs from the network CRS all geometries require transforming, for which this transformer will be initialised */
   private MathTransform destinationCrsTransformer = null;
       
