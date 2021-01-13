@@ -171,7 +171,7 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
    */
   private String setUniqueExternalIdIfNeeded(MacroscopicLinkSegment linkSegment, final String matsimId, final Map<String, LongAdder> usedExternalMatsimIds) {    
     String uniqueExternalId = matsimId;
-    if(getIdMapper() == IdMapperType.EXTERNAL_ID) {
+    if(getIdMapperType() == IdMapperType.EXTERNAL_ID) {
       if(usedExternalMatsimIds.containsKey(matsimId)) {
         LongAdder duplicateCount = usedExternalMatsimLinkIds.get(matsimId);
         uniqueExternalId = matsimId.concat(duplicateCount.toString());
@@ -487,8 +487,8 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
         writeStartElementNewLine(xmlWriter,MatsimNetworkXmlElements.NETWORK, true /* add indentation*/);
         
         /* mapping for how to generated id's for various entities */
-        Function<Node, String> nodeIdMapping = IdMapperFunctionFactory.createNodeIdMappingFunction(getIdMapper());
-        Function<MacroscopicLinkSegment, String> linkIdMapping = IdMapperFunctionFactory.createLinkSegmentIdMappingFunction(getIdMapper());
+        Function<Node, String> nodeIdMapping = IdMapperFunctionFactory.createNodeIdMappingFunction(getIdMapperType());
+        Function<MacroscopicLinkSegment, String> linkIdMapping = IdMapperFunctionFactory.createLinkSegmentIdMappingFunction(getIdMapperType());
         
         /* nodes */
         writeMatsimNodes(xmlWriter, network, nodeIdMapping);
@@ -557,7 +557,7 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
       CSVPrinter csvPrinter = new CSVPrinter(new FileWriter(matsimNetworkGeometryPath.toFile()), CSVFormat.TDF);      
       csvPrinter.printRecord("LINK_ID", "GEOMETRY");
       
-      Function<MacroscopicLinkSegment, String> linkIdMapping = IdMapperFunctionFactory.createLinkSegmentIdMappingFunction(getIdMapper());
+      Function<MacroscopicLinkSegment, String> linkIdMapping = IdMapperFunctionFactory.createLinkSegmentIdMappingFunction(getIdMapperType());
       for(MacroscopicLinkSegment linkSegment : network.linkSegments) {
         
         /* extract geometry to write */
