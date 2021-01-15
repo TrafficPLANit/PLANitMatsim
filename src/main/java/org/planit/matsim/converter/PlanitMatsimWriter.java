@@ -29,7 +29,7 @@ import org.planit.matsim.xml.MatsimNetworkXmlElements;
 import org.planit.network.converter.IdMapperFunctionFactory;
 import org.planit.network.converter.IdMapperType;
 import org.planit.network.converter.NetworkWriterImpl;
-import org.planit.network.physical.macroscopic.MacroscopicNetwork;
+import org.planit.network.macroscopic.physical.MacroscopicNetwork;
 import org.planit.utils.exceptions.PlanItException;
 import org.planit.utils.locale.CountryNames;
 import org.planit.utils.misc.Pair;
