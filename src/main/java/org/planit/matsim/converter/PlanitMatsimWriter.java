@@ -26,10 +26,13 @@ import org.opengis.referencing.operation.TransformException;
 import org.planit.geo.PlanitOpenGisUtils;
 import org.planit.matsim.xml.MatsimNetworkXmlAttributes;
 import org.planit.matsim.xml.MatsimNetworkXmlElements;
+import org.planit.network.InfrastructureLayer;
+import org.planit.network.InfrastructureNetwork;
 import org.planit.network.converter.IdMapperFunctionFactory;
 import org.planit.network.converter.IdMapperType;
 import org.planit.network.converter.NetworkWriterImpl;
-import org.planit.network.macroscopic.physical.MacroscopicNetwork;
+import org.planit.network.macroscopic.MacroscopicNetwork;
+import org.planit.network.macroscopic.physical.MacroscopicPhysicalNetwork;
 import org.planit.utils.exceptions.PlanItException;
 import org.planit.utils.locale.CountryNames;
 import org.planit.utils.misc.Pair;
@@ -384,22 +387,22 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
   /** write the links
    * 
    * @param xmlWriter to use
-   * @param network to extract from
+   * @param networkLayer to extract from
    * @param linkIdMapping function to map PLANit link segment id to MATSIM link id
    * @param nodeIdMapping function to map PLANit node id to MATSIM node id 
    * @throws PlanItException thrown if error
    */
   private void writeMatsimLinks(
       XMLStreamWriter xmlWriter, 
-      MacroscopicNetwork network, 
+      MacroscopicPhysicalNetwork networkLayer, 
       Function<MacroscopicLinkSegment, String> linkIdMapping, 
       Function<Node, String> nodeIdMapping) throws PlanItException {   
     try {
       writeStartElementNewLine(xmlWriter,MatsimNetworkXmlElements.LINKS, true /* ++indent */);
       
-      Map<Mode, String> planitModeToMatsimModeMapping = settings.createPlanitModeToMatsimModeMapping(network);
+      Map<Mode, String> planitModeToMatsimModeMapping = settings.createPlanitModeToMatsimModeMapping(networkLayer);
       /* write link(segments) one by one */
-      for(Link link: network.links) {
+      for(Link link: networkLayer.links) {
         writeMatsimLink(xmlWriter, link, planitModeToMatsimModeMapping, linkIdMapping, nodeIdMapping);
       }
       
@@ -455,16 +458,16 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
   
   /** write the nodes
    * @param xmlWriter to use
-   * @param network to extract from
+   * @param networkLayer to extract from
    * @param nodeIdMapping function to map PLANit node id to MATSIM node id
    * @throws PlanItException thrown if error
    */
-  private void writeMatsimNodes(XMLStreamWriter xmlWriter, MacroscopicNetwork network, Function<Node, String> nodeIdMapping) throws PlanItException {
+  private void writeMatsimNodes(XMLStreamWriter xmlWriter, MacroscopicPhysicalNetwork networkLayer, Function<Node, String> nodeIdMapping) throws PlanItException {
     try {
       writeStartElementNewLine(xmlWriter,MatsimNetworkXmlElements.NODES, true /* ++indent */);
       
       /* write nodes one by one */
-      for(Node node : network.nodes) {
+      for(Node node : networkLayer.nodes) {
         writeMatsimNode(xmlWriter, node, nodeIdMapping);
       }
       
@@ -479,10 +482,10 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
   /** write the body of the MATSIM network XML file based on the PLANit network contents
    * 
    * @param xmlWriter the writer
-   * @param network to persist
+   * @param networkLayer to persist
    * @throws PlanItException thrown if error
    */
-  private void writeMatsimNetworkXML(XMLStreamWriter xmlWriter, MacroscopicNetwork network) throws PlanItException {
+  private void writeMatsimNetworkXML(XMLStreamWriter xmlWriter, MacroscopicPhysicalNetwork networkLayer) throws PlanItException {
       try {
         writeStartElementNewLine(xmlWriter,MatsimNetworkXmlElements.NETWORK, true /* add indentation*/);
         
@@ -491,10 +494,10 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
         Function<MacroscopicLinkSegment, String> linkIdMapping = IdMapperFunctionFactory.createLinkSegmentIdMappingFunction(getIdMapperType());
         
         /* nodes */
-        writeMatsimNodes(xmlWriter, network, nodeIdMapping);
+        writeMatsimNodes(xmlWriter, networkLayer, nodeIdMapping);
         
         /* links */
-        writeMatsimLinks(xmlWriter, network, linkIdMapping, nodeIdMapping);
+        writeMatsimLinks(xmlWriter, networkLayer, linkIdMapping, nodeIdMapping);
         
         writeEndElementNewLine(xmlWriter, true /* undo indentation */ ); // NETWORK
       } catch (XMLStreamException e) {
@@ -521,10 +524,10 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
   /**
    * write the xml MATSIM network
    * 
-   * @param network to draw from
+   * @param networkLayer to draw from
    * @throws PlanItException thrown if error
    */
-  protected void writeXmlNetworkFile(MacroscopicNetwork network) throws PlanItException { 
+  protected void writeXmlNetworkFile(MacroscopicPhysicalNetwork networkLayer) throws PlanItException { 
     Path matsimNetworkPath =  Paths.get(outputDirectory, outputFileName.concat(DEFAULT_NETWORK_FILE_NAME_EXTENSION));    
     Pair<XMLStreamWriter,FileWriter> xmlFileWriterPair = createXMLWriter(matsimNetworkPath);
     
@@ -533,7 +536,7 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
       startXmlDocument(xmlFileWriterPair);
       
       /* body */
-      writeMatsimNetworkXML(xmlFileWriterPair.first(), network);
+      writeMatsimNetworkXML(xmlFileWriterPair.first(), networkLayer);
       
       /* end */
       endXmlDocument(xmlFileWriterPair);
@@ -546,10 +549,10 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
   /**
    * Create detailed geometry file compatible with VIA viewer
    * 
-   * @param network to draw from
+   * @param networkLayer to draw from
    * @throws PlanItException 
    */
-  protected void writeDetailedGeometryFile(MacroscopicNetwork network) throws PlanItException {
+  protected void writeDetailedGeometryFile(MacroscopicPhysicalNetwork networkLayer) throws PlanItException {
     Path matsimNetworkGeometryPath =  Paths.get(outputDirectory, DEFAULT_NETWORK_GEOMETRY_FILE_NAME.concat(DEFAULT_NETWORK_GEOMETRY_FILE_NAME_EXTENSION)).toAbsolutePath();
     LOGGER.info(String.format("persisting MATSIM network geometry to: %s",matsimNetworkGeometryPath.toString()));
     
@@ -558,7 +561,7 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
       csvPrinter.printRecord("LINK_ID", "GEOMETRY");
       
       Function<MacroscopicLinkSegment, String> linkIdMapping = IdMapperFunctionFactory.createLinkSegmentIdMappingFunction(getIdMapperType());
-      for(MacroscopicLinkSegment linkSegment : network.linkSegments) {
+      for(MacroscopicLinkSegment linkSegment : networkLayer.linkSegments) {
         
         /* extract geometry to write */
         LineString destinationCrsGeometry = null;
@@ -669,19 +672,38 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
    * @throws PlanItException 
    */
   @Override
-  public void write(MacroscopicNetwork network) throws PlanItException {
+  public void write(InfrastructureNetwork network) throws PlanItException {
     PlanItException.throwIfNull(network, "network is null, cannot write undefined network to MATSIM format");
+    
+    if (!(network instanceof MacroscopicNetwork)) {
+      throw new PlanItException("Matsim writer currently only supports writing macroscopic networks");
+    }
+    final MacroscopicNetwork macroscopicNetwork = (MacroscopicNetwork) network;
+    
+    if(macroscopicNetwork.infrastructureLayers.size()!=1) {
+      throw new PlanItException(String.format("Matsim writer currently only supports networks with a single layer, the provided network has %d",network.infrastructureLayers.size()));
+    }
+    
+    if(!(network.infrastructureLayers.getFirst() instanceof MacroscopicPhysicalNetwork)) {
+      throw new PlanItException(String.format("Metroscan only supports macroscopic physical network layers, the provided network is of a different type"));
+    }    
 
     /* CRS */
-    prepareCoordinateReferenceSystem(network);
+    prepareCoordinateReferenceSystem(macroscopicNetwork);
     
     /* log settings */
     settings.logSettings();
     
     /* write */
-    writeXmlNetworkFile(network);
+    InfrastructureLayer networkLayer = macroscopicNetwork.infrastructureLayers.getFirst();
+    if (!(networkLayer instanceof MacroscopicPhysicalNetwork)) {
+      throw new PlanItException("Matsim writer currently only supports macroscopic physical networks as network layers");
+    }
+    MacroscopicPhysicalNetwork macroscopicPhysicalNetworkLayer = (MacroscopicPhysicalNetwork)networkLayer;
+    
+    writeXmlNetworkFile(macroscopicPhysicalNetworkLayer);
     if(settings.isGenerateDetailedLinkGeometryFile()) {
-      writeDetailedGeometryFile(network);
+      writeDetailedGeometryFile(macroscopicPhysicalNetworkLayer);
     }
   }
     
@@ -693,6 +715,5 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
   public PlanitMatsimWriterSettings getSettings() {
     return this.settings;
   }
-
 
 }
