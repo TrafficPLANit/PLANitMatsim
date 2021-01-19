@@ -9,7 +9,7 @@ import java.util.function.Function;
 import java.util.logging.Logger;
 
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.planit.network.macroscopic.physical.MacroscopicNetwork;
+import org.planit.network.macroscopic.physical.MacroscopicPhysicalNetwork;
 import org.planit.utils.math.Precision;
 import org.planit.utils.mode.Mode;
 import org.planit.utils.mode.PredefinedModeType;
@@ -215,12 +215,12 @@ public class PlanitMatsimWriterSettings {
   /** creating a mapping from actual PLANit modes in the network to the MATSIM mode mapping as per the configuration
    * in this class instance 
    * 
-   * @param network the network
+   * @param networkLayer the networkLayer
    * @return the mapped PLANit mode instances to MATSIM modes (string)
    */
-  public Map<Mode, String> createPlanitModeToMatsimModeMapping(MacroscopicNetwork network) {
+  public Map<Mode, String> createPlanitModeToMatsimModeMapping(MacroscopicPhysicalNetwork networkLayer) {
     Map<Mode, String> modeToMatsimMapping = new HashMap<Mode, String>();
-    for(Mode mode : network.modes) {
+    for(Mode mode : networkLayer.getSupportedModes()) {
       if(activatedPlanitModes.contains(mode.getName())) {
         modeToMatsimMapping.put(mode, planit2MatsimModeMapping.get(mode.getName()));
       }      
