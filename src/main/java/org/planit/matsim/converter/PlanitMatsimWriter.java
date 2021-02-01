@@ -208,13 +208,20 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
     }
     
     /* create writer */
+    FileWriter theWriter = null;
     try {    
-      FileWriter theWriter = new FileWriter(absoluteMatsimPath.toFile());
+      theWriter = new FileWriter(absoluteMatsimPath.toFile());
       XMLOutputFactory xmlOutputFactory = XMLOutputFactory.newInstance();
       return Pair.create(xmlOutputFactory.createXMLStreamWriter(theWriter),theWriter);
     } catch (XMLStreamException | IOException e) {
+      try {
+        theWriter.flush();
+        theWriter.close();
+      } catch (Exception ex) {
+      }       
       LOGGER.severe(e.getMessage());
       throw new PlanItException("Could not instantiate XML writer for MATSIM network",e);
+    }finally {     
     }  
   }  
   
