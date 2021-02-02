@@ -3,8 +3,8 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
   <parent>
-    <groupId>org.planit.all</groupId>
-    <artifactId>PLANitAll</artifactId>
+    <groupId>org.planit.parentpom</groupId>
+    <artifactId>PLANitParentPom</artifactId>
     <version>0.1.1a1</version>
   </parent>
 
