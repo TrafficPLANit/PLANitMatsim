@@ -1,8 +1,11 @@
 package org.planit.matsim.converter;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
@@ -193,7 +196,7 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
    * @return created xml writer
    * @throws PlanItException thrown if error
    */
-  private Pair<XMLStreamWriter,FileWriter> createXMLWriter(Path matsimNetworkPath) throws PlanItException {
+  private Pair<XMLStreamWriter, Writer> createXMLWriter(Path matsimNetworkPath) throws PlanItException {
     Path absoluteMatsimPath = matsimNetworkPath.toAbsolutePath();
     LOGGER.info(String.format("persisting MATSIM network to: %s",absoluteMatsimPath.toString()));
     
@@ -208,9 +211,9 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
     }
     
     /* create writer */
-    FileWriter theWriter = null;
+    Writer theWriter = null;
     try {    
-      theWriter = new FileWriter(absoluteMatsimPath.toFile());
+      theWriter = new OutputStreamWriter(new FileOutputStream(absoluteMatsimPath.toFile()), "UTF-8");
       XMLOutputFactory xmlOutputFactory = XMLOutputFactory.newInstance();
       return Pair.create(xmlOutputFactory.createXMLStreamWriter(theWriter),theWriter);
     } catch (XMLStreamException | IOException e) {
@@ -231,23 +234,23 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
    * @throws XMLStreamException thrown if error
    * @throws IOException thrown if error
    */
-  private void endXmlDocument(Pair<XMLStreamWriter, FileWriter> xmlFileWriterPair) throws XMLStreamException, IOException {
+  private void endXmlDocument(Pair<XMLStreamWriter, Writer> xmlFileWriterPair) throws XMLStreamException, IOException {
     XMLStreamWriter xmlWriter = xmlFileWriterPair.first();
-    FileWriter fileWriter = xmlFileWriterPair.second();
+    Writer writer = xmlFileWriterPair.second();
     xmlWriter.writeEndDocument();
    
     xmlWriter.flush();
     xmlWriter.close();
 
-    fileWriter.flush();
-    fileWriter.close();
+    writer.flush();
+    writer.close();
   }
 
   /** start xml document
    * @param xmlFileWriterPair the writer pair
    * @throws XMLStreamException thrown if exception
    */
-  private void startXmlDocument(Pair<XMLStreamWriter, FileWriter> xmlFileWriterPair) throws XMLStreamException {
+  private void startXmlDocument(Pair<XMLStreamWriter, Writer> xmlFileWriterPair) throws XMLStreamException {
     XMLStreamWriter xmlWriter = xmlFileWriterPair.first();
     
     /* <xml tag> */
@@ -536,7 +539,7 @@ public class PlanitMatsimWriter extends NetworkWriterImpl {
    */
   protected void writeXmlNetworkFile(MacroscopicPhysicalNetwork networkLayer) throws PlanItException { 
     Path matsimNetworkPath =  Paths.get(outputDirectory, outputFileName.concat(DEFAULT_NETWORK_FILE_NAME_EXTENSION));    
-    Pair<XMLStreamWriter,FileWriter> xmlFileWriterPair = createXMLWriter(matsimNetworkPath);
+    Pair<XMLStreamWriter,Writer> xmlFileWriterPair = createXMLWriter(matsimNetworkPath);
     
     try {
       /* start */
