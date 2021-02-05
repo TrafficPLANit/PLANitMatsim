@@ -26,14 +26,14 @@ import org.geotools.geometry.jts.JTS;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.MathTransform;
 import org.opengis.referencing.operation.TransformException;
+import org.planit.converter.BaseWriterImpl;
+import org.planit.converter.IdMapperFunctionFactory;
+import org.planit.converter.IdMapperType;
 import org.planit.geo.PlanitOpenGisUtils;
 import org.planit.matsim.xml.MatsimNetworkXmlAttributes;
 import org.planit.matsim.xml.MatsimNetworkXmlElements;
 import org.planit.network.InfrastructureLayer;
 import org.planit.network.InfrastructureNetwork;
-import org.planit.network.converter.IdMapperFunctionFactory;
-import org.planit.network.converter.IdMapperType;
-import org.planit.network.converter.NetworkWriterImpl;
 import org.planit.network.macroscopic.MacroscopicNetwork;
 import org.planit.network.macroscopic.physical.MacroscopicPhysicalNetwork;
 import org.planit.utils.exceptions.PlanItException;
@@ -56,7 +56,7 @@ import org.locationtech.jts.geom.Point;
  * 
  * @author markr
   */
-public class PlanitMatsimWriter extends NetworkWriterImpl {
+public class PlanitMatsimWriter extends BaseWriterImpl {
   
   /**
    * the logger of this class
