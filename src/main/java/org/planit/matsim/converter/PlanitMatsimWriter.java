@@ -29,6 +29,7 @@ import org.opengis.referencing.operation.TransformException;
 import org.planit.converter.BaseWriterImpl;
 import org.planit.converter.IdMapperFunctionFactory;
 import org.planit.converter.IdMapperType;
+import org.planit.converter.network.NetworkWriter;
 import org.planit.geo.PlanitOpenGisUtils;
 import org.planit.matsim.xml.MatsimNetworkXmlAttributes;
 import org.planit.matsim.xml.MatsimNetworkXmlElements;
@@ -56,7 +57,7 @@ import org.locationtech.jts.geom.Point;
  * 
  * @author markr
   */
-public class PlanitMatsimWriter extends BaseWriterImpl {
+public class PlanitMatsimWriter extends BaseWriterImpl<InfrastructureNetwork> implements NetworkWriter {
   
   /**
    * the logger of this class
@@ -724,6 +725,14 @@ public class PlanitMatsimWriter extends BaseWriterImpl {
    */
   public PlanitMatsimWriterSettings getSettings() {
     return this.settings;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void reset() {
+    // TODO Auto-generated method stub    
   }
 
 }
