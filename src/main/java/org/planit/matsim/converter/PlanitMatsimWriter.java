@@ -57,7 +57,7 @@ import org.locationtech.jts.geom.Point;
  * 
  * @author markr
   */
-public class PlanitMatsimWriter extends BaseWriterImpl<InfrastructureNetwork> implements NetworkWriter {
+public class PlanitMatsimWriter extends BaseWriterImpl<InfrastructureNetwork<?,?>> implements NetworkWriter {
   
   /**
    * the logger of this class
@@ -683,7 +683,7 @@ public class PlanitMatsimWriter extends BaseWriterImpl<InfrastructureNetwork> im
    * @throws PlanItException 
    */
   @Override
-  public void write(InfrastructureNetwork network) throws PlanItException {
+  public void write(InfrastructureNetwork<?,?> network) throws PlanItException {
     PlanItException.throwIfNull(network, "network is null, cannot write undefined network to MATSIM format");
     
     if (!(network instanceof MacroscopicNetwork)) {
