@@ -216,7 +216,7 @@ public class PlanitMatsimWriter extends BaseWriterImpl<InfrastructureNetwork<?,?
     try {    
       theWriter = new OutputStreamWriter(new FileOutputStream(absoluteMatsimPath.toFile()), "UTF-8");
       XMLOutputFactory xmlOutputFactory = XMLOutputFactory.newInstance();
-      return Pair.create(xmlOutputFactory.createXMLStreamWriter(theWriter),theWriter);
+      return Pair.of(xmlOutputFactory.createXMLStreamWriter(theWriter),theWriter);
     } catch (XMLStreamException | IOException e) {
       try {
         theWriter.flush();
