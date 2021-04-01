@@ -29,9 +29,9 @@ import org.planit.utils.network.physical.macroscopic.MacroscopicLinkSegment;
  * @author markr
  *
  */
-public class PlanitMatsimWriterSettings {
+public class PlanitMatsimNetworkWriterSettings {
   
-  private static final Logger LOGGER = Logger.getLogger(PlanitMatsimWriterSettings.class.getCanonicalName());    
+  private static final Logger LOGGER = Logger.getLogger(PlanitMatsimNetworkWriterSettings.class.getCanonicalName());    
   
   /** provides the default mapping from planit modes ((predefined) mode name)  to MATSIM mode (string) */
   protected static final Map<String, String> DEFAULT_PLANIT2MATSIM_MODE_MAPPING;
@@ -110,10 +110,12 @@ public class PlanitMatsimWriterSettings {
   }  
   
   /** constructor 
+   * @param countryName to use
    */
-  public PlanitMatsimWriterSettings(){
+  public PlanitMatsimNetworkWriterSettings(String countryName){
     this.planit2MatsimModeMapping = new HashMap<String, String>(DEFAULT_PLANIT2MATSIM_MODE_MAPPING);
     this.activatedPlanitModes = new HashSet<String>(DEFAULT_ACTIVATED_MODES);
+    setCountry(countryName);
   }
   
   /** Overwrite a mapping from a predefined planit mode to a particular matsim mode
