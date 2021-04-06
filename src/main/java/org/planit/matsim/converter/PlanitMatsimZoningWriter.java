@@ -82,11 +82,17 @@ public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> impleme
       /* body */
       writeTransitScheduleXML(xmlFileWriterPair.first(), zoning, (MacroscopicPhysicalNetwork)referenceNetwork.infrastructureLayers.getFirst());
       
-      /* end */
-      PlanitXmlWriterUtils.endXmlDocument(xmlFileWriterPair);
     }catch (Exception e) {
       LOGGER.severe(e.getMessage());
       throw new PlanItException(String.format("error while persisting MATSIM public transit schedule to %s", matsimNetworkPath));
+    }finally {
+      
+      /* end */
+      try {
+        PlanitXmlWriterUtils.endXmlDocument(xmlFileWriterPair);
+      }catch(Exception e) {
+        LOGGER.severe("Unable to finalise Xml document after planit exception");  
+      }
     }
   }  
   
