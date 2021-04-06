@@ -11,7 +11,10 @@ import org.planit.zoning.Zoning;
 
 /**
  * A class that takes a PLANit intermodal network and writes it as a MATSIM intermodal network.
- *  
+ * Since an intermodal mapper requires transit elements to reference network elements, the only valid id mapping that
+ * we allow is either planit internal ids (default), or planit xml ids. External ids cannot be used since they cannot be guaranteed to be unique
+ * causing problems with references between links and stop facility link references. If the user still wants to check against the original extrnal ids
+ * in Matsim, we still write then as origids.   
  * 
  * @author markr
  *
@@ -62,7 +65,7 @@ public class PlanitMatsimIntermodalWriter implements IntermodalWriter {
   protected PlanitMatsimIntermodalWriter(String outputDirectory, PlanitMatsimNetworkWriterSettings networkSettings) {
     this.outputDirectory = outputDirectory;  
     this.networkSettings = networkSettings;
-    setIdMapperType(IdMapperType.EXTERNAL_ID);
+    setIdMapperType(IdMapperType.ID);
   }
   
   /** Collect the network writer settings
