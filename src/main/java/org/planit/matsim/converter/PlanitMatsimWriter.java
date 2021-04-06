@@ -5,13 +5,19 @@ import java.util.logging.Logger;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 
+import org.geotools.geometry.jts.JTS;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Point;
+import org.opengis.geometry.MismatchedDimensionException;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.MathTransform;
+import org.opengis.referencing.operation.TransformException;
 import org.planit.converter.BaseWriterImpl;
 import org.planit.converter.IdMapperType;
 import org.planit.geo.PlanitOpenGisUtils;
 import org.planit.network.macroscopic.MacroscopicNetwork;
 import org.planit.utils.exceptions.PlanItException;
+import org.planit.utils.xml.PlanitXmlWriterUtils;
 
 /**
  * Base class from which all matsim writers derive
@@ -61,6 +67,24 @@ public abstract class PlanitMatsimWriter<T> extends BaseWriterImpl<T> {
     return identifiedDestinationCrs;
   }   
   
+  /** using the destination crs and its transformer extract the coordinate from the position in the desired crs
+   * 
+   * @param location to extract destination crs compatible coordinate for
+   * @return coordinate created
+   * @throws TransformException thrown if error
+   * @throws MismatchedDimensionException thrown if error 
+   */
+  protected Coordinate extractDestinationCrsCompatibleCoordinate(Point location) throws MismatchedDimensionException, TransformException {
+    /* geometry of the node (optional) */
+    Coordinate coordinate = null;
+    if(destinationCrsTransformer!=null) {
+      coordinate = ((Point)JTS.transform(location, destinationCrsTransformer)).getCoordinate();
+    }else {
+      coordinate = location.getCoordinate();  
+    }
+    return coordinate;
+  }  
+  
   /** Constructor
    * @param idMapperType to use
    * @param outputDirectory to use
@@ -70,23 +94,13 @@ public abstract class PlanitMatsimWriter<T> extends BaseWriterImpl<T> {
     
     this.outputDirectory = outputDirectory;
   }
-
-  /** write a new line to the stream, e.g. "\n"
-   * @param xmlWriter to use
-   * @throws XMLStreamException thrown if error 
-   */
-  protected void writeNewLine(XMLStreamWriter xmlWriter) throws XMLStreamException {
-    xmlWriter.writeCharacters("\n");
-  }
   
   /** add indentation to stream at current indentation level
    * @param xmlWriter to use
    * @throws XMLStreamException thrown if error
    */
   protected void writeIndentation(XMLStreamWriter xmlWriter) throws XMLStreamException {
-    for(int index=0;index<indentLevel;++index) {
-      xmlWriter.writeCharacters("\t");
-    }
+    PlanitXmlWriterUtils.writeIndentation(xmlWriter, indentLevel);
   }  
   
   /** increase indentation level
@@ -100,32 +114,7 @@ public abstract class PlanitMatsimWriter<T> extends BaseWriterImpl<T> {
   protected void decreaseIndentation() throws XMLStreamException {
     --indentLevel;
   }
-  
-  /**
-   * write a empty element (with indentation), e.g. {@code <xmlElementName/>}
-   * 
-   * @param xmlWriter to use
-   * @param xmlElementName element to start tag, e.g. <xmlElementName>\n
-   * @throws XMLStreamException thrown if error
-   */
-  protected void writeEmptyElement(XMLStreamWriter xmlWriter, String xmlElementName) throws XMLStreamException {
-    writeIndentation(xmlWriter);
-    xmlWriter.writeEmptyElement(xmlElementName);
-  }  
-  
-  /**
-   * write a start element (with indentation) and add newline afterwards
-   * 
-   * @param xmlWriter to use
-   * @param xmlElementName element to start tag, e.g. {@code <xmlElementName>}
-   * @throws XMLStreamException thrown if error
-   */
-  protected void writeStartElementNewLine(XMLStreamWriter xmlWriter, String xmlElementName) throws XMLStreamException {
-    writeIndentation(xmlWriter);
-    xmlWriter.writeStartElement(xmlElementName);
-    writeNewLine(xmlWriter);
-  }
-  
+    
   /**
    * write a start element and add newline afterwards
    * 
@@ -135,24 +124,12 @@ public abstract class PlanitMatsimWriter<T> extends BaseWriterImpl<T> {
    * @throws XMLStreamException thrown if error
    */
   protected void writeStartElementNewLine(XMLStreamWriter xmlWriter, String xmlElementName, boolean increaseIndentation) throws XMLStreamException {
-    writeStartElementNewLine(xmlWriter, xmlElementName);
+    PlanitXmlWriterUtils.writeStartElementNewLine(xmlWriter, xmlElementName, indentLevel);
     if(increaseIndentation) {
       increaseIndentation();
     }
   }  
-  
-  /**
-   * write an end element and add newline afterwards
-   * 
-   * @param xmlWriter to use
-   * @throws XMLStreamException thrown if error
-   */  
-  protected void writeEndElementNewLine(XMLStreamWriter xmlWriter) throws XMLStreamException {
-    writeIndentation(xmlWriter);    
-    xmlWriter.writeEndElement();
-    writeNewLine(xmlWriter);
-  }  
-  
+    
   /**
    * write an end element and add newline afterwards
    * 
@@ -164,7 +141,12 @@ public abstract class PlanitMatsimWriter<T> extends BaseWriterImpl<T> {
     if(decreaseIndentation) {
       decreaseIndentation(); 
     }
-    writeEndElementNewLine(xmlWriter);
-  }    
+    PlanitXmlWriterUtils.writeEndElementNewLine(xmlWriter, indentLevel);
+  }  
+  
+  /**
+   * default extension for xml files generated
+   */
+  public static final String DEFAULT_FILE_NAME_EXTENSION = ".xml";  
   
 }
