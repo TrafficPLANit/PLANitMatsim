@@ -463,7 +463,7 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
    * @param networkSettings network settings to use
    */
   protected PlanitMatsimNetworkWriter(String outputDirectory, PlanitMatsimNetworkWriterSettings networkSettings) {
-    super(IdMapperType.EXTERNAL_ID, outputDirectory);        
+    super(IdMapperType.ID, outputDirectory);        
     
     /* config settings for writer are found here */
     this.settings = networkSettings;
