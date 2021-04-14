@@ -24,6 +24,7 @@ import org.planit.utils.misc.Pair;
 import org.planit.utils.network.physical.LinkSegment;
 import org.planit.utils.network.physical.macroscopic.MacroscopicLinkSegment;
 import org.planit.utils.xml.PlanitXmlWriterUtils;
+import org.planit.utils.zoning.Connectoid;
 import org.planit.utils.zoning.DirectedConnectoid;
 import org.planit.utils.zoning.DirectedConnectoids;
 import org.planit.utils.zoning.Zone;
@@ -107,7 +108,7 @@ public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> impleme
       writeStartElementNewLine(xmlWriter,MatsimTransitXmlElements.TRANSIT_SCHEDULE, true /* add indentation*/);
       
       /* mapping for how to generated id's for various entities */
-      Function<DirectedConnectoid, String> stopFacilityIdMapping = IdMapperFunctionFactory.createDirectedConnectoidIdMappingFunction(getIdMapperType());
+      Function<Connectoid, String> stopFacilityIdMapping = IdMapperFunctionFactory.createConnectoidIdMappingFunction(getIdMapperType());
       Function<MacroscopicLinkSegment, String> linkSegmentReferenceIdMapping = IdMapperFunctionFactory.createLinkSegmentIdMappingFunction(getIdMapperType());
       
       /* directed connectoids as stop facilities */
@@ -128,7 +129,7 @@ public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> impleme
    * @param linkSegmentReferenceIdMapping function to generate ids for the references link segments
    * @throws PlanItException thrown if error
    */
-  private void writeMatsimTransitStops(XMLStreamWriter xmlWriter, Zoning zoning, Function<DirectedConnectoid, String> stopFacilityIdMapping, Function<MacroscopicLinkSegment, String> linkSegmentReferenceIdMapping) throws PlanItException {
+  private void writeMatsimTransitStops(XMLStreamWriter xmlWriter, Zoning zoning, Function<Connectoid, String> stopFacilityIdMapping, Function<MacroscopicLinkSegment, String> linkSegmentReferenceIdMapping) throws PlanItException {
     try {
       writeStartElementNewLine(xmlWriter,MatsimTransitXmlElements.TRANSIT_STOPS, true /* add indentation*/);
            
@@ -151,7 +152,7 @@ public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> impleme
    * @throws PlanItException thrown if error
    */
   private void writeMatsimStopFacilities(
-      XMLStreamWriter xmlWriter, DirectedConnectoids transferConnectoids, Function<DirectedConnectoid, String> stopFacilityIdMapping, Function<MacroscopicLinkSegment, String> linkSegmentIdMapping) throws PlanItException {
+      XMLStreamWriter xmlWriter, DirectedConnectoids transferConnectoids, Function<Connectoid, String> stopFacilityIdMapping, Function<MacroscopicLinkSegment, String> linkSegmentIdMapping) throws PlanItException {
     for(DirectedConnectoid transferConnectoid : transferConnectoids) {
       writeMatsimStopFacility(xmlWriter, transferConnectoid, stopFacilityIdMapping, linkSegmentIdMapping);
     }
@@ -165,7 +166,7 @@ public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> impleme
    * @param linkSegmentIdMapping function to generate ids for the references link segments  
    * @throws PlanItException 
    */  
-  private void writeMatsimStopFacility(XMLStreamWriter xmlWriter, DirectedConnectoid transferConnectoid, Function<DirectedConnectoid, String> stopFacilityIdMapping, Function<MacroscopicLinkSegment, String> linkSegmentIdMapping) throws PlanItException {
+  private void writeMatsimStopFacility(XMLStreamWriter xmlWriter, DirectedConnectoid transferConnectoid, Function<Connectoid, String> stopFacilityIdMapping, Function<MacroscopicLinkSegment, String> linkSegmentIdMapping) throws PlanItException {
     try {
       PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimTransitXmlElements.STOP_FACILITY, indentLevel);           
             

@@ -30,6 +30,7 @@ import org.planit.network.InfrastructureNetwork;
 import org.planit.network.macroscopic.MacroscopicNetwork;
 import org.planit.network.macroscopic.physical.MacroscopicPhysicalNetwork;
 import org.planit.utils.exceptions.PlanItException;
+import org.planit.utils.graph.Vertex;
 import org.planit.utils.misc.Pair;
 import org.planit.utils.mode.Mode;
 import org.planit.utils.network.physical.Link;
@@ -112,7 +113,7 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
       MacroscopicLinkSegment linkSegment, 
       Map<Mode, String> planitModeToMatsimModeMapping, 
       Function<MacroscopicLinkSegment, String> linkIdMapping, 
-      Function<Node, String> nodeIdMapping) throws PlanItException {
+      Function<Vertex, String> nodeIdMapping) throws PlanItException {
         
     
     if(Collections.disjoint(planitModeToMatsimModeMapping.keySet(), linkSegment.getAllowedModes())) {
@@ -215,7 +216,7 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
       Link link, 
       Map<Mode, String> planitModeToMatsimModeMapping, 
       Function<MacroscopicLinkSegment, String> linkIdMapping, 
-      Function<Node, String> nodeIdMapping) throws PlanItException {     
+      Function<Vertex, String> nodeIdMapping) throws PlanItException {     
     
     /* A --> B */
     if(link.hasEdgeSegmentAb()) {
@@ -241,7 +242,7 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
       XMLStreamWriter xmlWriter, 
       MacroscopicPhysicalNetwork networkLayer, 
       Function<MacroscopicLinkSegment, String> linkIdMapping, 
-      Function<Node, String> nodeIdMapping) throws PlanItException {   
+      Function<Vertex, String> nodeIdMapping) throws PlanItException {   
     try {
       writeStartElementNewLine(xmlWriter,MatsimNetworkXmlElements.LINKS, true /* ++indent */);
       
@@ -265,7 +266,7 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
    * @param nodeIdMapping apply to collect node id to write
    * @throws PlanItException 
    */
-  private void writeMatsimNode(XMLStreamWriter xmlWriter, Node node, Function<Node, String> nodeIdMapping) throws PlanItException {
+  private void writeMatsimNode(XMLStreamWriter xmlWriter, Node node, Function<Vertex, String> nodeIdMapping) throws PlanItException {
     try {
       PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimNetworkXmlElements.NODE, indentLevel);           
             
@@ -302,7 +303,7 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
    * @param nodeIdMapping function to map PLANit node id to MATSIM node id
    * @throws PlanItException thrown if error
    */
-  private void writeMatsimNodes(XMLStreamWriter xmlWriter, MacroscopicPhysicalNetwork networkLayer, Function<Node, String> nodeIdMapping) throws PlanItException {
+  private void writeMatsimNodes(XMLStreamWriter xmlWriter, MacroscopicPhysicalNetwork networkLayer, Function<Vertex, String> nodeIdMapping) throws PlanItException {
     try {
       writeStartElementNewLine(xmlWriter,MatsimNetworkXmlElements.NODES, true /* ++indent */);
       
@@ -330,7 +331,7 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
       writeStartElementNewLine(xmlWriter,MatsimNetworkXmlElements.NETWORK, true /* add indentation*/);
       
       /* mapping for how to generated id's for various entities */
-      Function<Node, String> nodeIdMapping = IdMapperFunctionFactory.createNodeIdMappingFunction(getIdMapperType());
+      Function<Vertex, String> nodeIdMapping = IdMapperFunctionFactory.createVertexIdMappingFunction(getIdMapperType());
       Function<MacroscopicLinkSegment, String> linkIdMapping = IdMapperFunctionFactory.createLinkSegmentIdMappingFunction(getIdMapperType());
       
       /* nodes */
