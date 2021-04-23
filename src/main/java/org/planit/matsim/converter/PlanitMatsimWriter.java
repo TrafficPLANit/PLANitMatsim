@@ -38,11 +38,7 @@ public abstract class PlanitMatsimWriter<T> extends BaseWriterImpl<T> {
   
   /** when the destination CRS differs from the network CRS all geometries require transforming, for which this transformer will be initialised */
   protected MathTransform destinationCrsTransformer = null;
-  
-  /**
-   * the output directory on where to persist the MATSIM file(s)
-   */
-  protected final String outputDirectory;  
+   
   
   /** prepare the Crs transformer (if any) based on the user configuration settings. If no destinationCrs is provided than we use the country to try and infer the
    * most appropriate desintation crs. In case the identified destination crs differs from the network one, we also creata destination transformer which is registered on the instance
@@ -87,12 +83,9 @@ public abstract class PlanitMatsimWriter<T> extends BaseWriterImpl<T> {
   
   /** Constructor
    * @param idMapperType to use
-   * @param outputDirectory to use
    */
-  protected PlanitMatsimWriter(IdMapperType idMapperType, String outputDirectory) {
+  protected PlanitMatsimWriter(IdMapperType idMapperType) {
     super(idMapperType);
-    
-    this.outputDirectory = outputDirectory;
   }
   
   /** add indentation to stream at current indentation level

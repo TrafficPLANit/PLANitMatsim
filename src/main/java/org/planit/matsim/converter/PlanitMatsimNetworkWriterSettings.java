@@ -38,15 +38,25 @@ public class PlanitMatsimNetworkWriterSettings {
   
   /** track the PLANit modes that we include in the network to write */
   protected static final Set<String> DEFAULT_ACTIVATED_MODES;  
-
+    
   /** provides the mapping from planit modes ((predefined) mode name)  to MATSIM mode (string) */
   protected final Map<String, String> planit2MatsimModeMapping;
   
   /** track the PLANit modes that we include in the network to write */
   protected final Set<String> activatedPlanitModes;
   
+  /**
+   * the output directory on where to persist the MATSIM file(s)
+   */
+  protected String outputDirectory;  
+  
+  /**
+   * the output file name to use, default is set to DEFAULT_NETWORK_FILE_NAME
+   */
+  protected String outputFileName = DEFAULT_NETWORK_FILE_NAME;  
+  
   /** the coordinate reference system used for writing entities of this network */
-  protected CoordinateReferenceSystem destinationCoordinateReferenceSystem = null;
+  protected CoordinateReferenceSystem destinationCoordinateReferenceSystem = null;  
     
   /**
    * optional function used to populate the MATSIM link's nt_category field if set
@@ -107,7 +117,12 @@ public class PlanitMatsimNetworkWriterSettings {
   static {
     DEFAULT_PLANIT2MATSIM_MODE_MAPPING = createDefaultPredefinedModeMapping();
     DEFAULT_ACTIVATED_MODES = createDefaultActivatedPlanitModes();
-  }  
+  }
+  
+  /**
+   * default names used for MATSIM network file that is being generated
+   */
+  public static final String DEFAULT_NETWORK_FILE_NAME = "network";  
   
   /** constructor 
    * @param countryName to use
@@ -117,6 +132,18 @@ public class PlanitMatsimNetworkWriterSettings {
     this.activatedPlanitModes = new HashSet<String>(DEFAULT_ACTIVATED_MODES);
     setCountry(countryName);
   }
+  
+  /** constructor
+   * 
+   * @param outputDirectory to use
+   * @param countryName to use
+   */
+  public PlanitMatsimNetworkWriterSettings(String outputDirectory, String countryName){
+    this.planit2MatsimModeMapping = new HashMap<String, String>(DEFAULT_PLANIT2MATSIM_MODE_MAPPING);
+    this.activatedPlanitModes = new HashSet<String>(DEFAULT_ACTIVATED_MODES);
+    setOutputDirectory(outputDirectory);
+    setCountry(countryName);
+  }  
   
   /** Overwrite a mapping from a predefined planit mode to a particular matsim mode
    * @param planitModeType planit mode
@@ -277,6 +304,34 @@ public class PlanitMatsimNetworkWriterSettings {
    */
   public String getCountry() {
     return countryName;
+  }
+  
+  /** the output directory to use
+   * @return output directory
+   */
+  public String getOutputDirectory() {
+    return outputDirectory;
+  }
+
+  /** set the output directory to use
+   * @param outputDirector to use
+   */
+  public void setOutputDirectory(String outputDirectory) {
+    this.outputDirectory = outputDirectory;
+  }
+  
+  /** collect the output file name used
+   * @return output file name
+   */
+  public String getOutputFileName() {
+    return outputFileName;
+  }
+
+  /** Set the output file name used
+   * @param outputFileName to use
+   */
+  public void setOutputFileName(String outputFileName) {
+    this.outputFileName = outputFileName;
   }  
   
 }
