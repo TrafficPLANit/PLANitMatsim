@@ -7,6 +7,7 @@ import org.planit.converter.intermodal.IntermodalWriter;
 import org.planit.network.InfrastructureNetwork;
 import org.planit.network.macroscopic.MacroscopicNetwork;
 import org.planit.utils.exceptions.PlanItException;
+import org.planit.utils.locale.CountryNames;
 import org.planit.zoning.Zoning;
 
 /**
@@ -30,12 +31,12 @@ public class PlanitMatsimIntermodalWriter implements IntermodalWriter {
   
   /** the zoning writer to use */
   protected PlanitMatsimZoningWriter zoningWriter = null;  
-  
-  /** the output directory to use */
-  protected final String outputDirectory;
-  
+    
   /** network settings to use */
   protected final PlanitMatsimNetworkWriterSettings networkSettings;
+
+  /** zoning settings to use */
+  protected final PlanitMatsimZoningWriterSettings zoningSettings;
   
   /**
    * the id mapper to use
@@ -45,7 +46,7 @@ public class PlanitMatsimIntermodalWriter implements IntermodalWriter {
   /** initialise network writer
    */
   protected void initialiseNetworkWriter() {
-    networkWriter = PlanitMatsimNetworkWriterFactory.create(outputDirectory, networkSettings);
+    networkWriter = PlanitMatsimNetworkWriterFactory.create(networkSettings);
   } 
   
   /** initialise zoning writer
@@ -54,19 +55,33 @@ public class PlanitMatsimIntermodalWriter implements IntermodalWriter {
    * @param networkWriterSettings to use
    */
   protected void initialiseZoningWriter(MacroscopicNetwork infrastructureNetwork, PlanitMatsimNetworkWriterSettings networkWriterSettings) {
-    zoningWriter = PlanitMatsimZoningWriterFactory.create(outputDirectory, infrastructureNetwork, networkWriterSettings);
-  }    
+    zoningWriter = PlanitMatsimZoningWriterFactory.create(zoningSettings, infrastructureNetwork, networkWriterSettings);
+  }
+  
+  /** Default constructor using all default settings for underlying writers 
+   */
+  protected PlanitMatsimIntermodalWriter() {
+    this(new PlanitMatsimNetworkWriterSettings(CountryNames.GLOBAL), new PlanitMatsimZoningWriterSettings());    
+  }  
     
-  /** Constructor 
-   * @param outputdirectory to use
-   * @param countryName to use
+  /** Constructor
+   *  
    * @param networkSettings to use
    */
-  protected PlanitMatsimIntermodalWriter(String outputDirectory, PlanitMatsimNetworkWriterSettings networkSettings) {
-    this.outputDirectory = outputDirectory;  
-    this.networkSettings = networkSettings;
-    setIdMapperType(IdMapperType.ID);
+  protected PlanitMatsimIntermodalWriter(PlanitMatsimNetworkWriterSettings networkSettings) {  
+    this(networkSettings, new PlanitMatsimZoningWriterSettings());
   }
+  
+  /** Constructor 
+   *
+   * @param networkSettings to use
+   * @param zoningSettings to use
+   */
+  protected PlanitMatsimIntermodalWriter(PlanitMatsimNetworkWriterSettings networkSettings, PlanitMatsimZoningWriterSettings zoningSettings) {  
+    setIdMapperType(IdMapperType.ID);
+    this.networkSettings = networkSettings;
+    this.zoningSettings = zoningSettings;
+  }  
   
   /** Collect the network writer settings
    * 

@@ -44,8 +44,11 @@ public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> impleme
   /** the reference network this zoning is compatible with */
   protected final MacroscopicNetwork referenceNetwork;
   
-  /** the network sriter settings used for the matsim reference network */
+  /** the network writer settings used for the matsim reference network */
   PlanitMatsimNetworkWriterSettings networkWriterSettings;
+  
+  /** the zoning writer settings used for the matsim pt component*/
+  PlanitMatsimZoningWriterSettings zoningWriterSettings;  
   
   /**
    * validate the network instance available, throw or log when issues are found
@@ -62,17 +65,24 @@ public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> impleme
   }
   
   /**
-   * the output file name to use for the transit schedule, default is set to DEFAULT_TRANSIT_SCHEDULE_FILE_NAME
+   * validate if settings are complete and if not try to salve by adopting settings from the network where possible
    */
-  protected String outputTransitScheduleFileName = DEFAULT_TRANSIT_SCHEDULE_FILE_NAME;  
-  
+  private void validateSettings() {
+    if(getSettings().getOutputDirectory() == null || getSettings().getOutputDirectory().isBlank()) {
+      getSettings().setOutputDirectory(networkWriterSettings.getOutputDirectory());
+      if(networkWriterSettings.getOutputDirectory()!=null && !networkWriterSettings.getOutputDirectory().isBlank()) {
+        LOGGER.info(String.format("Matsim zoning output directory not set, adopting network output directory %s instead", getSettings().getOutputDirectory()));
+      }
+    }
+  }  
+    
   /** Starting point for persisting the matsim transit schedule file
    * 
    * @param zoning to persist
    * @throws PlanItException 
    */
   protected void writeXmlTransitScheduleFile(Zoning zoning) throws PlanItException {
-    Path matsimNetworkPath =  Paths.get(outputDirectory, outputTransitScheduleFileName.concat(DEFAULT_FILE_NAME_EXTENSION));    
+    Path matsimNetworkPath =  Paths.get(getSettings().getOutputDirectory(), getSettings().getTransitScheduleFileName().concat(DEFAULT_FILE_NAME_EXTENSION));    
     Pair<XMLStreamWriter,Writer> xmlFileWriterPair = PlanitXmlWriterUtils.createXMLWriter(matsimNetworkPath);
     LOGGER.info(String.format("Persisting MATSIM public transport schedule to: %s",matsimNetworkPath.toString()));
     
@@ -221,27 +231,22 @@ public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> impleme
       throw new PlanItException("error while writing MATSIM stopFacility element id:%d",transferConnectoid.getId());
     }
   }
-
+  
   /** constructor 
    * 
-   * @param outputDirectory to persist to
    * @param referenceNetwork the zoning is based on
    * @param networkWriterSettings the network was configured by when persisting
    */
-  protected PlanitMatsimZoningWriter(String outputDirectory, MacroscopicNetwork referenceNetwork, PlanitMatsimNetworkWriterSettings networkWriterSettings) {
-    super(IdMapperType.EXTERNAL_ID, outputDirectory);
+  protected PlanitMatsimZoningWriter(PlanitMatsimZoningWriterSettings zoningWriterSettings, MacroscopicNetwork referenceNetwork, PlanitMatsimNetworkWriterSettings networkWriterSettings) {
+    super(IdMapperType.ID);
     this.referenceNetwork = referenceNetwork;
     this.networkWriterSettings = networkWriterSettings;
-  }
+    this.zoningWriterSettings = zoningWriterSettings;
+  }  
+
   
   /** the doc type of MATSIM public transport schedule. For now we persist in v1 (v2 does exist but is not documented (yet) in Matsim manual) */
-  public static final String DOCTYPE = "<!DOCTYPE network SYSTEM \"http://www.matsim.org/files/dtd/transitSchedule_v1.dtd\">";  
-    
-  /**
-   * default names used for MATSIM public transport schedule file that is being generated
-   */
-  public static final String DEFAULT_TRANSIT_SCHEDULE_FILE_NAME = "transitschedule";
-   
+  public static final String DOCTYPE = "<!DOCTYPE network SYSTEM \"http://www.matsim.org/files/dtd/transitSchedule_v1.dtd\">";         
 
   /**
    * extract public transport information from planit zoning and use it to persist as much  of the matsim public transport
@@ -252,7 +257,8 @@ public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> impleme
   @Override
   public void write(Zoning zoning) throws PlanItException {
     
-    validateNetwork();       
+    validateNetwork();
+    validateSettings();
     
     /* CRS */
     prepareCoordinateReferenceSystem(referenceNetwork, networkWriterSettings.getCountry(), networkWriterSettings.getDestinationCoordinateReferenceSystem());
@@ -261,13 +267,20 @@ public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> impleme
     writeXmlTransitScheduleFile(zoning);   
   }
 
-
   /**
    * {@inheritDoc}
    */
   @Override
   public void reset() {
     //TODO:
+  }
+  
+  /** Collect the zoning writer settings
+   * 
+   * @return zoning writer settings
+   */
+  public PlanitMatsimZoningWriterSettings getSettings() {
+    return zoningWriterSettings;
   }
 
 }

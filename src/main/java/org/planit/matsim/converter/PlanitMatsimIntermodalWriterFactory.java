@@ -9,6 +9,14 @@ import org.planit.utils.locale.CountryNames;
  */
 public class PlanitMatsimIntermodalWriterFactory {
   
+  /** Create a PLANitMatsimIntermodalWriter which persists PLANit networks and pt infrastructure in MATSIM network format, using all defaults, 
+   * requires the user to set output directory afterwards
+   * 
+   */
+  public static PlanitMatsimIntermodalWriter create() {
+    return create(null, CountryNames.WORLD);    
+  }  
+  
   /** Create a PLANitMatsimIntermodalWriter which persists PLANit networks and pt infrastructure in MATSIM network format
    * 
    * @param outputDirectory to use
@@ -26,7 +34,9 @@ public class PlanitMatsimIntermodalWriterFactory {
    * @return create matsim writer
    */
   public static PlanitMatsimIntermodalWriter create(String outputDirectory, String countryName) {
-    return new PlanitMatsimIntermodalWriter(outputDirectory, new PlanitMatsimNetworkWriterSettings(countryName));    
+    PlanitMatsimNetworkWriterSettings settings = new PlanitMatsimNetworkWriterSettings(countryName);
+    settings.setOutputDirectory(outputDirectory);
+    return create(settings);    
   }  
   
   /** Create a PLANitMatsimWriter which persists PLANit networks and pt infrastructure in MATSIM network format
@@ -35,8 +45,8 @@ public class PlanitMatsimIntermodalWriterFactory {
    * @param networkSettings to use
    * @return create matsim writer
    */
-  public static PlanitMatsimIntermodalWriter create(String outputDirectory, PlanitMatsimNetworkWriterSettings networkSettings) {
-    return new PlanitMatsimIntermodalWriter(outputDirectory, networkSettings);    
+  public static PlanitMatsimIntermodalWriter create(PlanitMatsimNetworkWriterSettings networkSettings) {
+    return new PlanitMatsimIntermodalWriter(networkSettings);    
   }   
     
 }

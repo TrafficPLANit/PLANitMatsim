@@ -31,6 +31,7 @@ import org.planit.network.macroscopic.MacroscopicNetwork;
 import org.planit.network.macroscopic.physical.MacroscopicPhysicalNetwork;
 import org.planit.utils.exceptions.PlanItException;
 import org.planit.utils.graph.Vertex;
+import org.planit.utils.locale.CountryNames;
 import org.planit.utils.misc.Pair;
 import org.planit.utils.mode.Mode;
 import org.planit.utils.network.physical.Link;
@@ -76,6 +77,17 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
       throw new PlanItException(String.format("Matsim only supports macroscopic physical network layers, the provided network is of a different type"));
     } 
   }
+  
+  /**
+   * validate the settings making sure minimal output information is available
+   */
+  private boolean validateSettings() {
+    if(getSettings().getOutputDirectory()==null || getSettings().getOutputDirectory().isBlank()) {
+      LOGGER.severe("Matsim network output directory not set on settings, unable to persist network");
+      return false;
+    }
+    return true;
+  }  
 
   /** Make sure that if external id is used that is is unique even if it is not originally
    * @param linkSegment to check for
@@ -346,12 +358,7 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
       throw new PlanItException("error while writing MATSIM network XML element");
     }
   }     
-    
-  /**
-   * the output file name to use, default is set to DEFAULT_NETWORK_FILE_NAME
-   */
-  protected String outputFileName = DEFAULT_NETWORK_FILE_NAME;
-        
+            
   /**
    * MATSIM writer settings 
    */
@@ -364,7 +371,7 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
    * @throws PlanItException thrown if error
    */
   protected void writeXmlNetworkFile(MacroscopicPhysicalNetwork networkLayer) throws PlanItException { 
-    Path matsimNetworkPath =  Paths.get(outputDirectory, outputFileName.concat(DEFAULT_FILE_NAME_EXTENSION));    
+    Path matsimNetworkPath =  Paths.get(getSettings().getOutputDirectory(), getSettings().getOutputFileName().concat(DEFAULT_FILE_NAME_EXTENSION));    
     Pair<XMLStreamWriter,Writer> xmlFileWriterPair = PlanitXmlWriterUtils.createXMLWriter(matsimNetworkPath);
     LOGGER.info(String.format("Persisting MATSIM network to: %s",matsimNetworkPath.toString()));
     
@@ -390,7 +397,7 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
    * @throws PlanItException 
    */
   protected void writeDetailedGeometryFile(MacroscopicPhysicalNetwork networkLayer) throws PlanItException {
-    Path matsimNetworkGeometryPath =  Paths.get(outputDirectory, DEFAULT_NETWORK_GEOMETRY_FILE_NAME.concat(DEFAULT_NETWORK_GEOMETRY_FILE_NAME_EXTENSION)).toAbsolutePath();
+    Path matsimNetworkGeometryPath =  Paths.get(getSettings().getOutputDirectory(), DEFAULT_NETWORK_GEOMETRY_FILE_NAME.concat(DEFAULT_NETWORK_GEOMETRY_FILE_NAME_EXTENSION)).toAbsolutePath();
     LOGGER.info(String.format("persisting MATSIM network geometry to: %s",matsimNetworkGeometryPath.toString()));
     
     try {
@@ -441,12 +448,7 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
   
   /** the doc type of MATSIM network */
   public static final String DOCTYPE = "<!DOCTYPE network SYSTEM \"http://www.matsim.org/files/dtd/network_v2.dtd\">";  
-    
-  /**
-   * default names used for MATSIM network file that is being generated
-   */
-  public static final String DEFAULT_NETWORK_FILE_NAME = "network";
-    
+        
   /**
    * default names used for MATSIM network file that is being generated
    */
@@ -455,20 +457,27 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
   /**
    * default names used for MATSIM network file that is being generated
    */
-  public static final String DEFAULT_NETWORK_GEOMETRY_FILE_NAME = "network_geometry";     
+  public static final String DEFAULT_NETWORK_GEOMETRY_FILE_NAME = "network_geometry";
+  
+  /**
+   * Default constructor. Initialisng with default output directory and country name on the settings
+   */
+  public PlanitMatsimNetworkWriter() {
+    this(new PlanitMatsimNetworkWriterSettings(CountryNames.GLOBAL));
+  }  
         
   /**
    * Constructor
    * 
-   * @param outputDirectory to use
    * @param networkSettings network settings to use
    */
-  protected PlanitMatsimNetworkWriter(String outputDirectory, PlanitMatsimNetworkWriterSettings networkSettings) {
-    super(IdMapperType.ID, outputDirectory);        
+  protected PlanitMatsimNetworkWriter(PlanitMatsimNetworkWriterSettings networkSettings) {
+    super(IdMapperType.ID);        
     
     /* config settings for writer are found here */
     this.settings = networkSettings;
   }  
+
 
   /**
    * {@inheritDoc}
@@ -478,7 +487,12 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
   public void write(InfrastructureNetwork<?,?> network) throws PlanItException {
     PlanItException.throwIfNull(network, "network is null, cannot write undefined network to MATSIM format");
     
-    validateNetwork(network);  
+    validateNetwork(network); 
+    boolean settingsValid = validateSettings();
+    if(!settingsValid) {
+      return;
+    }
+    
     final MacroscopicNetwork macroscopicNetwork = (MacroscopicNetwork) network;
     
     /* CRS */
