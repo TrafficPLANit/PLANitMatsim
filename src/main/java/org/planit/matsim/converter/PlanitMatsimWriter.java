@@ -15,7 +15,9 @@ import org.opengis.referencing.operation.TransformException;
 import org.planit.converter.BaseWriterImpl;
 import org.planit.converter.IdMapperType;
 import org.planit.geo.PlanitOpenGisUtils;
+import org.planit.network.InfrastructureNetwork;
 import org.planit.network.macroscopic.MacroscopicNetwork;
+import org.planit.network.macroscopic.physical.MacroscopicPhysicalNetwork;
 import org.planit.utils.exceptions.PlanItException;
 import org.planit.utils.xml.PlanitXmlWriterUtils;
 
@@ -38,6 +40,27 @@ public abstract class PlanitMatsimWriter<T> extends BaseWriterImpl<T> {
   
   /** when the destination CRS differs from the network CRS all geometries require transforming, for which this transformer will be initialised */
   protected MathTransform destinationCrsTransformer = null;
+  
+  /**
+   * validate the network instance available, throw or log when issues are found
+   * 
+   * @param referenceNetwork to use for persisting
+   * @throws PlanItException thrown if invalid
+   */
+  protected void validateNetwork(InfrastructureNetwork<?,?> referenceNetwork) throws PlanItException {
+    PlanItException.throwIfNull(referenceNetwork, "Matsim macroscopic planit network to extract from is null");
+    
+    if (!(referenceNetwork instanceof MacroscopicNetwork)) {
+      throw new PlanItException("Matsim writer currently only supports writing macroscopic networks");
+    }    
+
+    if(referenceNetwork.infrastructureLayers.size()!=1) {
+      throw new PlanItException(String.format("Matsim zoning writer currently only supports networks with a single layer, the provided network has %d",referenceNetwork.infrastructureLayers.size()));
+    }   
+    if(!(referenceNetwork.infrastructureLayers.getFirst() instanceof MacroscopicPhysicalNetwork)) {
+      throw new PlanItException(String.format("Matsim only supports macroscopic physical network layers, the provided network is of a different type"));
+    }
+  }  
    
   
   /** prepare the Crs transformer (if any) based on the user configuration settings. If no destinationCrs is provided than we use the country to try and infer the

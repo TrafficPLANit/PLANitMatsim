@@ -34,19 +34,18 @@ public class PlanitMatsimIntermodalWriterFactory {
    * @return create matsim writer
    */
   public static PlanitMatsimIntermodalWriter create(String outputDirectory, String countryName) {
-    PlanitMatsimNetworkWriterSettings settings = new PlanitMatsimNetworkWriterSettings(countryName);
-    settings.setOutputDirectory(outputDirectory);
-    return create(settings);    
-  }  
-  
-  /** Create a PLANitMatsimWriter which persists PLANit networks and pt infrastructure in MATSIM network format
-   * 
-   * @param outputDirectory to use
-   * @param networkSettings to use
-   * @return create matsim writer
+    PlanitMatsimIntermodalWriterSettings settings= new PlanitMatsimIntermodalWriterSettings(outputDirectory, countryName);
+    return new PlanitMatsimIntermodalWriter(settings);    
+  }
+
+  /** create  a PLANitMatsimWriter which persists PLANit networks and pt infrastructure in MATSIM network format using the network and zoning
+   * settings provided
+   * @param networkWriterSettings to use
+   * @param zoningWriterSettings to use
+   * @return created matsim writer
    */
-  public static PlanitMatsimIntermodalWriter create(PlanitMatsimNetworkWriterSettings networkSettings) {
-    return new PlanitMatsimIntermodalWriter(networkSettings);    
-  }   
-    
+  public static PlanitMatsimIntermodalWriter create(PlanitMatsimNetworkWriterSettings networkWriterSettings, PlanitMatsimZoningWriterSettings zoningWriterSettings) {
+    return new PlanitMatsimIntermodalWriter(new PlanitMatsimIntermodalWriterSettings(networkWriterSettings, zoningWriterSettings));
+  }  
+      
 }

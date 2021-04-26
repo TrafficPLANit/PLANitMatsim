@@ -9,16 +9,27 @@ import org.planit.network.macroscopic.MacroscopicNetwork;
  *
  */
 public class PlanitMatsimZoningWriterFactory {
-    
-  /** Create a PLANitOSMReader while providing an OSM network to populate
+  
+  /** Create a PLANitMatsimZoningWriter (pt output) with defaults. It is expected the user sets the appropriate properties
+   * afterwards as required for this particular type of writer
+   * 
+   * @param networkWriterSettings to use
+   * @param referenceNetwork to use the same setup regarding id creation for zoning
+   * @return create Matsim zoning (pt) writer
+   */
+  public static PlanitMatsimZoningWriter create(PlanitMatsimNetworkWriterSettings networkWriterSettings, MacroscopicNetwork referenceNetwork) {
+    return create(new PlanitMatsimZoningWriterSettings(), networkWriterSettings, referenceNetwork);    
+  }   
+      
+  /** Create a PLANitMAtsimWriter
    * 
    * @param zoningWriterSettings to use
-   * @param referenceNetwork to use the same setup regarding id creation for zoning
    * @param networkWriterSettings to use
-   * @return create osm reader
+   * @param referenceNetwork to use the same setup regarding id creation for zoning
+   * @return create matsim writer
    */
-  public static PlanitMatsimZoningWriter create(PlanitMatsimZoningWriterSettings zoningWriterSettings, MacroscopicNetwork referenceNetwork, PlanitMatsimNetworkWriterSettings networkWriterSettings) {
-    return new PlanitMatsimZoningWriter(zoningWriterSettings, referenceNetwork, networkWriterSettings);    
+  public static PlanitMatsimZoningWriter create(PlanitMatsimZoningWriterSettings zoningWriterSettings, PlanitMatsimNetworkWriterSettings networkWriterSettings, MacroscopicNetwork referenceNetwork) {
+    return new PlanitMatsimZoningWriter(zoningWriterSettings, networkWriterSettings, referenceNetwork);    
   }  
    
   

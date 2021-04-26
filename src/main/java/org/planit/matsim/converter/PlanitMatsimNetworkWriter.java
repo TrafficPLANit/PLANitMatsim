@@ -56,28 +56,7 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
   /** when external ids are used for mapping, they need not be unqiue, in Matsim ids must be unique, we use this map to track
    * for duplicates, if found, we append unique identifier */
   private Map<String,LongAdder> usedExternalMatsimLinkIds = new HashMap<String,LongAdder>();
-      
-        
-  /** validate the network, log or throw when issues are found
-   * 
-   * @param network to validate
-   * @throws PlanItException thrown if invalid
-   */
-  private void validateNetwork(InfrastructureNetwork<?, ?> network) throws PlanItException {
-    if (!(network instanceof MacroscopicNetwork)) {
-      throw new PlanItException("Matsim writer currently only supports writing macroscopic networks");
-    }
-    final MacroscopicNetwork macroscopicNetwork = (MacroscopicNetwork) network;
-    
-    if(macroscopicNetwork.infrastructureLayers.size()!=1) {
-      throw new PlanItException(String.format("Matsim writer currently only supports networks with a single layer, the provided network has %d",network.infrastructureLayers.size()));
-    }
-    
-    if(!(network.infrastructureLayers.getFirst() instanceof MacroscopicPhysicalNetwork)) {
-      throw new PlanItException(String.format("Matsim only supports macroscopic physical network layers, the provided network is of a different type"));
-    } 
-  }
-  
+                
   /**
    * validate the settings making sure minimal output information is available
    */
@@ -496,7 +475,8 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
     final MacroscopicNetwork macroscopicNetwork = (MacroscopicNetwork) network;
     
     /* CRS */
-    CoordinateReferenceSystem destinationCrs = prepareCoordinateReferenceSystem(macroscopicNetwork, settings.getCountry(), settings.getDestinationCoordinateReferenceSystem());
+    CoordinateReferenceSystem destinationCrs = 
+        prepareCoordinateReferenceSystem(macroscopicNetwork, getSettings().getCountry(), getSettings().getDestinationCoordinateReferenceSystem());
     settings.setDestinationCoordinateReferenceSystem(destinationCrs);
     
     /* log settings */
@@ -512,20 +492,20 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
   }
     
 
-  /** Collect the settings
-   * 
-   * @return settings for configuration
+  /**
+   * {@inheritDoc}
    */
-  public PlanitMatsimNetworkWriterSettings getSettings() {
-    return this.settings;
+  @Override
+  public void reset() {
+    getSettings().reset();
   }
 
   /**
    * {@inheritDoc}
    */
   @Override
-  public void reset() {
-    //TODO
+  public PlanitMatsimNetworkWriterSettings getSettings() {
+    return settings;
   }
 
 }
