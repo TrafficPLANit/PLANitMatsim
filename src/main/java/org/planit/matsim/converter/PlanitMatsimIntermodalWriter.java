@@ -7,7 +7,6 @@ import org.planit.converter.intermodal.IntermodalWriter;
 import org.planit.network.InfrastructureNetwork;
 import org.planit.network.macroscopic.MacroscopicNetwork;
 import org.planit.utils.exceptions.PlanItException;
-import org.planit.utils.locale.CountryNames;
 import org.planit.zoning.Zoning;
 
 /**
@@ -25,72 +24,30 @@ public class PlanitMatsimIntermodalWriter implements IntermodalWriter {
   /** the logger */
   @SuppressWarnings("unused")
   private static final Logger LOGGER = Logger.getLogger(PlanitMatsimIntermodalWriter.class.getCanonicalName());
-    
-  /** the network writer to use */
-  protected PlanitMatsimNetworkWriter networkWriter = null;
-  
-  /** the zoning writer to use */
-  protected PlanitMatsimZoningWriter zoningWriter = null;  
-    
-  /** network settings to use */
-  protected final PlanitMatsimNetworkWriterSettings networkSettings;
-
-  /** zoning settings to use */
-  protected final PlanitMatsimZoningWriterSettings zoningSettings;
+        
+  /** Intermodal settings to use */
+  protected final PlanitMatsimIntermodalWriterSettings settings;
   
   /**
    * the id mapper to use
    */
   protected IdMapperType idMapper;
-  
-  /** initialise network writer
-   */
-  protected void initialiseNetworkWriter() {
-    networkWriter = PlanitMatsimNetworkWriterFactory.create(networkSettings);
-  } 
-  
-  /** initialise zoning writer
-   * 
-   * @param infrastructureNetwork to use
-   * @param networkWriterSettings to use
-   */
-  protected void initialiseZoningWriter(MacroscopicNetwork infrastructureNetwork, PlanitMatsimNetworkWriterSettings networkWriterSettings) {
-    zoningWriter = PlanitMatsimZoningWriterFactory.create(zoningSettings, infrastructureNetwork, networkWriterSettings);
-  }
-  
+      
   /** Default constructor using all default settings for underlying writers 
    */
   protected PlanitMatsimIntermodalWriter() {
-    this(new PlanitMatsimNetworkWriterSettings(CountryNames.GLOBAL), new PlanitMatsimZoningWriterSettings());    
+    this(new PlanitMatsimIntermodalWriterSettings());    
   }  
-    
-  /** Constructor
-   *  
-   * @param networkSettings to use
-   */
-  protected PlanitMatsimIntermodalWriter(PlanitMatsimNetworkWriterSettings networkSettings) {  
-    this(networkSettings, new PlanitMatsimZoningWriterSettings());
-  }
-  
+      
   /** Constructor 
    *
-   * @param networkSettings to use
-   * @param zoningSettings to use
+   * @param settings to use
    */
-  protected PlanitMatsimIntermodalWriter(PlanitMatsimNetworkWriterSettings networkSettings, PlanitMatsimZoningWriterSettings zoningSettings) {  
+  protected PlanitMatsimIntermodalWriter(PlanitMatsimIntermodalWriterSettings settings) {  
     setIdMapperType(IdMapperType.ID);
-    this.networkSettings = networkSettings;
-    this.zoningSettings = zoningSettings;
+    this.settings = settings;
   }  
-  
-  /** Collect the network writer settings
-   * 
-   * @return settings of the network writer component
-   */
-  public PlanitMatsimNetworkWriterSettings getNetworkSettings() {
-    return networkSettings;
-  }
-  
+      
   /**
    * Persist the PLANit network and zoning and a MATSIM compatible network to disk
    * 
@@ -99,18 +56,30 @@ public class PlanitMatsimIntermodalWriter implements IntermodalWriter {
    * 
    */
   @Override
-  public void write(InfrastructureNetwork<?, ?> infrastructureNetwork, Zoning zoning) throws PlanItException {
+  public void write(final InfrastructureNetwork<?, ?> infrastructureNetwork, final Zoning zoning) throws PlanItException {
+    PlanItException.throwIfNull(infrastructureNetwork, "network is null when persisting Matsim intermodal network");
+    PlanItException.throwIfNull(zoning, "zoning is null when persisting Matsim intermodal network");
+    PlanItException.throwIf(!(infrastructureNetwork instanceof MacroscopicNetwork), "Matsim intermodal writer only supports macroscopic networks");
+    
+    MacroscopicNetwork macroscopicNetwork = (MacroscopicNetwork)infrastructureNetwork;
+    
+    /* make sure destination country is consistent for both outputs */
+    PlanItException.throwIf(!getSettings().getNetworkSettings().getCountry().equals(getSettings().getZoningSettings().getCountry()), 
+        String.format(
+            "Destination country for intermodal writer should be identical for both network and zoning writer, but found %s and %s instead",
+            getSettings().getNetworkSettings().getCountry(), getSettings().getZoningSettings().getCountry()));
     
     /* network writer */
-    initialiseNetworkWriter();    
+    PlanitMatsimNetworkWriter networkWriter = 
+        PlanitMatsimNetworkWriterFactory.create(getSettings().getNetworkSettings());    
 
     /* write network */
     networkWriter.setIdMapperType(idMapper);
     networkWriter.write(infrastructureNetwork);
-    
+        
     /* zoning writer */
-    initialiseZoningWriter((MacroscopicNetwork)infrastructureNetwork, networkWriter.getSettings());
-    
+    PlanitMatsimZoningWriter zoningWriter = 
+        PlanitMatsimZoningWriterFactory.create(getSettings().getZoningSettings(), getSettings().getNetworkSettings(), macroscopicNetwork);   
     /* write zoning */
     zoningWriter.setIdMapperType(idMapper);
     zoningWriter.write(zoning);    
@@ -137,8 +106,15 @@ public class PlanitMatsimIntermodalWriter implements IntermodalWriter {
    */  
   @Override
   public void reset() {
-    networkWriter.reset();
-    zoningWriter.reset();
+    settings.reset();
+  }
+
+  /**
+   * {@inheritDoc}
+   */    
+  @Override
+  public PlanitMatsimIntermodalWriterSettings getSettings() {
+    return settings;
   }
 
 }
