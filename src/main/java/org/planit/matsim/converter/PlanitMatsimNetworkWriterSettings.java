@@ -8,7 +8,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.logging.Logger;
 
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import org.planit.matsim.util.PlanitMatsimWriterSettings;
 import org.planit.network.macroscopic.physical.MacroscopicPhysicalNetwork;
 import org.planit.utils.math.Precision;
 import org.planit.utils.mode.Mode;
@@ -29,7 +29,7 @@ import org.planit.utils.network.physical.macroscopic.MacroscopicLinkSegment;
  * @author markr
  *
  */
-public class PlanitMatsimNetworkWriterSettings {
+public class PlanitMatsimNetworkWriterSettings extends PlanitMatsimWriterSettings {
   
   private static final Logger LOGGER = Logger.getLogger(PlanitMatsimNetworkWriterSettings.class.getCanonicalName());    
   
@@ -44,20 +44,12 @@ public class PlanitMatsimNetworkWriterSettings {
   
   /** track the PLANit modes that we include in the network to write */
   protected final Set<String> activatedPlanitModes;
-  
-  /**
-   * the output directory on where to persist the MATSIM file(s)
-   */
-  protected String outputDirectory;  
-  
+    
   /**
    * the output file name to use, default is set to DEFAULT_NETWORK_FILE_NAME
    */
   protected String outputFileName = DEFAULT_NETWORK_FILE_NAME;  
-  
-  /** the coordinate reference system used for writing entities of this network */
-  protected CoordinateReferenceSystem destinationCoordinateReferenceSystem = null;  
-    
+      
   /**
    * optional function used to populate the MATSIM link's nt_category field if set
    */
@@ -82,10 +74,7 @@ public class PlanitMatsimNetworkWriterSettings {
    * it can be used in the VIA viewer to enhance the look of the network which otherwise only depicts the end and start node, default is false
    */
   protected boolean generateDetailedLinkGeometryFile = false;
-  
-  /** the country */
-  protected String countryName;  
-    
+      
   /**
    * initialise the predefined PLANit modes to MATSIM mode mapping, based on the (predefined) mode names. MATSIM
    * seems not to have any predefined modes, so any name can be given to them. We therefore apply
@@ -128,9 +117,7 @@ public class PlanitMatsimNetworkWriterSettings {
    * @param countryName to use
    */
   public PlanitMatsimNetworkWriterSettings(String countryName){
-    this.planit2MatsimModeMapping = new HashMap<String, String>(DEFAULT_PLANIT2MATSIM_MODE_MAPPING);
-    this.activatedPlanitModes = new HashSet<String>(DEFAULT_ACTIVATED_MODES);
-    setCountry(countryName);
+    this(null, countryName);  
   }
   
   /** constructor
@@ -139,11 +126,21 @@ public class PlanitMatsimNetworkWriterSettings {
    * @param countryName to use
    */
   public PlanitMatsimNetworkWriterSettings(String outputDirectory, String countryName){
+    this(outputDirectory, null, countryName);  }  
+  
+  /** constructor
+   * 
+   * @param outputDirectory to use
+   * @param outputFileName to use
+   * @param countryName to use
+   */
+  public PlanitMatsimNetworkWriterSettings(String outputDirectory, String outputFileName, String countryName){
     this.planit2MatsimModeMapping = new HashMap<String, String>(DEFAULT_PLANIT2MATSIM_MODE_MAPPING);
     this.activatedPlanitModes = new HashSet<String>(DEFAULT_ACTIVATED_MODES);
     setOutputDirectory(outputDirectory);
     setCountry(countryName);
-  }  
+    setOutputFileName(outputFileName);
+  }   
   
   /** Overwrite a mapping from a predefined planit mode to a particular matsim mode
    * @param planitModeType planit mode
@@ -273,65 +270,13 @@ public class PlanitMatsimNetworkWriterSettings {
     this.generateDetailedLinkGeometryFile = generateDetailedLinkGeometryFile;
   }  
   
-  /** Collect the currently used CRS for writing the output geometries
-   * 
-   * @return crs
-   */
-  public CoordinateReferenceSystem getDestinationCoordinateReferenceSystem() {
-    return destinationCoordinateReferenceSystem;
-  }
-
-  /** Explicitly set a particular crs for writing geometries
-   * @param destinationCoordinateReferenceSystem
-   */
-  public void setDestinationCoordinateReferenceSystem(CoordinateReferenceSystem destinationCoordinateReferenceSystem) {
-    this.destinationCoordinateReferenceSystem = destinationCoordinateReferenceSystem;
-  }  
-  
   /**
-   * set the country
-   * 
-   * @param country to use
+   * {@inheritDoc}
    */
-  public void setCountry(String countryName) {
-    this.countryName = countryName;
-  }  
-
-  /**
-   * the country name set 
-   * 
-   * @return countryName used
-   */
-  public String getCountry() {
-    return countryName;
-  }
-  
-  /** the output directory to use
-   * @return output directory
-   */
-  public String getOutputDirectory() {
-    return outputDirectory;
-  }
-
-  /** set the output directory to use
-   * @param outputDirector to use
-   */
-  public void setOutputDirectory(String outputDirectory) {
-    this.outputDirectory = outputDirectory;
-  }
-  
-  /** collect the output file name used
-   * @return output file name
-   */
-  public String getOutputFileName() {
-    return outputFileName;
-  }
-
-  /** Set the output file name used
-   * @param outputFileName to use
-   */
-  public void setOutputFileName(String outputFileName) {
-    this.outputFileName = outputFileName;
+  @Override
+  public void reset() {
+    // TODO
+    
   }  
   
 }

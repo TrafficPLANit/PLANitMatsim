@@ -11,6 +11,7 @@ import javax.xml.stream.XMLStreamWriter;
 
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Point;
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.TransformException;
 import org.planit.converter.IdMapperFunctionFactory;
 import org.planit.converter.IdMapperType;
@@ -40,30 +41,13 @@ import org.planit.zoning.Zoning;
 public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> implements ZoningWriter{
   
   private static final Logger LOGGER = Logger.getLogger(PlanitMatsimZoningWriter.class.getCanonicalName());
-
-  /** the reference network this zoning is compatible with */
-  protected final MacroscopicNetwork referenceNetwork;
   
   /** the network writer settings used for the matsim reference network */
   PlanitMatsimNetworkWriterSettings networkWriterSettings;
   
   /** the zoning writer settings used for the matsim pt component*/
   PlanitMatsimZoningWriterSettings zoningWriterSettings;  
-  
-  /**
-   * validate the network instance available, throw or log when issues are found
-   * @throws PlanItException thrown if invalid
-   */
-  private void validateNetwork() throws PlanItException {
-    PlanItException.throwIfNull(referenceNetwork, "Matsim zoning writer's macroscopic planit network is null");
-    if(referenceNetwork.infrastructureLayers.size()!=1) {
-      throw new PlanItException(String.format("Matsim zoning writer currently only supports networks with a single layer, the provided network has %d",referenceNetwork.infrastructureLayers.size()));
-    }   
-    if(!(referenceNetwork.infrastructureLayers.getFirst() instanceof MacroscopicPhysicalNetwork)) {
-      throw new PlanItException(String.format("Matsim only supports macroscopic physical network layers, the provided network is of a different type"));
-    }
-  }
-  
+    
   /**
    * validate if settings are complete and if not try to salve by adopting settings from the network where possible
    */
@@ -82,7 +66,7 @@ public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> impleme
    * @throws PlanItException 
    */
   protected void writeXmlTransitScheduleFile(Zoning zoning) throws PlanItException {
-    Path matsimNetworkPath =  Paths.get(getSettings().getOutputDirectory(), getSettings().getTransitScheduleFileName().concat(DEFAULT_FILE_NAME_EXTENSION));    
+    Path matsimNetworkPath =  Paths.get(getSettings().getOutputDirectory(), getSettings().getOutputFileName().concat(DEFAULT_FILE_NAME_EXTENSION));    
     Pair<XMLStreamWriter,Writer> xmlFileWriterPair = PlanitXmlWriterUtils.createXMLWriter(matsimNetworkPath);
     LOGGER.info(String.format("Persisting MATSIM public transport schedule to: %s",matsimNetworkPath.toString()));
     
@@ -91,7 +75,7 @@ public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> impleme
       PlanitXmlWriterUtils.startXmlDocument(xmlFileWriterPair.first(), DOCTYPE);
       
       /* body */
-      writeTransitScheduleXML(xmlFileWriterPair.first(), zoning, (MacroscopicPhysicalNetwork)referenceNetwork.infrastructureLayers.getFirst());
+      writeTransitScheduleXML(xmlFileWriterPair.first(), zoning, getSettings().getReferenceNetwork().infrastructureLayers.getFirst());
       
     }catch (Exception e) {
       LOGGER.severe(e.getMessage());
@@ -234,12 +218,11 @@ public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> impleme
   
   /** constructor 
    * 
-   * @param referenceNetwork the zoning is based on
+   * @param zoningWriterSettings to use
    * @param networkWriterSettings the network was configured by when persisting
    */
-  protected PlanitMatsimZoningWriter(PlanitMatsimZoningWriterSettings zoningWriterSettings, MacroscopicNetwork referenceNetwork, PlanitMatsimNetworkWriterSettings networkWriterSettings) {
+  protected PlanitMatsimZoningWriter(PlanitMatsimZoningWriterSettings zoningWriterSettings, PlanitMatsimNetworkWriterSettings networkWriterSettings, MacroscopicNetwork referenceNetwork) {
     super(IdMapperType.ID);
-    this.referenceNetwork = referenceNetwork;
     this.networkWriterSettings = networkWriterSettings;
     this.zoningWriterSettings = zoningWriterSettings;
   }  
@@ -257,11 +240,13 @@ public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> impleme
   @Override
   public void write(Zoning zoning) throws PlanItException {
     
-    validateNetwork();
+    validateNetwork(getSettings().getReferenceNetwork());
     validateSettings();
     
     /* CRS */
-    prepareCoordinateReferenceSystem(referenceNetwork, networkWriterSettings.getCountry(), networkWriterSettings.getDestinationCoordinateReferenceSystem());
+    CoordinateReferenceSystem destinationCrs = 
+        prepareCoordinateReferenceSystem(getSettings().getReferenceNetwork(), getSettings().getCountry(), getSettings().getDestinationCoordinateReferenceSystem());
+    getSettings().setDestinationCoordinateReferenceSystem(destinationCrs);
             
     /* write stops */    
     writeXmlTransitScheduleFile(zoning);   
