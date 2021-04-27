@@ -18,7 +18,6 @@ import org.planit.converter.IdMapperType;
 import org.planit.converter.zoning.ZoningWriter;
 import org.planit.matsim.xml.MatsimTransitXmlAttributes;
 import org.planit.matsim.xml.MatsimTransitXmlElements;
-import org.planit.network.macroscopic.MacroscopicNetwork;
 import org.planit.network.macroscopic.physical.MacroscopicPhysicalNetwork;
 import org.planit.utils.exceptions.PlanItException;
 import org.planit.utils.misc.Pair;
@@ -221,7 +220,7 @@ public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> impleme
    * @param zoningWriterSettings to use
    * @param networkWriterSettings the network was configured by when persisting
    */
-  protected PlanitMatsimZoningWriter(PlanitMatsimZoningWriterSettings zoningWriterSettings, PlanitMatsimNetworkWriterSettings networkWriterSettings, MacroscopicNetwork referenceNetwork) {
+  protected PlanitMatsimZoningWriter(PlanitMatsimZoningWriterSettings zoningWriterSettings, PlanitMatsimNetworkWriterSettings networkWriterSettings) {
     super(IdMapperType.ID);
     this.networkWriterSettings = networkWriterSettings;
     this.zoningWriterSettings = zoningWriterSettings;
@@ -242,6 +241,9 @@ public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> impleme
     
     validateNetwork(getSettings().getReferenceNetwork());
     validateSettings();
+    
+    /* log settings */
+    getSettings().logSettings();    
     
     /* CRS */
     CoordinateReferenceSystem destinationCrs = 

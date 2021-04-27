@@ -53,7 +53,7 @@ public abstract class PlanitMatsimWriterSettings implements ConverterWriterSetti
    * @return output directory
    */
   public String getOutputDirectory() {
-    return outputDirectory;
+    return this.outputDirectory;
   }
 
   /** set the output directory to use

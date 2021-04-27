@@ -33,6 +33,7 @@ import org.planit.utils.exceptions.PlanItException;
 import org.planit.utils.graph.Vertex;
 import org.planit.utils.locale.CountryNames;
 import org.planit.utils.misc.Pair;
+import org.planit.utils.misc.StringUtils;
 import org.planit.utils.mode.Mode;
 import org.planit.utils.network.physical.Link;
 import org.planit.utils.network.physical.Node;
@@ -61,10 +62,15 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
    * validate the settings making sure minimal output information is available
    */
   private boolean validateSettings() {
-    if(getSettings().getOutputDirectory()==null || getSettings().getOutputDirectory().isBlank()) {
+    if(StringUtils.isNullOrBlank(getSettings().getOutputDirectory())) {
       LOGGER.severe("Matsim network output directory not set on settings, unable to persist network");
       return false;
     }
+    if(StringUtils.isNullOrBlank(getSettings().getOutputFileName())) {
+      LOGGER.severe("Matsim network output file name not set on settings, unable to persist network");
+      return false;
+    }    
+        
     return true;
   }  
 
@@ -352,7 +358,6 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
   protected void writeXmlNetworkFile(MacroscopicPhysicalNetwork networkLayer) throws PlanItException { 
     Path matsimNetworkPath =  Paths.get(getSettings().getOutputDirectory(), getSettings().getOutputFileName().concat(DEFAULT_FILE_NAME_EXTENSION));    
     Pair<XMLStreamWriter,Writer> xmlFileWriterPair = PlanitXmlWriterUtils.createXMLWriter(matsimNetworkPath);
-    LOGGER.info(String.format("Persisting MATSIM network to: %s",matsimNetworkPath.toString()));
     
     try {
       /* start */
