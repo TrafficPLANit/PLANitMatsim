@@ -79,7 +79,7 @@ public class PlanitMatsimIntermodalWriter implements IntermodalWriter {
         
     /* zoning writer */
     PlanitMatsimZoningWriter zoningWriter = 
-        PlanitMatsimZoningWriterFactory.create(getSettings().getZoningSettings(), getSettings().getNetworkSettings(), macroscopicNetwork);   
+        PlanitMatsimZoningWriterFactory.create(getSettings().getNetworkSettings(), macroscopicNetwork);   
     /* write zoning */
     zoningWriter.setIdMapperType(idMapper);
     zoningWriter.write(zoning);    

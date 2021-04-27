@@ -1,5 +1,7 @@
 package org.planit.matsim.converter;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -44,12 +46,7 @@ public class PlanitMatsimNetworkWriterSettings extends PlanitMatsimWriterSetting
   
   /** track the PLANit modes that we include in the network to write */
   protected final Set<String> activatedPlanitModes;
-    
-  /**
-   * the output file name to use, default is set to DEFAULT_NETWORK_FILE_NAME
-   */
-  protected String outputFileName = DEFAULT_NETWORK_FILE_NAME;  
-      
+          
   /**
    * optional function used to populate the MATSIM link's nt_category field if set
    */
@@ -102,6 +99,25 @@ public class PlanitMatsimNetworkWriterSettings extends PlanitMatsimWriterSetting
   }  
   
   
+  /**
+   * Convenience method to log all the current settings
+   */
+  protected void logSettings() {
+  
+    Path matsimNetworkPath =  Paths.get(getOutputDirectory(), getOutputFileName().concat(PlanitMatsimWriter.DEFAULT_FILE_NAME_EXTENSION));    
+    LOGGER.info(String.format("Persisting MATSIM network to: %s",matsimNetworkPath.toString()));    
+    
+    LOGGER.info(String.format("Decimal fidelity set to %s", decimalFormat.getMaximumFractionDigits()));
+    if(getDestinationCoordinateReferenceSystem() != null) {
+      LOGGER.info(String.format("Destination Coordinate Reference System set to: %s", getDestinationCoordinateReferenceSystem().getName()));
+    }
+    
+    for(String planitMode : activatedPlanitModes) {
+      LOGGER.info(String.format("[ACTIVATED] PLANit mode:%s -> MATSIM mode:%s", planitMode, planit2MatsimModeMapping.get(planitMode)));
+    }
+  }
+
+
   /* initialise defaults */
   static {
     DEFAULT_PLANIT2MATSIM_MODE_MAPPING = createDefaultPredefinedModeMapping();
@@ -126,7 +142,7 @@ public class PlanitMatsimNetworkWriterSettings extends PlanitMatsimWriterSetting
    * @param countryName to use
    */
   public PlanitMatsimNetworkWriterSettings(String outputDirectory, String countryName){
-    this(outputDirectory, null, countryName);  }  
+    this(outputDirectory, DEFAULT_NETWORK_FILE_NAME, countryName);  }  
   
   /** constructor
    * 
@@ -177,19 +193,7 @@ public class PlanitMatsimNetworkWriterSettings extends PlanitMatsimWriterSetting
   }     
   
   
-  /**
-   * Convenience method to log all the current settings
-   */
-  public void logSettings() {
-    LOGGER.info(String.format("Decimal fidelity set to %s", decimalFormat.getMaximumFractionDigits()));
-    if(getDestinationCoordinateReferenceSystem() != null) {
-      LOGGER.info(String.format("Destination Coordinate Reference System set to: %s", getDestinationCoordinateReferenceSystem().getName()));
-    }
-    
-    for(String planitMode : activatedPlanitModes) {
-      LOGGER.info(String.format("[ACTIVATED] PLANit mode:%s -> MATSIM mode:%s", planitMode, planit2MatsimModeMapping.get(planitMode)));
-    }
-  }
+  
   
   // getters-setters
   
