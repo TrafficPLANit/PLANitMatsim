@@ -239,7 +239,10 @@ public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> impleme
   @Override
   public void write(Zoning zoning) throws PlanItException {
     
-    validateNetwork(getSettings().getReferenceNetwork());
+    boolean networkValid = validateNetwork(getSettings().getReferenceNetwork());
+    if(!networkValid) {
+      return;
+    }
     validateSettings();
     
     /* log settings */

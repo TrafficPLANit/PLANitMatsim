@@ -471,7 +471,10 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
   public void write(InfrastructureNetwork<?,?> network) throws PlanItException {
     PlanItException.throwIfNull(network, "network is null, cannot write undefined network to MATSIM format");
     
-    validateNetwork(network); 
+    boolean networkValid = validateNetwork(network);
+    if(!networkValid) {
+      return;
+    }
     boolean settingsValid = validateSettings();
     if(!settingsValid) {
       return;
