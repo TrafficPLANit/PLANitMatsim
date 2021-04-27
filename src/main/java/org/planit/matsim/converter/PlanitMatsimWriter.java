@@ -47,19 +47,32 @@ public abstract class PlanitMatsimWriter<T> extends BaseWriterImpl<T> {
    * @param referenceNetwork to use for persisting
    * @throws PlanItException thrown if invalid
    */
-  protected void validateNetwork(InfrastructureNetwork<?,?> referenceNetwork) throws PlanItException {
-    PlanItException.throwIfNull(referenceNetwork, "Matsim macroscopic planit network to extract from is null");
-    
+  protected boolean validateNetwork(InfrastructureNetwork<?,?> referenceNetwork) throws PlanItException {
+    if(referenceNetwork == null) {
+      LOGGER.severe("Matsim macroscopic planit network to extract from is null");
+      return false;
+    }
+        
     if (!(referenceNetwork instanceof MacroscopicNetwork)) {
-      throw new PlanItException("Matsim writer currently only supports writing macroscopic networks");
-    }    
+      LOGGER.severe("Matsim writer currently only supports writing macroscopic networks");
+      return false;
+    }
+    
+    if(referenceNetwork.infrastructureLayers.isEachLayerEmpty()) {
+      LOGGER.severe("Planit Network to persist is empty");
+      return false;
+    }        
 
     if(referenceNetwork.infrastructureLayers.size()!=1) {
-      throw new PlanItException(String.format("Matsim zoning writer currently only supports networks with a single layer, the provided network has %d",referenceNetwork.infrastructureLayers.size()));
+      LOGGER.severe(String.format("Matsim zoning writer currently only supports networks with a single layer, the provided network has %d",referenceNetwork.infrastructureLayers.size()));
+      return false;
     }   
     if(!(referenceNetwork.infrastructureLayers.getFirst() instanceof MacroscopicPhysicalNetwork)) {
-      throw new PlanItException(String.format("Matsim only supports macroscopic physical network layers, the provided network is of a different type"));
+      LOGGER.severe(String.format("Matsim only supports macroscopic physical network layers, the provided network is of a different type"));
+      return false;
     }
+    
+    return true;
   }  
    
   
