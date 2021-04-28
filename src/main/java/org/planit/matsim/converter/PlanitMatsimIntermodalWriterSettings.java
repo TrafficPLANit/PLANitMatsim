@@ -1,5 +1,6 @@
 package org.planit.matsim.converter;
 
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.planit.converter.ConverterWriterSettings;
 import org.planit.utils.locale.CountryNames;
 
@@ -81,5 +82,30 @@ public class PlanitMatsimIntermodalWriterSettings implements ConverterWriterSett
   public  PlanitMatsimNetworkWriterSettings getNetworkSettings() {
     return networkSettings;
   }   
+  
+
+  /** set the output directory to use on both network and zoning settings
+   * @param outputDirectory to use
+   */
+  public void setOutputDirectory(String outputDirectory) {
+    getNetworkSettings().setOutputDirectory(outputDirectory);
+    getZoningSettings().setOutputDirectory(outputDirectory);
+  }
+  
+  /** set the country to use on both network and zoning settings
+   * @param countryName to use
+   */
+  public void setCountry(String countryName) {
+    getNetworkSettings().setCountry(countryName);
+    getZoningSettings().setCountry(countryName);
+  }  
+  
+  /** Explicitly set a particular crs for writing geometries for both zoning and network
+   * @param destinationCoordinateReferenceSystem to use
+   */
+  public void setDestinationCoordinateReferenceSystem(CoordinateReferenceSystem destinationCoordinateReferenceSystem) {
+    getNetworkSettings().setDestinationCoordinateReferenceSystem(destinationCoordinateReferenceSystem);
+    getZoningSettings().setDestinationCoordinateReferenceSystem(destinationCoordinateReferenceSystem);
+  }      
  
 }
