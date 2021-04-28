@@ -57,7 +57,7 @@ public abstract class PlanitMatsimWriterSettings implements ConverterWriterSetti
   }
 
   /** set the output directory to use
-   * @param outputDirector to use
+   * @param outputDirectory to use
    */
   public void setOutputDirectory(String outputDirectory) {
     this.outputDirectory = outputDirectory;
@@ -93,14 +93,14 @@ public abstract class PlanitMatsimWriterSettings implements ConverterWriterSetti
   
   /** Collect the currently used CRS for writing the output geometries
    * 
-   * @return crs
+   * @return crs used
    */
   public CoordinateReferenceSystem getDestinationCoordinateReferenceSystem() {
     return destinationCoordinateReferenceSystem;
   }
 
   /** Explicitly set a particular crs for writing geometries
-   * @param destinationCoordinateReferenceSystem
+   * @param destinationCoordinateReferenceSystem to use
    */
   public void setDestinationCoordinateReferenceSystem(CoordinateReferenceSystem destinationCoordinateReferenceSystem) {
     this.destinationCoordinateReferenceSystem = destinationCoordinateReferenceSystem;
