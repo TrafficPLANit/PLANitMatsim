@@ -3,6 +3,7 @@ package org.planit.matsim.converter;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -71,7 +72,7 @@ public class PlanitMatsimNetworkWriterSettings extends PlanitMatsimWriterSetting
    * it can be used in the VIA viewer to enhance the look of the network which otherwise only depicts the end and start node, default is false
    */
   protected boolean generateDetailedLinkGeometryFile = DEFAULT_GENERATE_DETAILED_LINK_GEOMETRY;
-      
+        
   /**
    * initialise the predefined PLANit modes to MATSIM mode mapping, based on the (predefined) mode names. MATSIM
    * seems not to have any predefined modes, so any name can be given to them. We therefore apply
@@ -79,21 +80,59 @@ public class PlanitMatsimNetworkWriterSettings extends PlanitMatsimWriterSetting
    */
   protected static Map<String, String> createDefaultPredefinedModeMapping() {
     Map<String, String> thePlanit2MatsimModeMapping = new HashMap<String, String>();
-    for(PredefinedModeType modeType : PredefinedModeType.getPredefinedModeTypes(PredefinedModeType.CUSTOM /* exclude */)) {
-      thePlanit2MatsimModeMapping.put(modeType.value(), modeType.value());  
+    EnumSet<PredefinedModeType> predefinedModes = PredefinedModeType.getPredefinedModeTypes(PredefinedModeType.CUSTOM /* exclude */);
+    for(PredefinedModeType modeType : predefinedModes) {
+      switch (modeType) {
+      case BUS:
+        thePlanit2MatsimModeMapping.put(modeType.value(), DEFAULT_PUBLIC_TRANSPORT_MODE);
+        break;
+      case SUBWAY:
+        thePlanit2MatsimModeMapping.put(modeType.value(), DEFAULT_PUBLIC_TRANSPORT_MODE);
+        break;
+      case TRAIN:
+        thePlanit2MatsimModeMapping.put(modeType.value(), DEFAULT_PUBLIC_TRANSPORT_MODE);
+        break;
+      case TRAM:
+        thePlanit2MatsimModeMapping.put(modeType.value(), DEFAULT_PUBLIC_TRANSPORT_MODE);
+        break;
+      case LIGHTRAIL:
+        thePlanit2MatsimModeMapping.put(modeType.value(), DEFAULT_PUBLIC_TRANSPORT_MODE);
+        break;
+      /* ignored modes since explicitly not supported by MATSIM */
+      case BICYCLE:
+        break;         // do nothing
+      case PEDESTRIAN:        
+        break;         // do nothing              
+      /* all other modes are mapped to car for convenience*/
+      default:
+        thePlanit2MatsimModeMapping.put(modeType.value(), DEFAULT_PRIVATE_TRANSPORT_MODE);
+        break;
+      }
     }
     return thePlanit2MatsimModeMapping;
   }  
   
-  /** create the default activate PLANit modes that the MATSIM write will include when writing the network (if
-   * they are available). By default all predefined PLANit modes are activated.
+  /** Create the default activate PLANit modes that the MATSIM write will include when writing the network (if
+   * they are available). By default all predefined PLANit modes that could be reasonably mapped to motorised private
+   * mode car (car) or public transport (pt) are activated.
    * 
    * @return default activate planit modes (by name)
    */
   protected static Set<String> createDefaultActivatedPlanitModes() {
     Set<String> theActivatedPlanitModes = new HashSet<String>();
-    for(PredefinedModeType modeType : PredefinedModeType.getPredefinedModeTypes(PredefinedModeType.CUSTOM /* exclude */)) {
-      theActivatedPlanitModes.add(modeType.value());  
+    EnumSet<PredefinedModeType> predefinedModes = PredefinedModeType.getPredefinedModeTypes(PredefinedModeType.CUSTOM /* exclude */);
+    for(PredefinedModeType modeType : predefinedModes) {
+      switch (modeType) {
+      /* deactivated modes since explicitly not supported by MATSIM */
+      case BICYCLE:
+        break;       
+      case PEDESTRIAN:        
+        break;                     
+      /* all other modes are activated by default */
+      default:
+        theActivatedPlanitModes.add(modeType.value());
+        break;
+      }   
     }
     return theActivatedPlanitModes;
   }  
@@ -133,6 +172,12 @@ public class PlanitMatsimNetworkWriterSettings extends PlanitMatsimWriterSetting
    * Default setting for generating detailed link geometry file is false
    */
   public static final Boolean DEFAULT_GENERATE_DETAILED_LINK_GEOMETRY = false;
+  
+  /** default mode for all public transport modes in Matsim is pt, so that is what we use for initial mapping */
+  public static final String DEFAULT_PUBLIC_TRANSPORT_MODE = "pt";
+  
+  /** default mode for all private transport modes in Matsim is car, so that is what we use for initial mapping */
+  public static final String DEFAULT_PRIVATE_TRANSPORT_MODE = "car";    
   
   /** constructor 
    * @param countryName to use

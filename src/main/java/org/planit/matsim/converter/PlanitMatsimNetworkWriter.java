@@ -8,6 +8,8 @@ import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Function;
 import java.util.logging.Logger;
@@ -31,7 +33,6 @@ import org.planit.network.macroscopic.MacroscopicNetwork;
 import org.planit.network.macroscopic.physical.MacroscopicPhysicalNetwork;
 import org.planit.utils.exceptions.PlanItException;
 import org.planit.utils.graph.Vertex;
-import org.planit.utils.locale.CountryNames;
 import org.planit.utils.misc.Pair;
 import org.planit.utils.misc.StringUtils;
 import org.planit.utils.mode.Mode;
@@ -157,7 +158,13 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
           xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.PERMLANES, String.valueOf(linkSegment.getNumberOfLanes()));
           
           /* MODES */
-          String allowedModes = linkSegment.getAllowedModes().stream().map(mode -> planitModeToMatsimModeMapping.get(mode)).collect(Collectors.joining(","));
+          Set<String> matsimModes = new TreeSet<String>();
+          for(Mode planitMode : linkSegment.getAllowedModes()) {
+            if(planitModeToMatsimModeMapping.containsKey(planitMode)) {
+              matsimModes.add(planitModeToMatsimModeMapping.get(planitMode));
+            }
+          }
+          String allowedModes = matsimModes.stream().collect(Collectors.joining(","));
           xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.MODES,allowedModes);
         }
         
