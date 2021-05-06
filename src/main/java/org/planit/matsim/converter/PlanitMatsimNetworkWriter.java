@@ -447,7 +447,7 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
    * Default constructor. Initialisng with default output directory and country name on the settings
    */
   public PlanitMatsimNetworkWriter() {
-    this(new PlanitMatsimNetworkWriterSettings(CountryNames.GLOBAL));
+    this(new PlanitMatsimNetworkWriterSettings(null));
   }  
         
   /**
