@@ -2,7 +2,6 @@ package org.planit.matsim.util;
 
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.planit.converter.ConverterWriterSettings;
-import org.planit.utils.locale.CountryNames;
 
 /**
  * Base writer settings class to be used by all available matsim writer settings classes.
@@ -33,7 +32,7 @@ public abstract class PlanitMatsimWriterSettings implements ConverterWriterSetti
    * Default constructor 
    */
   public PlanitMatsimWriterSettings() {
-    this(null, null, CountryNames.GLOBAL);
+    this(null, null, null);
   }
   
   /**

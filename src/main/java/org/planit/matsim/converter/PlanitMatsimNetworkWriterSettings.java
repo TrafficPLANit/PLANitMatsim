@@ -67,10 +67,10 @@ public class PlanitMatsimNetworkWriterSettings extends PlanitMatsimWriterSetting
    */
   protected DecimalFormat decimalFormat = Precision.DEFAULT_DECIMAL_FORMAT; 
   
-  /** when set to tru a separate detailed geometry file is generated that provides the detailed geometry of each link
+  /** when set to true, a separate detailed geometry file is generated that provides the detailed geometry of each link
    * it can be used in the VIA viewer to enhance the look of the network which otherwise only depicts the end and start node, default is false
    */
-  protected boolean generateDetailedLinkGeometryFile = false;
+  protected boolean generateDetailedLinkGeometryFile = DEFAULT_GENERATE_DETAILED_LINK_GEOMETRY;
       
   /**
    * initialise the predefined PLANit modes to MATSIM mode mapping, based on the (predefined) mode names. MATSIM
@@ -128,6 +128,11 @@ public class PlanitMatsimNetworkWriterSettings extends PlanitMatsimWriterSetting
    * default names used for MATSIM network file that is being generated
    */
   public static final String DEFAULT_NETWORK_FILE_NAME = "network";  
+  
+  /**
+   * Default setting for generating detailed link geometry file is false
+   */
+  public static final Boolean DEFAULT_GENERATE_DETAILED_LINK_GEOMETRY = false;
   
   /** constructor 
    * @param countryName to use
