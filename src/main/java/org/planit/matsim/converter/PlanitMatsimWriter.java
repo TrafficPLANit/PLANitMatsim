@@ -14,11 +14,11 @@ import org.opengis.referencing.operation.MathTransform;
 import org.opengis.referencing.operation.TransformException;
 import org.planit.converter.BaseWriterImpl;
 import org.planit.converter.IdMapperType;
-import org.planit.io.geo.PlanitOpenGisUtils;
 import org.planit.network.InfrastructureNetwork;
 import org.planit.network.macroscopic.MacroscopicNetwork;
 import org.planit.network.macroscopic.physical.MacroscopicPhysicalNetwork;
 import org.planit.utils.exceptions.PlanItException;
+import org.planit.utils.geo.PlanitJtsUtils;
 import org.planit.utils.xml.PlanitXmlWriterUtils;
 
 /**
@@ -93,7 +93,7 @@ public abstract class PlanitMatsimWriter<T> extends BaseWriterImpl<T> {
     
     /* configure crs transformer if required, to be able to convert geometries to preferred CRS while writing */
     if(!identifiedDestinationCrs.equals(network.getCoordinateReferenceSystem())) {
-      destinationCrsTransformer = PlanitOpenGisUtils.findMathTransform(network.getCoordinateReferenceSystem(), identifiedDestinationCrs);
+      destinationCrsTransformer = PlanitJtsUtils.findMathTransform(network.getCoordinateReferenceSystem(), identifiedDestinationCrs);
     }
     
     return identifiedDestinationCrs;
