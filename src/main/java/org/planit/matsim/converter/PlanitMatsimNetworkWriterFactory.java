@@ -11,8 +11,7 @@ public class PlanitMatsimNetworkWriterFactory {
   
   /** Create a PLANitMatsimWriter which persists PLANit networks in MATSIM network format
    * 
-   * @param outputDirectory to use
-   * @return create matsim writer
+   * @return created MATSim writer
    */
   public static PlanitMatsimNetworkWriter create() {
     return new PlanitMatsimNetworkWriter();    
@@ -21,7 +20,7 @@ public class PlanitMatsimNetworkWriterFactory {
   /** Create a PLANitMatsimWriter which persists PLANit networks in MATSIM network format
    * 
    * @param outputDirectory to use
-   * @return create matsim writer
+   * @return createMATSim MATSim writer
    */
   public static PlanitMatsimNetworkWriter create(String outputDirectory) {
     return create(outputDirectory, CountryNames.GLOBAL);    
@@ -32,7 +31,7 @@ public class PlanitMatsimNetworkWriterFactory {
    * @param outputDirectory to use
    * @param countryName country which the input file represents, used to determine defaults in case not specifically specified in OSM data, when left blank global defaults will be used
    * based on a right hand driving approach
-   * @return create matsim writer
+   * @return created MATSim writer
    */
   public static PlanitMatsimNetworkWriter create(String outputDirectory, String countryName) {
     return create(new PlanitMatsimNetworkWriterSettings(outputDirectory, countryName));    
@@ -41,7 +40,7 @@ public class PlanitMatsimNetworkWriterFactory {
   /** Create a PLANitMatsimWriter which persists PLANit networks in MATSIM network format
    * 
    * @param networkSettings to use
-   * @return create matsim writer
+   * @return created MATSim writer
    */
   public static PlanitMatsimNetworkWriter create(PlanitMatsimNetworkWriterSettings networkSettings) {
     return new PlanitMatsimNetworkWriter(networkSettings);    

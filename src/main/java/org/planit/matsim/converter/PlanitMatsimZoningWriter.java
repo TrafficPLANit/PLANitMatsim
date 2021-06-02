@@ -62,7 +62,7 @@ public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> impleme
   /** Starting point for persisting the matsim transit schedule file
    * 
    * @param zoning to persist
-   * @throws PlanItException 
+   * @throws PlanItException  thrown if error
    */
   protected void writeXmlTransitScheduleFile(Zoning zoning) throws PlanItException {
     Path matsimNetworkPath =  Paths.get(getSettings().getOutputDirectory(), getSettings().getOutputFileName().concat(DEFAULT_FILE_NAME_EXTENSION));    

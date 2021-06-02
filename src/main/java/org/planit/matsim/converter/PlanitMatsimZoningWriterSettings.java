@@ -28,15 +28,16 @@ public class PlanitMatsimZoningWriterSettings extends PlanitMatsimWriterSettings
   protected String transitScheduleFileName = DEFAULT_TRANSIT_SCHEDULE_FILE_NAME;
   
   /**
-   * log settings
+   * Log settings
    */
   protected void logSettings() {
     Path matsimZoningPath =  Paths.get(getOutputDirectory(), getOutputFileName().concat(PlanitMatsimWriter.DEFAULT_FILE_NAME_EXTENSION));    
     LOGGER.info(String.format("Persisting MATSIM pt to: %s",matsimZoningPath.toString()));
   }    
   
-  /** collect the reference network used
-   * @return
+  /** Collect the reference network used
+   * 
+   * @return reference network
    */
   protected MacroscopicNetwork getReferenceNetwork() {
     return referenceNetwork;
