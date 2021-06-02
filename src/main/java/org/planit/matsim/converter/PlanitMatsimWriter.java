@@ -30,9 +30,8 @@ import org.planit.utils.xml.PlanitXmlWriterUtils;
 public abstract class PlanitMatsimWriter<T> extends BaseWriterImpl<T> {
 
   /**
-   * the logger of this class
+   * The logger of this class
    */
-  @SuppressWarnings("unused")
   private static final Logger LOGGER = Logger.getLogger(PlanitMatsimWriter.class.getCanonicalName());
       
   /** track indentation level */
@@ -42,9 +41,10 @@ public abstract class PlanitMatsimWriter<T> extends BaseWriterImpl<T> {
   protected MathTransform destinationCrsTransformer = null;
   
   /**
-   * validate the network instance available, throw or log when issues are found
+   * Validate the network instance available, throw or log when issues are found
    * 
    * @param referenceNetwork to use for persisting
+   * @return true when valid, false otherwise
    * @throws PlanItException thrown if invalid
    */
   protected boolean validateNetwork(InfrastructureNetwork<?,?> referenceNetwork) throws PlanItException {
@@ -76,7 +76,7 @@ public abstract class PlanitMatsimWriter<T> extends BaseWriterImpl<T> {
   }  
    
   
-  /** prepare the Crs transformer (if any) based on the user configuration settings. If no destinationCrs is provided than we use the country to try and infer the
+  /** Prepare the Crs transformer (if any) based on the user configuration settings. If no destinationCrs is provided than we use the country to try and infer the
    * most appropriate desintation crs. In case the identified destination crs differs from the network one, we also creata destination transformer which is registered on the instance
    * of the class
    * 
@@ -99,7 +99,7 @@ public abstract class PlanitMatsimWriter<T> extends BaseWriterImpl<T> {
     return identifiedDestinationCrs;
   }   
   
-  /** using the destination crs and its transformer extract the coordinate from the position in the desired crs
+  /** Using the destination crs and its transformer extract the coordinate from the position in the desired crs
    * 
    * @param location to extract destination crs compatible coordinate for
    * @return coordinate created
@@ -118,13 +118,15 @@ public abstract class PlanitMatsimWriter<T> extends BaseWriterImpl<T> {
   }  
   
   /** Constructor
+   * 
    * @param idMapperType to use
    */
   protected PlanitMatsimWriter(IdMapperType idMapperType) {
     super(idMapperType);
   }
   
-  /** add indentation to stream at current indentation level
+  /** Add indentation to stream at current indentation level
+   * 
    * @param xmlWriter to use
    * @throws XMLStreamException thrown if error
    */
@@ -132,13 +134,17 @@ public abstract class PlanitMatsimWriter<T> extends BaseWriterImpl<T> {
     PlanitXmlWriterUtils.writeIndentation(xmlWriter, indentLevel);
   }  
   
-  /** increase indentation level
+  /** Increase indentation level
+   * 
+   * @throws XMLStreamException thrown when error
    */
   protected void increaseIndentation() throws XMLStreamException {
     ++indentLevel;
   }
   
-  /** decrease indentation level
+  /** Decrease indentation level
+   * 
+   * @throws XMLStreamException thrown when error
    */
   protected void decreaseIndentation() throws XMLStreamException {
     --indentLevel;

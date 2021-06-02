@@ -27,6 +27,7 @@ public class PlanitMatsimIntermodalWriterSettings implements ConverterWriterSett
       
   /**
    * Constructor 
+   * 
    * @param outputDirectory to use
    * @param countryName to use
    */
@@ -36,6 +37,7 @@ public class PlanitMatsimIntermodalWriterSettings implements ConverterWriterSett
   
   /**
    * Constructor 
+   * 
    * @param outputDirectory to use
    * @param countryName to use
    * @param networkOutputFileName to use
@@ -50,8 +52,8 @@ public class PlanitMatsimIntermodalWriterSettings implements ConverterWriterSett
   /**
    * Constructor
    * 
-   *  @param network writer settings to use
-   *  @param zoning writer settings to use
+   *  @param networkWriterSettings writer settings to use
+   *  @param zoningWriterSettings writer settings to use
    */
   public PlanitMatsimIntermodalWriterSettings(final PlanitMatsimNetworkWriterSettings networkWriterSettings, final PlanitMatsimZoningWriterSettings zoningWriterSettings) {    
     this.networkSettings = networkWriterSettings;

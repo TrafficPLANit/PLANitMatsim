@@ -12,6 +12,7 @@ public class PlanitMatsimIntermodalWriterFactory {
   /** Create a PLANitMatsimIntermodalWriter which persists PLANit networks and pt infrastructure in MATSIM network format, using all defaults, 
    * requires the user to set output directory afterwards
    * 
+   * @return created MATSim writer
    */
   public static PlanitMatsimIntermodalWriter create() {
     return create(null, CountryNames.WORLD);    
@@ -20,7 +21,7 @@ public class PlanitMatsimIntermodalWriterFactory {
   /** Create a PLANitMatsimIntermodalWriter which persists PLANit networks and pt infrastructure in MATSIM network format
    * 
    * @param outputDirectory to use
-   * @return create matsim writer
+   * @return created MATSim writer
    */
   public static PlanitMatsimIntermodalWriter create(String outputDirectory) {
     return create(outputDirectory, CountryNames.WORLD);    
@@ -31,7 +32,7 @@ public class PlanitMatsimIntermodalWriterFactory {
    * @param outputDirectory to use
    * @param countryName country which the input file represents, used to determine defaults in case not specifically specified in OSM data, when left blank global defaults will be used
    * based on a right hand driving approach
-   * @return create matsim writer
+   * @return created MATSim writer
    */
   public static PlanitMatsimIntermodalWriter create(String outputDirectory, String countryName) {
     PlanitMatsimIntermodalWriterSettings settings= new PlanitMatsimIntermodalWriterSettings(outputDirectory, countryName);
@@ -42,7 +43,7 @@ public class PlanitMatsimIntermodalWriterFactory {
    * settings provided
    * @param networkWriterSettings to use
    * @param zoningWriterSettings to use
-   * @return created matsim writer
+   * @return created MATSim writer
    */
   public static PlanitMatsimIntermodalWriter create(PlanitMatsimNetworkWriterSettings networkWriterSettings, PlanitMatsimZoningWriterSettings zoningWriterSettings) {
     return new PlanitMatsimIntermodalWriter(new PlanitMatsimIntermodalWriterSettings(networkWriterSettings, zoningWriterSettings));

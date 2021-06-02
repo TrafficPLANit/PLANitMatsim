@@ -385,7 +385,7 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
    * Create detailed geometry file compatible with VIA viewer
    * 
    * @param networkLayer to draw from
-   * @throws PlanItException 
+   * @throws PlanItException thrown if error
    */
   protected void writeDetailedGeometryFile(MacroscopicPhysicalNetwork networkLayer) throws PlanItException {
     Path matsimNetworkGeometryPath =  Paths.get(getSettings().getOutputDirectory(), DEFAULT_NETWORK_GEOMETRY_FILE_NAME.concat(DEFAULT_NETWORK_GEOMETRY_FILE_NAME_EXTENSION)).toAbsolutePath();
@@ -472,7 +472,6 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
 
   /**
    * {@inheritDoc}
-   * @throws PlanItException 
    */
   @Override
   public void write(InfrastructureNetwork<?,?> network) throws PlanItException {
