@@ -64,7 +64,7 @@ public class PlanitMatsimNetworkWriterSettings extends PlanitMatsimWriterSetting
   protected Function<MacroscopicLinkSegment,String> linkTypefunction = null;
   
   /**
-   * number of decimals to use, default is {@link Precision.DEFAULT_DECIMAL_FORMAT}
+   * number of decimals to use, default is Precision.DEFAULT_DECIMAL_FORMAT
    */
   protected DecimalFormat decimalFormat = Precision.DEFAULT_DECIMAL_FORMAT; 
   
@@ -77,6 +77,8 @@ public class PlanitMatsimNetworkWriterSettings extends PlanitMatsimWriterSetting
    * initialise the predefined PLANit modes to MATSIM mode mapping, based on the (predefined) mode names. MATSIM
    * seems not to have any predefined modes, so any name can be given to them. We therefore apply
    * the PLANit's name attribute as the id for the mapping to MATSIM mode
+   * 
+   * @return default mode mapping based on predefined modes
    */
   protected static Map<String, String> createDefaultPredefinedModeMapping() {
     Map<String, String> thePlanit2MatsimModeMapping = new HashMap<String, String>();
@@ -247,23 +249,24 @@ public class PlanitMatsimNetworkWriterSettings extends PlanitMatsimWriterSetting
   
   // getters-setters
   
-  /** collect number of decimals used in writing coordinates
+  /** Collect number of decimals used in writing coordinates
+   * 
    * @return number of decimals used
    */
   public DecimalFormat getDecimalFormat() {
     return decimalFormat;
   }
 
-  /** set number of decimals used in writing coordinates
+  /** Set number of decimals used in writing coordinates
    * 
-   * @param coordinateDecimals number of decimals
+   * @param decimalFormat format to use
    */
   public void setDecimalFormat(DecimalFormat decimalFormat) {
     this.decimalFormat = decimalFormat;
   }
   
   /**
-   * allow the user to provide their own function on how to populate the nt_category field of a MATSIM link
+   * Allow the user to provide their own function on how to populate the nt_category field of a MATSIM link
    * based on the link segment that is provided to it
    * 
    * @param linkNtCategoryfunction to apply
@@ -273,7 +276,7 @@ public class PlanitMatsimNetworkWriterSettings extends PlanitMatsimWriterSetting
   }
   
   /**
-   * allow the user to provide their own function on how to populate the nt_type field of a MATSIM link
+   * Allow the user to provide their own function on how to populate the nt_type field of a MATSIM link
    * based on the link segment that is provided to it
    * 
    * @param linkNtTypefunction to apply
@@ -283,16 +286,16 @@ public class PlanitMatsimNetworkWriterSettings extends PlanitMatsimWriterSetting
   }  
   
   /**
-   * allow the user to provide their own function on how to populate the type field of a MATSIM link
+   * Allow the user to provide their own function on how to populate the type field of a MATSIM link
    * based on the link segment that is provided to it
    * 
-   * @param linkNtTypefunction to apply
+   * @param linkTypefunction to apply
    */
   public void setTypeFunction(Function<MacroscopicLinkSegment,String> linkTypefunction) {
     this.linkTypefunction = linkTypefunction;
   }
 
-  /** creating a mapping from actual PLANit modes in the network to the MATSIM mode mapping as per the configuration
+  /** Creating a mapping from actual PLANit modes in the network to the MATSIM mode mapping as per the configuration
    * in this class instance 
    * 
    * @param networkLayer the networkLayer
@@ -316,9 +319,9 @@ public class PlanitMatsimNetworkWriterSettings extends PlanitMatsimWriterSetting
     return generateDetailedLinkGeometryFile;
   }
 
-  /** set the choice for whether or not a detailed geometry file for each link is created. this geometry is extracted from the PLANit link geometry
+  /** Set the choice for whether or not a detailed geometry file for each link is created. this geometry is extracted from the PLANit link geometry
    * 
-   * @param generateDetailedLinkGeometryFile
+   * @param generateDetailedLinkGeometryFile flag indicating to generate geometry file or not
    */
   public void setGenerateDetailedLinkGeometryFile(boolean generateDetailedLinkGeometryFile) {
     this.generateDetailedLinkGeometryFile = generateDetailedLinkGeometryFile;

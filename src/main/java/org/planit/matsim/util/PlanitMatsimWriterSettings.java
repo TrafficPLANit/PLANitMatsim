@@ -39,6 +39,7 @@ public abstract class PlanitMatsimWriterSettings implements ConverterWriterSetti
    * Constructor
    * 
    * @param outputDirectory to use
+   * @param outputFileName to use
    * @param countryName to use
    */
   public PlanitMatsimWriterSettings(final String outputDirectory, final String outputFileName, final String countryName) {
@@ -48,28 +49,32 @@ public abstract class PlanitMatsimWriterSettings implements ConverterWriterSetti
   }   
   
   
-  /** the output directory to use
+  /** The output directory to use
+   * 
    * @return output directory
    */
   public String getOutputDirectory() {
     return this.outputDirectory;
   }
 
-  /** set the output directory to use
+  /** Set the output directory to use
+   * 
    * @param outputDirectory to use
    */
   public void setOutputDirectory(String outputDirectory) {
     this.outputDirectory = outputDirectory;
   }
   
-  /** collect the country name set
+  /** Collect the country name set
+   * 
    * @return country name
    */
   public String getCountry() {
     return countryName;
   }
 
-  /** set the country name to use
+  /** Set the country name to use
+   * 
    * @param countryName to use
    */
   public void setCountry(String countryName) {
