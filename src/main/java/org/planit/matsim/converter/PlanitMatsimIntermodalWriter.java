@@ -4,7 +4,7 @@ import java.util.logging.Logger;
 
 import org.planit.converter.IdMapperType;
 import org.planit.converter.intermodal.IntermodalWriter;
-import org.planit.network.InfrastructureNetwork;
+import org.planit.network.TransportLayerNetwork;
 import org.planit.network.macroscopic.MacroscopicNetwork;
 import org.planit.utils.exceptions.PlanItException;
 import org.planit.zoning.Zoning;
@@ -56,7 +56,7 @@ public class PlanitMatsimIntermodalWriter implements IntermodalWriter {
    * 
    */
   @Override
-  public void write(final InfrastructureNetwork<?, ?> infrastructureNetwork, final Zoning zoning) throws PlanItException {
+  public void write(final TransportLayerNetwork<?, ?> infrastructureNetwork, final Zoning zoning) throws PlanItException {
     PlanItException.throwIfNull(infrastructureNetwork, "network is null when persisting Matsim intermodal network");
     PlanItException.throwIfNull(zoning, "zoning is null when persisting Matsim intermodal network");
     PlanItException.throwIf(!(infrastructureNetwork instanceof MacroscopicNetwork), "Matsim intermodal writer only supports macroscopic networks");

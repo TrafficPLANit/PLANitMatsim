@@ -74,7 +74,7 @@ public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> impleme
       PlanitXmlWriterUtils.startXmlDocument(xmlFileWriterPair.first(), DOCTYPE);
       
       /* body */
-      writeTransitScheduleXML(xmlFileWriterPair.first(), zoning, getSettings().getReferenceNetwork().infrastructureLayers.getFirst());
+      writeTransitScheduleXML(xmlFileWriterPair.first(), zoning, getSettings().getReferenceNetwork().transportLayers.getFirst());
       
     }catch (Exception e) {
       LOGGER.severe(e.getMessage());

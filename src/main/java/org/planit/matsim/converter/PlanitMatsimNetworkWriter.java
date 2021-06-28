@@ -28,7 +28,7 @@ import org.planit.converter.IdMapperType;
 import org.planit.converter.network.NetworkWriter;
 import org.planit.matsim.xml.MatsimNetworkXmlAttributes;
 import org.planit.matsim.xml.MatsimNetworkXmlElements;
-import org.planit.network.InfrastructureNetwork;
+import org.planit.network.TransportLayerNetwork;
 import org.planit.network.macroscopic.MacroscopicNetwork;
 import org.planit.network.macroscopic.physical.MacroscopicPhysicalNetwork;
 import org.planit.utils.exceptions.PlanItException;
@@ -50,7 +50,7 @@ import org.locationtech.jts.geom.LineString;
  * 
  * @author markr
   */
-public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<InfrastructureNetwork<?,?>> implements NetworkWriter{
+public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<TransportLayerNetwork<?,?>> implements NetworkWriter{
   
   /** the logger to use */
   private static final Logger LOGGER = Logger.getLogger(PlanitMatsimNetworkWriter.class.getCanonicalName());
@@ -474,7 +474,7 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
    * {@inheritDoc}
    */
   @Override
-  public void write(InfrastructureNetwork<?,?> network) throws PlanItException {
+  public void write(TransportLayerNetwork<?,?> network) throws PlanItException {
     PlanItException.throwIfNull(network, "network is null, cannot write undefined network to MATSIM format");
     
     boolean networkValid = validateNetwork(network);
@@ -497,7 +497,7 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<Infrastructure
     settings.logSettings();
     
     /* write */
-    final MacroscopicPhysicalNetwork macroscopicPhysicalNetworkLayer = (MacroscopicPhysicalNetwork)macroscopicNetwork.infrastructureLayers.getFirst();
+    final MacroscopicPhysicalNetwork macroscopicPhysicalNetworkLayer = (MacroscopicPhysicalNetwork)macroscopicNetwork.transportLayers.getFirst();
     
     writeXmlNetworkFile(macroscopicPhysicalNetworkLayer);
     if(settings.isGenerateDetailedLinkGeometryFile()) {
