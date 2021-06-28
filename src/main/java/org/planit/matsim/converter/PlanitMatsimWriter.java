@@ -14,7 +14,7 @@ import org.opengis.referencing.operation.MathTransform;
 import org.opengis.referencing.operation.TransformException;
 import org.planit.converter.BaseWriterImpl;
 import org.planit.converter.IdMapperType;
-import org.planit.network.InfrastructureNetwork;
+import org.planit.network.TransportLayerNetwork;
 import org.planit.network.macroscopic.MacroscopicNetwork;
 import org.planit.network.macroscopic.physical.MacroscopicPhysicalNetwork;
 import org.planit.utils.exceptions.PlanItException;
@@ -47,7 +47,7 @@ public abstract class PlanitMatsimWriter<T> extends BaseWriterImpl<T> {
    * @return true when valid, false otherwise
    * @throws PlanItException thrown if invalid
    */
-  protected boolean validateNetwork(InfrastructureNetwork<?,?> referenceNetwork) throws PlanItException {
+  protected boolean validateNetwork(TransportLayerNetwork<?,?> referenceNetwork) throws PlanItException {
     if(referenceNetwork == null) {
       LOGGER.severe("Matsim macroscopic planit network to extract from is null");
       return false;
@@ -58,16 +58,16 @@ public abstract class PlanitMatsimWriter<T> extends BaseWriterImpl<T> {
       return false;
     }
     
-    if(referenceNetwork.infrastructureLayers.isEachLayerEmpty()) {
+    if(referenceNetwork.transportLayers.isEachLayerEmpty()) {
       LOGGER.severe("Planit Network to persist is empty");
       return false;
     }        
 
-    if(referenceNetwork.infrastructureLayers.size()!=1) {
-      LOGGER.severe(String.format("Matsim zoning writer currently only supports networks with a single layer, the provided network has %d",referenceNetwork.infrastructureLayers.size()));
+    if(referenceNetwork.transportLayers.size()!=1) {
+      LOGGER.severe(String.format("Matsim zoning writer currently only supports networks with a single layer, the provided network has %d",referenceNetwork.transportLayers.size()));
       return false;
     }   
-    if(!(referenceNetwork.infrastructureLayers.getFirst() instanceof MacroscopicPhysicalNetwork)) {
+    if(!(referenceNetwork.transportLayers.getFirst() instanceof MacroscopicPhysicalNetwork)) {
       LOGGER.severe(String.format("Matsim only supports macroscopic physical network layers, the provided network is of a different type"));
       return false;
     }
