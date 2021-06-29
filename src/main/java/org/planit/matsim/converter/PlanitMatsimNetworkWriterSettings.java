@@ -12,11 +12,11 @@ import java.util.function.Function;
 import java.util.logging.Logger;
 
 import org.planit.matsim.util.PlanitMatsimWriterSettings;
-import org.planit.network.macroscopic.physical.MacroscopicPhysicalNetwork;
+import org.planit.network.layer.macroscopic.MacroscopicPhysicalLayer;
 import org.planit.utils.math.Precision;
 import org.planit.utils.mode.Mode;
 import org.planit.utils.mode.PredefinedModeType;
-import org.planit.utils.network.physical.macroscopic.MacroscopicLinkSegment;
+import org.planit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
 
 /** Settings for the MATSIM writer
  * 
@@ -301,7 +301,7 @@ public class PlanitMatsimNetworkWriterSettings extends PlanitMatsimWriterSetting
    * @param networkLayer the networkLayer
    * @return the mapped PLANit mode instances to MATSIM modes (string)
    */
-  public Map<Mode, String> createPlanitModeToMatsimModeMapping(MacroscopicPhysicalNetwork networkLayer) {
+  public Map<Mode, String> createPlanitModeToMatsimModeMapping(MacroscopicPhysicalLayer networkLayer) {
     Map<Mode, String> modeToMatsimMapping = new HashMap<Mode, String>();
     for(Mode mode : networkLayer.getSupportedModes()) {
       if(activatedPlanitModes.contains(mode.getName())) {

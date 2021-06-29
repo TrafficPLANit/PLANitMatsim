@@ -15,8 +15,8 @@ import org.opengis.referencing.operation.TransformException;
 import org.planit.converter.BaseWriterImpl;
 import org.planit.converter.IdMapperType;
 import org.planit.network.TransportLayerNetwork;
+import org.planit.network.layer.macroscopic.MacroscopicPhysicalLayer;
 import org.planit.network.macroscopic.MacroscopicNetwork;
-import org.planit.network.macroscopic.physical.MacroscopicPhysicalNetwork;
 import org.planit.utils.exceptions.PlanItException;
 import org.planit.utils.geo.PlanitJtsUtils;
 import org.planit.utils.xml.PlanitXmlWriterUtils;
@@ -67,7 +67,7 @@ public abstract class PlanitMatsimWriter<T> extends BaseWriterImpl<T> {
       LOGGER.severe(String.format("Matsim zoning writer currently only supports networks with a single layer, the provided network has %d",referenceNetwork.transportLayers.size()));
       return false;
     }   
-    if(!(referenceNetwork.transportLayers.getFirst() instanceof MacroscopicPhysicalNetwork)) {
+    if(!(referenceNetwork.transportLayers.getFirst() instanceof MacroscopicPhysicalLayer)) {
       LOGGER.severe(String.format("Matsim only supports macroscopic physical network layers, the provided network is of a different type"));
       return false;
     }
