@@ -18,10 +18,10 @@ import org.planit.converter.IdMapperType;
 import org.planit.converter.zoning.ZoningWriter;
 import org.planit.matsim.xml.MatsimTransitXmlAttributes;
 import org.planit.matsim.xml.MatsimTransitXmlElements;
-import org.planit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
 import org.planit.utils.exceptions.PlanItException;
 import org.planit.utils.misc.Pair;
 import org.planit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
+import org.planit.utils.network.layer.macroscopic.MacroscopicNetworkLayer;
 import org.planit.utils.network.layer.physical.LinkSegment;
 import org.planit.utils.xml.PlanitXmlWriterUtils;
 import org.planit.utils.zoning.Connectoid;
@@ -96,7 +96,7 @@ public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> impleme
    * @param networkLayer to use
    * @throws PlanItException thrown if error
    */
-  protected void writeTransitScheduleXML(XMLStreamWriter xmlWriter, Zoning zoning, MacroscopicNetworkLayerImpl networkLayer) throws PlanItException {
+  protected void writeTransitScheduleXML(XMLStreamWriter xmlWriter, Zoning zoning, MacroscopicNetworkLayer networkLayer) throws PlanItException {
     try {
       writeStartElementNewLine(xmlWriter,MatsimTransitXmlElements.TRANSIT_SCHEDULE, true /* add indentation*/);
       
