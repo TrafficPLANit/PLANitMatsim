@@ -4,8 +4,8 @@ import java.util.logging.Logger;
 
 import org.planit.converter.IdMapperType;
 import org.planit.converter.intermodal.IntermodalWriter;
+import org.planit.network.MacroscopicNetwork;
 import org.planit.network.TransportLayerNetwork;
-import org.planit.network.macroscopic.MacroscopicNetwork;
 import org.planit.utils.exceptions.PlanItException;
 import org.planit.zoning.Zoning;
 

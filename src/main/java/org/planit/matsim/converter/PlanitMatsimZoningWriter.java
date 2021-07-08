@@ -20,8 +20,8 @@ import org.planit.matsim.xml.MatsimTransitXmlAttributes;
 import org.planit.matsim.xml.MatsimTransitXmlElements;
 import org.planit.utils.exceptions.PlanItException;
 import org.planit.utils.misc.Pair;
+import org.planit.utils.network.layer.MacroscopicNetworkLayer;
 import org.planit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
-import org.planit.utils.network.layer.macroscopic.MacroscopicNetworkLayer;
 import org.planit.utils.network.layer.physical.LinkSegment;
 import org.planit.utils.xml.PlanitXmlWriterUtils;
 import org.planit.utils.zoning.Connectoid;
@@ -74,7 +74,7 @@ public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> impleme
       PlanitXmlWriterUtils.startXmlDocument(xmlFileWriterPair.first(), DOCTYPE);
       
       /* body */
-      writeTransitScheduleXML(xmlFileWriterPair.first(), zoning, getSettings().getReferenceNetwork().transportLayers.getFirst());
+      writeTransitScheduleXML(xmlFileWriterPair.first(), zoning, getSettings().getReferenceNetwork().getTransportLayers().getFirst());
       
     }catch (Exception e) {
       LOGGER.severe(e.getMessage());

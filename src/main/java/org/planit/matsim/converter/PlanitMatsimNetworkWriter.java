@@ -28,9 +28,9 @@ import org.planit.converter.IdMapperType;
 import org.planit.converter.network.NetworkWriter;
 import org.planit.matsim.xml.MatsimNetworkXmlAttributes;
 import org.planit.matsim.xml.MatsimNetworkXmlElements;
+import org.planit.network.MacroscopicNetwork;
 import org.planit.network.TransportLayerNetwork;
-import org.planit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
-import org.planit.network.macroscopic.MacroscopicNetwork;
+import org.planit.network.layer.MacroscopicNetworkLayerImpl;
 import org.planit.utils.exceptions.PlanItException;
 import org.planit.utils.graph.Vertex;
 import org.planit.utils.misc.Pair;
@@ -252,7 +252,7 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<TransportLayer
       
       Map<Mode, String> planitModeToMatsimModeMapping = settings.createPlanitModeToMatsimModeMapping(networkLayer);
       /* write link(segments) one by one */
-      for(Link link: networkLayer.links) {
+      for(Link link: networkLayer.getLinks()) {
         writeMatsimLink(xmlWriter, link, planitModeToMatsimModeMapping, linkIdMapping, nodeIdMapping);
       }
       
@@ -312,7 +312,7 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<TransportLayer
       writeStartElementNewLine(xmlWriter,MatsimNetworkXmlElements.NODES, true /* ++indent */);
       
       /* write nodes one by one */
-      for(Node node : networkLayer.nodes) {
+      for(Node node : networkLayer.getNodes()) {
         writeMatsimNode(xmlWriter, node, nodeIdMapping);
       }
       
@@ -396,7 +396,7 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<TransportLayer
       csvPrinter.printRecord("LINK_ID", "GEOMETRY");
       
       Function<MacroscopicLinkSegment, String> linkIdMapping = IdMapperFunctionFactory.createLinkSegmentIdMappingFunction(getIdMapperType());
-      for(MacroscopicLinkSegment linkSegment : networkLayer.linkSegments) {
+      for(MacroscopicLinkSegment linkSegment : networkLayer.getLinkSegments()) {
         
         /* extract geometry to write */
         LineString destinationCrsGeometry = null;
@@ -497,7 +497,7 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<TransportLayer
     settings.logSettings();
     
     /* write */
-    final MacroscopicNetworkLayerImpl macroscopicPhysicalNetworkLayer = (MacroscopicNetworkLayerImpl)macroscopicNetwork.transportLayers.getFirst();
+    final MacroscopicNetworkLayerImpl macroscopicPhysicalNetworkLayer = (MacroscopicNetworkLayerImpl)macroscopicNetwork.getTransportLayers().getFirst();
     
     writeXmlNetworkFile(macroscopicPhysicalNetworkLayer);
     if(settings.isGenerateDetailedLinkGeometryFile()) {
