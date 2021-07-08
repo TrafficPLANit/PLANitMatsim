@@ -5,7 +5,7 @@ import java.nio.file.Paths;
 import java.util.logging.Logger;
 
 import org.planit.matsim.util.PlanitMatsimWriterSettings;
-import org.planit.network.macroscopic.MacroscopicNetwork;
+import org.planit.network.MacroscopicNetwork;
 import org.planit.utils.locale.CountryNames;
 
 /**
