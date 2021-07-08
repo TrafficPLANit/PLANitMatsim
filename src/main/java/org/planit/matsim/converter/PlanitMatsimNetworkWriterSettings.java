@@ -12,7 +12,7 @@ import java.util.function.Function;
 import java.util.logging.Logger;
 
 import org.planit.matsim.util.PlanitMatsimWriterSettings;
-import org.planit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
+import org.planit.network.layer.MacroscopicNetworkLayerImpl;
 import org.planit.utils.math.Precision;
 import org.planit.utils.mode.Mode;
 import org.planit.utils.mode.PredefinedModeType;

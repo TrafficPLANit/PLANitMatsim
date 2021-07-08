@@ -14,9 +14,9 @@ import org.opengis.referencing.operation.MathTransform;
 import org.opengis.referencing.operation.TransformException;
 import org.planit.converter.BaseWriterImpl;
 import org.planit.converter.IdMapperType;
+import org.planit.network.MacroscopicNetwork;
 import org.planit.network.TransportLayerNetwork;
-import org.planit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
-import org.planit.network.macroscopic.MacroscopicNetwork;
+import org.planit.network.layer.MacroscopicNetworkLayerImpl;
 import org.planit.utils.exceptions.PlanItException;
 import org.planit.utils.geo.PlanitJtsUtils;
 import org.planit.utils.xml.PlanitXmlWriterUtils;
@@ -58,16 +58,16 @@ public abstract class PlanitMatsimWriter<T> extends BaseWriterImpl<T> {
       return false;
     }
     
-    if(referenceNetwork.transportLayers.isEachLayerEmpty()) {
+    if(referenceNetwork.getTransportLayers().isEachLayerEmpty()) {
       LOGGER.severe("Planit Network to persist is empty");
       return false;
     }        
 
-    if(referenceNetwork.transportLayers.size()!=1) {
-      LOGGER.severe(String.format("Matsim zoning writer currently only supports networks with a single layer, the provided network has %d",referenceNetwork.transportLayers.size()));
+    if(referenceNetwork.getTransportLayers().size()!=1) {
+      LOGGER.severe(String.format("Matsim zoning writer currently only supports networks with a single layer, the provided network has %d",referenceNetwork.getTransportLayers().size()));
       return false;
     }   
-    if(!(referenceNetwork.transportLayers.getFirst() instanceof MacroscopicNetworkLayerImpl)) {
+    if(!(referenceNetwork.getTransportLayers().getFirst() instanceof MacroscopicNetworkLayerImpl)) {
       LOGGER.severe(String.format("Matsim only supports macroscopic physical network layers, the provided network is of a different type"));
       return false;
     }
