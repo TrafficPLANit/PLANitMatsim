@@ -55,9 +55,15 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<TransportLayer
   /** the logger to use */
   private static final Logger LOGGER = Logger.getLogger(PlanitMatsimNetworkWriter.class.getCanonicalName());
   
-  /** when external ids are used for mapping, they need not be unqiue, in Matsim ids must be unique, we use this map to track
+  /** when external ids are used for mapping, they need not be unique, in Matsim ids must be unique, we use this map to track
    * for duplicates, if found, we append unique identifier */
   private Map<String,LongAdder> usedExternalMatsimLinkIds = new HashMap<String,LongAdder>();
+  
+  /** track number of MATSim nodes persisted */
+  private final LongAdder matsimNodeCounter = new LongAdder();
+  
+  /** track number of MATSim links persisted */
+  private final LongAdder matsimLinkCounter = new LongAdder();
                 
   /**
    * validate the settings making sure minimal output information is available
@@ -121,11 +127,12 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<TransportLayer
     
     try {
       PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimNetworkXmlElements.LINK, indentLevel);           
+      matsimLinkCounter.increment();
       
       /* attributes  of element*/
       {
         /** GEOGRAPHY **/
-        {
+        {                    
           /* ID */
           String matsimLinkId = setUniqueExternalIdIfNeeded(linkSegment, linkIdMapping.apply(linkSegment), usedExternalMatsimLinkIds);
 
@@ -273,7 +280,8 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<TransportLayer
   private void writeMatsimNode(XMLStreamWriter xmlWriter, Node node, Function<Vertex, String> nodeIdMapping) throws PlanItException {
     try {
       PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimNetworkXmlElements.NODE, indentLevel);           
-            
+      matsimNodeCounter.increment();
+      
       /* attributes  of element*/
       {
         /* ID */
@@ -351,6 +359,14 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<TransportLayer
     }
   }     
             
+  /**
+   * Log some aggregate stats on the MATSim writer regarding the number of elements persisted
+   */
+  private void logWriterStats() {
+    LOGGER.info(String.format("[STATS] created %d nodes",matsimNodeCounter.longValue()));
+    LOGGER.info(String.format("[STATS] created %d links",matsimLinkCounter.longValue()));
+  }
+
   /**
    * MATSIM writer settings 
    */
@@ -494,7 +510,7 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<TransportLayer
     settings.setDestinationCoordinateReferenceSystem(destinationCrs);
     
     /* log settings */
-    settings.logSettings();
+    settings.logSettings(macroscopicNetwork);
     
     /* write */
     final MacroscopicNetworkLayerImpl macroscopicPhysicalNetworkLayer = (MacroscopicNetworkLayerImpl)macroscopicNetwork.getTransportLayers().getFirst();
@@ -503,6 +519,8 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<TransportLayer
     if(settings.isGenerateDetailedLinkGeometryFile()) {
       writeDetailedGeometryFile(macroscopicPhysicalNetworkLayer);
     }
+    
+    logWriterStats();
   }
     
 
@@ -512,6 +530,8 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<TransportLayer
   @Override
   public void reset() {
     getSettings().reset();
+    matsimNodeCounter.reset();
+    matsimLinkCounter.reset();
   }
 
   /**
