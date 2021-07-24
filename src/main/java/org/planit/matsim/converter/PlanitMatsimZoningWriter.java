@@ -196,7 +196,7 @@ public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> impleme
             if(!stopFacilityName.isBlank()) {
               stopFacilityName.concat("-");
             }
-            stopFacilityName.concat(transferZone.getName());
+            stopFacilityName = stopFacilityName.concat(transferZone.getName());
         }
         if(!stopFacilityName.isBlank()) {
           xmlWriter.writeAttribute(MatsimTransitXmlAttributes.NAME, stopFacilityName);
