@@ -5,16 +5,15 @@ import java.util.logging.Logger;
 import org.planit.converter.IdMapperType;
 import org.planit.converter.intermodal.IntermodalWriter;
 import org.planit.network.MacroscopicNetwork;
-import org.planit.network.TransportLayerNetwork;
 import org.planit.utils.exceptions.PlanItException;
 import org.planit.zoning.Zoning;
 
 /**
- * A class that takes a PLANit intermodal network and writes it as a MATSIM intermodal network.
+ * A class that takes a PLANit intermodal network and writes it as a MATSim intermodal network.
  * Since an intermodal mapper requires transit elements to reference network elements, the only valid id mapping that
- * we allow is either planit internal ids (default), or planit xml ids. External ids cannot be used since they cannot be guaranteed to be unique
+ * we allow is either PLANit internal ids (default), or PLANit XML ids. External ids cannot be used since they cannot be guaranteed to be unique
  * causing problems with references between links and stop facility link references. If the user still wants to check against the original extrnal ids
- * in Matsim, we still write then as origids.   
+ * in MATSim, we still write then as origids.   
  * 
  * @author markr
  *
@@ -56,7 +55,7 @@ public class PlanitMatsimIntermodalWriter implements IntermodalWriter {
    * 
    */
   @Override
-  public void write(final TransportLayerNetwork<?, ?> infrastructureNetwork, final Zoning zoning) throws PlanItException {
+  public void write(final MacroscopicNetwork infrastructureNetwork, final Zoning zoning) throws PlanItException {
     PlanItException.throwIfNull(infrastructureNetwork, "network is null when persisting Matsim intermodal network");
     PlanItException.throwIfNull(zoning, "zoning is null when persisting Matsim intermodal network");
     PlanItException.throwIf(!(infrastructureNetwork instanceof MacroscopicNetwork), "Matsim intermodal writer only supports macroscopic networks");
