@@ -7,14 +7,14 @@ import org.planit.utils.locale.CountryNames;
  * @author markr
  *
  */
-public class PlanitMatsimNetworkWriterFactory {
+public class MatsimNetworkWriterFactory {
   
   /** Create a PLANitMatsimWriter which persists PLANit networks in MATSIM network format
    * 
    * @return created MATSim writer
    */
-  public static PlanitMatsimNetworkWriter create() {
-    return new PlanitMatsimNetworkWriter();    
+  public static MatsimNetworkWriter create() {
+    return new MatsimNetworkWriter();    
   }  
   
   /** Create a PLANitMatsimWriter which persists PLANit networks in MATSIM network format
@@ -22,7 +22,7 @@ public class PlanitMatsimNetworkWriterFactory {
    * @param outputDirectory to use
    * @return createMATSim MATSim writer
    */
-  public static PlanitMatsimNetworkWriter create(String outputDirectory) {
+  public static MatsimNetworkWriter create(String outputDirectory) {
     return create(outputDirectory, CountryNames.GLOBAL);    
   }
   
@@ -33,8 +33,8 @@ public class PlanitMatsimNetworkWriterFactory {
    * based on a right hand driving approach
    * @return created MATSim writer
    */
-  public static PlanitMatsimNetworkWriter create(String outputDirectory, String countryName) {
-    return create(new PlanitMatsimNetworkWriterSettings(outputDirectory, countryName));    
+  public static MatsimNetworkWriter create(String outputDirectory, String countryName) {
+    return create(new MatsimNetworkWriterSettings(outputDirectory, countryName));    
   }  
   
   /** Create a PLANitMatsimWriter which persists PLANit networks in MATSIM network format
@@ -42,8 +42,8 @@ public class PlanitMatsimNetworkWriterFactory {
    * @param networkSettings to use
    * @return created MATSim writer
    */
-  public static PlanitMatsimNetworkWriter create(PlanitMatsimNetworkWriterSettings networkSettings) {
-    return new PlanitMatsimNetworkWriter(networkSettings);    
+  public static MatsimNetworkWriter create(MatsimNetworkWriterSettings networkSettings) {
+    return new MatsimNetworkWriter(networkSettings);    
   }  
     
 }

@@ -37,15 +37,15 @@ import org.planit.zoning.Zoning;
  * @author markr
  *
  */
-public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> implements ZoningWriter{
+public class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter{
   
-  private static final Logger LOGGER = Logger.getLogger(PlanitMatsimZoningWriter.class.getCanonicalName());
+  private static final Logger LOGGER = Logger.getLogger(MatsimZoningWriter.class.getCanonicalName());
   
   /** the network writer settings used for the matsim reference network */
-  PlanitMatsimNetworkWriterSettings networkWriterSettings;
+  MatsimNetworkWriterSettings networkWriterSettings;
   
   /** the zoning writer settings used for the matsim pt component*/
-  PlanitMatsimZoningWriterSettings zoningWriterSettings;  
+  MatsimZoningWriterSettings zoningWriterSettings;  
     
   /**
    * validate if settings are complete and if not try to salve by adopting settings from the network where possible
@@ -220,7 +220,7 @@ public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> impleme
    * @param zoningWriterSettings to use
    * @param networkWriterSettings the network was configured by when persisting
    */
-  protected PlanitMatsimZoningWriter(PlanitMatsimZoningWriterSettings zoningWriterSettings, PlanitMatsimNetworkWriterSettings networkWriterSettings) {
+  protected MatsimZoningWriter(MatsimZoningWriterSettings zoningWriterSettings, MatsimNetworkWriterSettings networkWriterSettings) {
     super(IdMapperType.ID);
     this.networkWriterSettings = networkWriterSettings;
     this.zoningWriterSettings = zoningWriterSettings;
@@ -269,7 +269,7 @@ public class PlanitMatsimZoningWriter extends PlanitMatsimWriter<Zoning> impleme
    * 
    * @return zoning writer settings
    */
-  public PlanitMatsimZoningWriterSettings getSettings() {
+  public MatsimZoningWriterSettings getSettings() {
     return zoningWriterSettings;
   }
 

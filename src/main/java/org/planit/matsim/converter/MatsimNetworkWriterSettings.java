@@ -35,9 +35,9 @@ import org.planit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
  * @author markr
  *
  */
-public class PlanitMatsimNetworkWriterSettings extends PlanitMatsimWriterSettings {
+public class MatsimNetworkWriterSettings extends PlanitMatsimWriterSettings {
   
-  private static final Logger LOGGER = Logger.getLogger(PlanitMatsimNetworkWriterSettings.class.getCanonicalName());    
+  private static final Logger LOGGER = Logger.getLogger(MatsimNetworkWriterSettings.class.getCanonicalName());    
   
   /** provides the default mapping from planit modes ((predefined) mode name)  to MATSIM mode (string) */
   protected static final Map<PredefinedModeType, String> DEFAULT_PLANIT2MATSIM_MODE_MAPPING;
@@ -134,7 +134,7 @@ public class PlanitMatsimNetworkWriterSettings extends PlanitMatsimWriterSetting
    */
   protected void logSettings(MacroscopicNetwork macroscopicNetwork) {
   
-    Path matsimNetworkPath =  Paths.get(getOutputDirectory(), getOutputFileName().concat(PlanitMatsimWriter.DEFAULT_FILE_NAME_EXTENSION));    
+    Path matsimNetworkPath =  Paths.get(getOutputDirectory(), getOutputFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));    
     LOGGER.info(String.format("Persisting MATSIM network to: %s",matsimNetworkPath.toString()));    
     
     LOGGER.info(String.format("Decimal fidelity set to %s", decimalFormat.getMaximumFractionDigits()));
@@ -181,7 +181,7 @@ public class PlanitMatsimNetworkWriterSettings extends PlanitMatsimWriterSetting
   /** constructor 
    * @param countryName to use
    */
-  public PlanitMatsimNetworkWriterSettings(String countryName){
+  public MatsimNetworkWriterSettings(String countryName){
     this(null, countryName);  
   }
   
@@ -190,7 +190,7 @@ public class PlanitMatsimNetworkWriterSettings extends PlanitMatsimWriterSetting
    * @param outputDirectory to use
    * @param countryName to use
    */
-  public PlanitMatsimNetworkWriterSettings(String outputDirectory, String countryName){
+  public MatsimNetworkWriterSettings(String outputDirectory, String countryName){
     this(outputDirectory, DEFAULT_NETWORK_FILE_NAME, countryName);  }  
   
   /** constructor
@@ -199,7 +199,7 @@ public class PlanitMatsimNetworkWriterSettings extends PlanitMatsimWriterSetting
    * @param outputFileName to use
    * @param countryName to use
    */
-  public PlanitMatsimNetworkWriterSettings(String outputDirectory, String outputFileName, String countryName){
+  public MatsimNetworkWriterSettings(String outputDirectory, String outputFileName, String countryName){
     this.planit2MatsimModeMapping = new HashMap<PredefinedModeType, String>(DEFAULT_PLANIT2MATSIM_MODE_MAPPING);
     this.activatedPlanitModes = new HashSet<PredefinedModeType>(DEFAULT_ACTIVATED_MODES);
     setOutputDirectory(outputDirectory);

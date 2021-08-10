@@ -7,14 +7,14 @@ import org.planit.utils.locale.CountryNames;
  * @author markr
  *
  */
-public class PlanitMatsimIntermodalWriterFactory {
+public class MatsimIntermodalWriterFactory {
   
   /** Create a PLANitMatsimIntermodalWriter which persists PLANit networks and pt infrastructure in MATSIM network format, using all defaults, 
    * requires the user to set output directory afterwards
    * 
    * @return created MATSim writer
    */
-  public static PlanitMatsimIntermodalWriter create() {
+  public static MatsimIntermodalWriter create() {
     return create(null, CountryNames.WORLD);    
   }  
   
@@ -23,7 +23,7 @@ public class PlanitMatsimIntermodalWriterFactory {
    * @param outputDirectory to use
    * @return created MATSim writer
    */
-  public static PlanitMatsimIntermodalWriter create(String outputDirectory) {
+  public static MatsimIntermodalWriter create(String outputDirectory) {
     return create(outputDirectory, CountryNames.WORLD);    
   }
   
@@ -34,9 +34,9 @@ public class PlanitMatsimIntermodalWriterFactory {
    * based on a right hand driving approach
    * @return created MATSim writer
    */
-  public static PlanitMatsimIntermodalWriter create(String outputDirectory, String countryName) {
-    PlanitMatsimIntermodalWriterSettings settings= new PlanitMatsimIntermodalWriterSettings(outputDirectory, countryName);
-    return new PlanitMatsimIntermodalWriter(settings);    
+  public static MatsimIntermodalWriter create(String outputDirectory, String countryName) {
+    MatsimIntermodalWriterSettings settings= new MatsimIntermodalWriterSettings(outputDirectory, countryName);
+    return new MatsimIntermodalWriter(settings);    
   }
 
   /** create  a PLANitMatsimWriter which persists PLANit networks and pt infrastructure in MATSIM network format using the network and zoning
@@ -45,8 +45,8 @@ public class PlanitMatsimIntermodalWriterFactory {
    * @param zoningWriterSettings to use
    * @return created MATSim writer
    */
-  public static PlanitMatsimIntermodalWriter create(PlanitMatsimNetworkWriterSettings networkWriterSettings, PlanitMatsimZoningWriterSettings zoningWriterSettings) {
-    return new PlanitMatsimIntermodalWriter(new PlanitMatsimIntermodalWriterSettings(networkWriterSettings, zoningWriterSettings));
+  public static MatsimIntermodalWriter create(MatsimNetworkWriterSettings networkWriterSettings, MatsimZoningWriterSettings zoningWriterSettings) {
+    return new MatsimIntermodalWriter(new MatsimIntermodalWriterSettings(networkWriterSettings, zoningWriterSettings));
   }  
       
 }

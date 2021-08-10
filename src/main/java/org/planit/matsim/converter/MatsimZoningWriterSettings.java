@@ -14,10 +14,10 @@ import org.planit.utils.locale.CountryNames;
  * @author markr
  *
  */
-public class PlanitMatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
+public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
   
   /** settings to use */
-  private static final Logger LOGGER = Logger.getLogger(PlanitMatsimZoningWriterSettings.class.getCanonicalName());
+  private static final Logger LOGGER = Logger.getLogger(MatsimZoningWriterSettings.class.getCanonicalName());
   
   /** the reference network this zoning is supposed to be compatible with */
   protected MacroscopicNetwork referenceNetwork;  
@@ -31,7 +31,7 @@ public class PlanitMatsimZoningWriterSettings extends PlanitMatsimWriterSettings
    * Log settings
    */
   protected void logSettings() {
-    Path matsimZoningPath =  Paths.get(getOutputDirectory(), getOutputFileName().concat(PlanitMatsimWriter.DEFAULT_FILE_NAME_EXTENSION));    
+    Path matsimZoningPath =  Paths.get(getOutputDirectory(), getOutputFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));    
     LOGGER.info(String.format("Persisting MATSIM pt to: %s",matsimZoningPath.toString()));
   }    
   
@@ -51,7 +51,7 @@ public class PlanitMatsimZoningWriterSettings extends PlanitMatsimWriterSettings
   /**
    * Default constructor using default output file name and Global country name
    */
-  public PlanitMatsimZoningWriterSettings() {
+  public MatsimZoningWriterSettings() {
     this(CountryNames.GLOBAL);
   }
   
@@ -60,7 +60,7 @@ public class PlanitMatsimZoningWriterSettings extends PlanitMatsimWriterSettings
    * 
    *@param countryName to use
    */
-  public PlanitMatsimZoningWriterSettings(final String countryName) {
+  public MatsimZoningWriterSettings(final String countryName) {
     this(null, DEFAULT_TRANSIT_SCHEDULE_FILE_NAME, countryName);
   }   
      
@@ -71,7 +71,7 @@ public class PlanitMatsimZoningWriterSettings extends PlanitMatsimWriterSettings
    * @param outputDirectory to use
    * @param countryName to use
    */
-  public PlanitMatsimZoningWriterSettings(final String outputDirectory, final String countryName) {
+  public MatsimZoningWriterSettings(final String outputDirectory, final String countryName) {
     super(outputDirectory, DEFAULT_TRANSIT_SCHEDULE_FILE_NAME, countryName);
   }  
   
@@ -82,7 +82,7 @@ public class PlanitMatsimZoningWriterSettings extends PlanitMatsimWriterSettings
    * @param outputFileName to use
    * @param countryName to use
    */
-  public PlanitMatsimZoningWriterSettings(final String outputDirectory, final String outputFileName, final String countryName) {
+  public MatsimZoningWriterSettings(final String outputDirectory, final String outputFileName, final String countryName) {
     this(outputDirectory, outputFileName, countryName, null);
   }  
   
@@ -94,7 +94,7 @@ public class PlanitMatsimZoningWriterSettings extends PlanitMatsimWriterSettings
    * @param countryName to use
    * @param referenceNetwork to use
    */
-  public PlanitMatsimZoningWriterSettings(
+  public MatsimZoningWriterSettings(
       final String outputDirectory, final String outputFileName, final String countryName, final MacroscopicNetwork referenceNetwork) {
     super(outputDirectory, outputFileName, countryName);
     setReferenceNetwork(referenceNetwork);

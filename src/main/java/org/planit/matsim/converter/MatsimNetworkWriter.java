@@ -50,10 +50,10 @@ import org.locationtech.jts.geom.LineString;
  * 
  * @author markr
   */
-public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<TransportLayerNetwork<?,?>> implements NetworkWriter{
+public class MatsimNetworkWriter extends MatsimWriter<TransportLayerNetwork<?,?>> implements NetworkWriter{
   
   /** the logger to use */
-  private static final Logger LOGGER = Logger.getLogger(PlanitMatsimNetworkWriter.class.getCanonicalName());
+  private static final Logger LOGGER = Logger.getLogger(MatsimNetworkWriter.class.getCanonicalName());
   
   /** when external ids are used for mapping, they need not be unique, in Matsim ids must be unique, we use this map to track
    * for duplicates, if found, we append unique identifier */
@@ -370,7 +370,7 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<TransportLayer
   /**
    * MATSIM writer settings 
    */
-  protected final PlanitMatsimNetworkWriterSettings settings;
+  protected final MatsimNetworkWriterSettings settings;
   
   /**
    * write the xml MATSIM network
@@ -469,8 +469,8 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<TransportLayer
   /**
    * Default constructor. Initialisng with default output directory and country name on the settings
    */
-  public PlanitMatsimNetworkWriter() {
-    this(new PlanitMatsimNetworkWriterSettings(null));
+  public MatsimNetworkWriter() {
+    this(new MatsimNetworkWriterSettings(null));
   }  
         
   /**
@@ -478,7 +478,7 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<TransportLayer
    * 
    * @param networkSettings network settings to use
    */
-  protected PlanitMatsimNetworkWriter(PlanitMatsimNetworkWriterSettings networkSettings) {
+  protected MatsimNetworkWriter(MatsimNetworkWriterSettings networkSettings) {
     super(IdMapperType.ID);        
     
     /* config settings for writer are found here */
@@ -538,7 +538,7 @@ public class PlanitMatsimNetworkWriter extends PlanitMatsimWriter<TransportLayer
    * {@inheritDoc}
    */
   @Override
-  public PlanitMatsimNetworkWriterSettings getSettings() {
+  public MatsimNetworkWriterSettings getSettings() {
     return settings;
   }
 

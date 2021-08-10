@@ -10,18 +10,18 @@ import org.planit.utils.locale.CountryNames;
  * @author markr
  *
  */
-public class PlanitMatsimIntermodalWriterSettings implements ConverterWriterSettings {
+public class MatsimIntermodalWriterSettings implements ConverterWriterSettings {
   
   /** the network settings to use */
-  protected final PlanitMatsimNetworkWriterSettings networkSettings;
+  protected final MatsimNetworkWriterSettings networkSettings;
   
   /** the zoning settings to use */
-  protected final PlanitMatsimZoningWriterSettings zoningSettings;  
+  protected final MatsimZoningWriterSettings zoningSettings;  
   
   /**
    * Default constructor 
    */
-  public PlanitMatsimIntermodalWriterSettings() {
+  public MatsimIntermodalWriterSettings() {
     this(null, CountryNames.GLOBAL);
   }
       
@@ -31,8 +31,8 @@ public class PlanitMatsimIntermodalWriterSettings implements ConverterWriterSett
    * @param outputDirectory to use
    * @param countryName to use
    */
-  public PlanitMatsimIntermodalWriterSettings(final String outputDirectory, final String countryName) {
-    this(new PlanitMatsimNetworkWriterSettings(outputDirectory, countryName), new PlanitMatsimZoningWriterSettings(outputDirectory, countryName));
+  public MatsimIntermodalWriterSettings(final String outputDirectory, final String countryName) {
+    this(new MatsimNetworkWriterSettings(outputDirectory, countryName), new MatsimZoningWriterSettings(outputDirectory, countryName));
   }  
   
   /**
@@ -43,10 +43,10 @@ public class PlanitMatsimIntermodalWriterSettings implements ConverterWriterSett
    * @param networkOutputFileName to use
    * @param ptOutputFileName to use
    */
-  public PlanitMatsimIntermodalWriterSettings(final String outputDirectory, final String countryName, final String networkOutputFileName, final String ptOutputFileName) {
+  public MatsimIntermodalWriterSettings(final String outputDirectory, final String countryName, final String networkOutputFileName, final String ptOutputFileName) {
     this(
-        new PlanitMatsimNetworkWriterSettings(outputDirectory, networkOutputFileName, countryName), 
-        new PlanitMatsimZoningWriterSettings(outputDirectory, ptOutputFileName, countryName));
+        new MatsimNetworkWriterSettings(outputDirectory, networkOutputFileName, countryName), 
+        new MatsimZoningWriterSettings(outputDirectory, ptOutputFileName, countryName));
   }    
   
   /**
@@ -55,7 +55,7 @@ public class PlanitMatsimIntermodalWriterSettings implements ConverterWriterSett
    *  @param networkWriterSettings writer settings to use
    *  @param zoningWriterSettings writer settings to use
    */
-  public PlanitMatsimIntermodalWriterSettings(final PlanitMatsimNetworkWriterSettings networkWriterSettings, final PlanitMatsimZoningWriterSettings zoningWriterSettings) {    
+  public MatsimIntermodalWriterSettings(final MatsimNetworkWriterSettings networkWriterSettings, final MatsimZoningWriterSettings zoningWriterSettings) {    
     this.networkSettings = networkWriterSettings;
     this.zoningSettings = zoningWriterSettings;
   }  
@@ -74,14 +74,14 @@ public class PlanitMatsimIntermodalWriterSettings implements ConverterWriterSett
   /** Collect zoning settings
    * @return zoning settings
    */
-  public PlanitMatsimZoningWriterSettings getZoningSettings() {
+  public MatsimZoningWriterSettings getZoningSettings() {
     return zoningSettings;
   }
 
   /** Collect network settings
    * @return network settings
    */
-  public  PlanitMatsimNetworkWriterSettings getNetworkSettings() {
+  public  MatsimNetworkWriterSettings getNetworkSettings() {
     return networkSettings;
   }   
   
