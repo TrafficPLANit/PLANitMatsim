@@ -8,7 +8,7 @@ import org.planit.network.MacroscopicNetwork;
  * @author markr
  *
  */
-public class PlanitMatsimZoningWriterFactory {
+public class MatsimZoningWriterFactory {
   
   /** Create a PLANitMatsimZoningWriter (pt output) with defaults. It is expected the user sets the appropriate properties
    * afterwards as required for this particular type of writer
@@ -17,10 +17,10 @@ public class PlanitMatsimZoningWriterFactory {
    * @param referenceNetwork to use the same setup regarding id creation for zoning
    * @return create Matsim zoning (pt) writer
    */
-  public static PlanitMatsimZoningWriter create(PlanitMatsimNetworkWriterSettings networkWriterSettings, MacroscopicNetwork referenceNetwork) {
+  public static MatsimZoningWriter create(MatsimNetworkWriterSettings networkWriterSettings, MacroscopicNetwork referenceNetwork) {
     return create(
-        new PlanitMatsimZoningWriterSettings(
-          networkWriterSettings.getOutputDirectory(), PlanitMatsimZoningWriterSettings.DEFAULT_TRANSIT_SCHEDULE_FILE_NAME, networkWriterSettings.getCountry(), referenceNetwork), 
+        new MatsimZoningWriterSettings(
+          networkWriterSettings.getOutputDirectory(), MatsimZoningWriterSettings.DEFAULT_TRANSIT_SCHEDULE_FILE_NAME, networkWriterSettings.getCountry(), referenceNetwork), 
           networkWriterSettings);    
   }   
       
@@ -30,8 +30,8 @@ public class PlanitMatsimZoningWriterFactory {
    * @param networkWriterSettings to use
    * @return create matsim writer
    */
-  public static PlanitMatsimZoningWriter create(PlanitMatsimZoningWriterSettings zoningWriterSettings, PlanitMatsimNetworkWriterSettings networkWriterSettings) {
-    return new PlanitMatsimZoningWriter(zoningWriterSettings, networkWriterSettings);    
+  public static MatsimZoningWriter create(MatsimZoningWriterSettings zoningWriterSettings, MatsimNetworkWriterSettings networkWriterSettings) {
+    return new MatsimZoningWriter(zoningWriterSettings, networkWriterSettings);    
   }  
    
   
