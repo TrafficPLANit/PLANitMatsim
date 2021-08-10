@@ -27,12 +27,12 @@ import org.planit.utils.xml.PlanitXmlWriterUtils;
  * @author markr
  *
  */
-public abstract class PlanitMatsimWriter<T> extends BaseWriterImpl<T> {
+public abstract class MatsimWriter<T> extends BaseWriterImpl<T> {
 
   /**
    * The logger of this class
    */
-  private static final Logger LOGGER = Logger.getLogger(PlanitMatsimWriter.class.getCanonicalName());
+  private static final Logger LOGGER = Logger.getLogger(MatsimWriter.class.getCanonicalName());
       
   /** track indentation level */
   protected int indentLevel = 0;
@@ -121,7 +121,7 @@ public abstract class PlanitMatsimWriter<T> extends BaseWriterImpl<T> {
    * 
    * @param idMapperType to use
    */
-  protected PlanitMatsimWriter(IdMapperType idMapperType) {
+  protected MatsimWriter(IdMapperType idMapperType) {
     super(idMapperType);
   }
   

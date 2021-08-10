@@ -18,14 +18,14 @@ import org.planit.zoning.Zoning;
  * @author markr
  *
  */
-public class PlanitMatsimIntermodalWriter implements IntermodalWriter {
+public class MatsimIntermodalWriter implements IntermodalWriter {
   
   /** the logger */
   @SuppressWarnings("unused")
-  private static final Logger LOGGER = Logger.getLogger(PlanitMatsimIntermodalWriter.class.getCanonicalName());
+  private static final Logger LOGGER = Logger.getLogger(MatsimIntermodalWriter.class.getCanonicalName());
         
   /** Intermodal settings to use */
-  protected final PlanitMatsimIntermodalWriterSettings settings;
+  protected final MatsimIntermodalWriterSettings settings;
   
   /**
    * the id mapper to use
@@ -34,15 +34,15 @@ public class PlanitMatsimIntermodalWriter implements IntermodalWriter {
       
   /** Default constructor using all default settings for underlying writers 
    */
-  protected PlanitMatsimIntermodalWriter() {
-    this(new PlanitMatsimIntermodalWriterSettings());    
+  protected MatsimIntermodalWriter() {
+    this(new MatsimIntermodalWriterSettings());    
   }  
       
   /** Constructor 
    *
    * @param settings to use
    */
-  protected PlanitMatsimIntermodalWriter(PlanitMatsimIntermodalWriterSettings settings) {  
+  protected MatsimIntermodalWriter(MatsimIntermodalWriterSettings settings) {  
     setIdMapperType(IdMapperType.ID);
     this.settings = settings;
   }  
@@ -69,16 +69,16 @@ public class PlanitMatsimIntermodalWriter implements IntermodalWriter {
             getSettings().getNetworkSettings().getCountry(), getSettings().getZoningSettings().getCountry()));
     
     /* network writer */
-    PlanitMatsimNetworkWriter networkWriter = 
-        PlanitMatsimNetworkWriterFactory.create(getSettings().getNetworkSettings());    
+    MatsimNetworkWriter networkWriter = 
+        MatsimNetworkWriterFactory.create(getSettings().getNetworkSettings());    
 
     /* write network */
     networkWriter.setIdMapperType(idMapper);
     networkWriter.write(infrastructureNetwork);
         
     /* zoning writer */
-    PlanitMatsimZoningWriter zoningWriter = 
-        PlanitMatsimZoningWriterFactory.create(getSettings().getNetworkSettings(), macroscopicNetwork);   
+    MatsimZoningWriter zoningWriter = 
+        MatsimZoningWriterFactory.create(getSettings().getNetworkSettings(), macroscopicNetwork);   
     /* write zoning */
     zoningWriter.setIdMapperType(idMapper);
     zoningWriter.write(zoning);    
@@ -112,7 +112,7 @@ public class PlanitMatsimIntermodalWriter implements IntermodalWriter {
    * {@inheritDoc}
    */    
   @Override
-  public PlanitMatsimIntermodalWriterSettings getSettings() {
+  public MatsimIntermodalWriterSettings getSettings() {
     return settings;
   }
 
