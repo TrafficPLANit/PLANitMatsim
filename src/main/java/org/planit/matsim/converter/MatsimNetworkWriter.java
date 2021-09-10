@@ -39,8 +39,7 @@ import org.planit.utils.mode.Mode;
 import org.planit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
 import org.planit.utils.network.layer.physical.Link;
 import org.planit.utils.network.layer.physical.Node;
-import org.planit.utils.unit.UnitUtils;
-import org.planit.utils.unit.Units;
+import org.planit.utils.unit.Unit;
 import org.planit.utils.xml.PlanitXmlWriterUtils;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineString;
@@ -145,7 +144,7 @@ public class MatsimNetworkWriter extends MatsimWriter<TransportLayerNetwork<?,?>
           xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.TO, nodeIdMapping.apply(((Node) linkSegment.getDownstreamVertex())));
           
           /* LENGTH */
-          xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.LENGTH, String.format("%.2f",UnitUtils.convert(Units.KM, Units.METER, linkSegment.getParentLink().getLengthKm())));  
+          xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.LENGTH, String.format("%.2f",Unit.KM.convertTo(Unit.METER, linkSegment.getParentLink().getLengthKm())));  
         }
         
         if(linkSegment.getLinkSegmentType() == null) {
@@ -156,7 +155,7 @@ public class MatsimNetworkWriter extends MatsimWriter<TransportLayerNetwork<?,?>
         {
           /* SPEED */
           xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.FREESPEED_METER_SECOND, 
-              String.format("%.2f",UnitUtils.convert(Units.KM_HOUR, Units.METER_SECOND, linkSegment.getPhysicalSpeedLimitKmH())));
+              String.format("%.2f",Unit.KM_HOUR.convertTo(Unit.METER_SECOND, linkSegment.getPhysicalSpeedLimitKmH())));
           
           /* CAPACITY */
           xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.CAPACITY_HOUR, String.format("%.1f",linkSegment.getCapacityOrDefaultPcuH()));
