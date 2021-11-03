@@ -1,4 +1,4 @@
-package org.planit.matsim.converter;
+package org.goplanit.matsim.converter;
 
 import java.util.logging.Logger;
 
@@ -6,20 +6,20 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 
 import org.geotools.geometry.jts.JTS;
+import org.goplanit.converter.BaseWriterImpl;
+import org.goplanit.converter.IdMapperType;
+import org.goplanit.network.MacroscopicNetwork;
+import org.goplanit.network.TransportLayerNetwork;
+import org.goplanit.network.layer.MacroscopicNetworkLayerImpl;
+import org.goplanit.utils.exceptions.PlanItException;
+import org.goplanit.utils.geo.PlanitJtsUtils;
+import org.goplanit.utils.xml.PlanitXmlWriterUtils;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Point;
 import org.opengis.geometry.MismatchedDimensionException;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.MathTransform;
 import org.opengis.referencing.operation.TransformException;
-import org.planit.converter.BaseWriterImpl;
-import org.planit.converter.IdMapperType;
-import org.planit.network.MacroscopicNetwork;
-import org.planit.network.TransportLayerNetwork;
-import org.planit.network.layer.MacroscopicNetworkLayerImpl;
-import org.planit.utils.exceptions.PlanItException;
-import org.planit.utils.geo.PlanitJtsUtils;
-import org.planit.utils.xml.PlanitXmlWriterUtils;
 
 /**
  * Base class from which all matsim writers derive

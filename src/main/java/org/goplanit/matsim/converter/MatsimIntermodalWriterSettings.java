@@ -1,8 +1,8 @@
-package org.planit.matsim.converter;
+package org.goplanit.matsim.converter;
 
+import org.goplanit.converter.ConverterWriterSettings;
+import org.goplanit.utils.locale.CountryNames;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.planit.converter.ConverterWriterSettings;
-import org.planit.utils.locale.CountryNames;
 
 /**
  * Settings specific to writing the intermodal related outputs in Matsim format (network and pt)

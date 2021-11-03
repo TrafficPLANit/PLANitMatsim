@@ -1,6 +1,6 @@
-package org.planit.matsim.converter;
+package org.goplanit.matsim.converter;
 
-import org.planit.utils.locale.CountryNames;
+import org.goplanit.utils.locale.CountryNames;
 
 /**
  * Factory for creating PLANitMatsimIntermodalWriters

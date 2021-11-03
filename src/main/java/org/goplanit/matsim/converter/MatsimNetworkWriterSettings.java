@@ -1,4 +1,4 @@
-package org.planit.matsim.converter;
+package org.goplanit.matsim.converter;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -11,15 +11,15 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.logging.Logger;
 
-import org.planit.matsim.util.PlanitMatsimWriterSettings;
-import org.planit.network.MacroscopicNetwork;
-import org.planit.network.layer.MacroscopicNetworkLayerImpl;
-import org.planit.utils.math.Precision;
-import org.planit.utils.misc.StringUtils;
-import org.planit.utils.mode.Mode;
-import org.planit.utils.mode.Modes;
-import org.planit.utils.mode.PredefinedModeType;
-import org.planit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
+import org.goplanit.matsim.util.PlanitMatsimWriterSettings;
+import org.goplanit.network.MacroscopicNetwork;
+import org.goplanit.network.layer.MacroscopicNetworkLayerImpl;
+import org.goplanit.utils.math.Precision;
+import org.goplanit.utils.misc.StringUtils;
+import org.goplanit.utils.mode.Mode;
+import org.goplanit.utils.mode.Modes;
+import org.goplanit.utils.mode.PredefinedModeType;
+import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
 
 /** Settings for the MATSIM writer
  * 

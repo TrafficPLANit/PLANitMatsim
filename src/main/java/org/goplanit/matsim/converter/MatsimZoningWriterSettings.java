@@ -1,12 +1,12 @@
-package org.planit.matsim.converter;
+package org.goplanit.matsim.converter;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.logging.Logger;
 
-import org.planit.matsim.util.PlanitMatsimWriterSettings;
-import org.planit.network.MacroscopicNetwork;
-import org.planit.utils.locale.CountryNames;
+import org.goplanit.matsim.util.PlanitMatsimWriterSettings;
+import org.goplanit.network.MacroscopicNetwork;
+import org.goplanit.utils.locale.CountryNames;
 
 /**
  * Settings specific to writing the zoning related output in Matsim format (pt)
