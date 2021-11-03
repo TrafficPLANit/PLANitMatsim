@@ -1,4 +1,4 @@
-package org.planit.matsim.xml;
+package org.goplanit.matsim.xml;
 
 /**
  * MATSIM transit XML attributes used

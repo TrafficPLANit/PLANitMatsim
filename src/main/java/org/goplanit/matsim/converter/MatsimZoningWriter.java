@@ -1,4 +1,4 @@
-package org.planit.matsim.converter;
+package org.goplanit.matsim.converter;
 
 import java.io.Writer;
 import java.nio.file.Path;
@@ -9,26 +9,26 @@ import java.util.logging.Logger;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 
+import org.goplanit.converter.IdMapperFunctionFactory;
+import org.goplanit.converter.IdMapperType;
+import org.goplanit.converter.zoning.ZoningWriter;
+import org.goplanit.matsim.xml.MatsimTransitXmlAttributes;
+import org.goplanit.matsim.xml.MatsimTransitXmlElements;
+import org.goplanit.utils.exceptions.PlanItException;
+import org.goplanit.utils.misc.Pair;
+import org.goplanit.utils.network.layer.MacroscopicNetworkLayer;
+import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
+import org.goplanit.utils.network.layer.physical.LinkSegment;
+import org.goplanit.utils.xml.PlanitXmlWriterUtils;
+import org.goplanit.utils.zoning.Connectoid;
+import org.goplanit.utils.zoning.DirectedConnectoid;
+import org.goplanit.utils.zoning.DirectedConnectoids;
+import org.goplanit.utils.zoning.Zone;
+import org.goplanit.zoning.Zoning;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Point;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.TransformException;
-import org.planit.converter.IdMapperFunctionFactory;
-import org.planit.converter.IdMapperType;
-import org.planit.converter.zoning.ZoningWriter;
-import org.planit.matsim.xml.MatsimTransitXmlAttributes;
-import org.planit.matsim.xml.MatsimTransitXmlElements;
-import org.planit.utils.exceptions.PlanItException;
-import org.planit.utils.misc.Pair;
-import org.planit.utils.network.layer.MacroscopicNetworkLayer;
-import org.planit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
-import org.planit.utils.network.layer.physical.LinkSegment;
-import org.planit.utils.xml.PlanitXmlWriterUtils;
-import org.planit.utils.zoning.Connectoid;
-import org.planit.utils.zoning.DirectedConnectoid;
-import org.planit.utils.zoning.DirectedConnectoids;
-import org.planit.utils.zoning.Zone;
-import org.planit.zoning.Zoning;
 
 /**
  * A class that takes a PLANit zoning and extracts and writes the MATSIM public transport information to disk. 
