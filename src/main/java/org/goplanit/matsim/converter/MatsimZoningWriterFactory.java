@@ -1,6 +1,6 @@
-package org.planit.matsim.converter;
+package org.goplanit.matsim.converter;
 
-import org.planit.network.MacroscopicNetwork;
+import org.goplanit.network.MacroscopicNetwork;
 
 /**
  * Factory for creating PLANitMatsim zoning writers.

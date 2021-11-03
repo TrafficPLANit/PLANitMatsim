@@ -1,7 +1,7 @@
-package org.planit.matsim.util;
+package org.goplanit.matsim.util;
 
+import org.goplanit.converter.ConverterWriterSettings;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.planit.converter.ConverterWriterSettings;
 
 /**
  * Base writer settings class to be used by all available matsim writer settings classes.

@@ -1,12 +1,12 @@
-package org.planit.matsim.converter;
+package org.goplanit.matsim.converter;
 
 import java.util.logging.Logger;
 
-import org.planit.converter.IdMapperType;
-import org.planit.converter.intermodal.IntermodalWriter;
-import org.planit.network.MacroscopicNetwork;
-import org.planit.utils.exceptions.PlanItException;
-import org.planit.zoning.Zoning;
+import org.goplanit.converter.IdMapperType;
+import org.goplanit.converter.intermodal.IntermodalWriter;
+import org.goplanit.network.MacroscopicNetwork;
+import org.goplanit.utils.exceptions.PlanItException;
+import org.goplanit.zoning.Zoning;
 
 /**
  * A class that takes a PLANit intermodal network and writes it as a MATSim intermodal network.
