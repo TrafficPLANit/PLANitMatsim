@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.goplanit.parentpom</groupId>
 		<artifactId>planit-parentpom</artifactId>
-		<version>0.3.0</version>
+		<version>0.3.1a1</version>
 	</parent>
 
 	<groupId>org.goplanit.matsim</groupId>
