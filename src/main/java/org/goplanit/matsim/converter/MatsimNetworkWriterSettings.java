@@ -96,6 +96,7 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterSettings {
   /** Collect the default mapping from PLANit predefined mode to MATSim mode
    * 
    * @param modeType to get MATSim default mapping for
+   * @return default mapping found
    */
   protected static String getDefaultPredefinedModeMappings(PredefinedModeType modeType) {
     switch (modeType) {
