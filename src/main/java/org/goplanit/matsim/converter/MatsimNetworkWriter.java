@@ -154,8 +154,13 @@ public class MatsimNetworkWriter extends MatsimWriter<TransportLayerNetwork<?,?>
         /** MODELLING PARAMETERS **/
         {
           /* SPEED */
+          double linkSpeedLimit = linkSegment.getPhysicalSpeedLimitKmH();
+          if(getSettings().isRestrictLinkSpeedBySupportedModes()) {
+            double minModeSpeed = planitModeToMatsimModeMapping.keySet().stream().map(m -> m.getMaximumSpeedKmH()).sorted().findFirst().orElse(linkSpeedLimit);
+            linkSpeedLimit = Math.min(linkSpeedLimit, minModeSpeed);
+          }
           xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.FREESPEED_METER_SECOND, 
-              String.format("%.2f",Unit.KM_HOUR.convertTo(Unit.METER_SECOND, linkSegment.getPhysicalSpeedLimitKmH())));
+              String.format("%.2f",Unit.KM_HOUR.convertTo(Unit.METER_SECOND, linkSpeedLimit)));
           
           /* CAPACITY */
           xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.CAPACITY_HOUR, String.format("%.1f",linkSegment.getCapacityOrDefaultPcuH()));
@@ -256,7 +261,7 @@ public class MatsimNetworkWriter extends MatsimWriter<TransportLayerNetwork<?,?>
     try {
       writeStartElementNewLine(xmlWriter,MatsimNetworkXmlElements.LINKS, true /* ++indent */);
       
-      Map<Mode, String> planitModeToMatsimModeMapping = settings.createPlanitModeToMatsimModeMapping(networkLayer);
+      Map<Mode, String> planitModeToMatsimModeMapping = settings.collectActivatedPlanitModeToMatsimModeMapping(networkLayer);
       /* write link(segments) one by one */
       for(Link link: networkLayer.getLinks()) {
         writeMatsimLink(xmlWriter, link, planitModeToMatsimModeMapping, linkIdMapping, nodeIdMapping);
