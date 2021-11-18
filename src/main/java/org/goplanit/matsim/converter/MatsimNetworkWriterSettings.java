@@ -75,6 +75,12 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterSettings {
    * it can be used in the VIA viewer to enhance the look of the network which otherwise only depicts the end and start node, default is false
    */
   protected boolean generateDetailedLinkGeometryFile = DEFAULT_GENERATE_DETAILED_LINK_GEOMETRY;
+  
+  /** Flag that indicates if a link's physical speed limit is to be reduced in case only modes with a lower top speed than the speed limit 
+   * are included on this link. for example when a bus only network is generated, the bus max speed might be lower than the link speed limit.
+   * when set to true the speed limit is the minimum of the physical and mode speed limit. When false the physical speed limit it used.
+   */
+  protected boolean restrictLinkSpeedBySupportedModes = DEFAULT_RESTRICT_SPEED_LIMIT_BY_SUPPORTED_MODE;
         
   /**
    * Initialise the predefined PLANit modes to MATSIM mode mapping, based on the (predefined) mode names. MATSIM
@@ -149,9 +155,14 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterSettings {
         LOGGER.warning(String.format("[IGNORED] MATSim writer is only compatible with pedefined PLANit modes, found custom mode with name %s, ignored",planitMode.getName()));
         continue;
       }
-      String mappedMatsimMode = planit2MatsimModeMapping.get(planitMode.getPredefinedModeType());
-      if(!StringUtils.isNullOrBlank(mappedMatsimMode)) {
-        LOGGER.info(String.format("[ACTIVATED] PLANit mode:%s -> MATSIM mode:%s", planitMode.getPredefinedModeType().value(), planit2MatsimModeMapping.get(planitMode.getPredefinedModeType()))); 
+      
+      if(!activatedPlanitModes.contains(planitMode.getPredefinedModeType())) {
+        LOGGER.info(String.format("[DEACTIVATED] PLANit mode:%s", planitMode.getPredefinedModeType().value()));
+      }else {
+        String mappedMatsimMode = planit2MatsimModeMapping.get(planitMode.getPredefinedModeType());
+        if(!StringUtils.isNullOrBlank(mappedMatsimMode)) {
+          LOGGER.info(String.format("[ACTIVATED] PLANit mode:%s -> MATSIM mode:%s", planitMode.getPredefinedModeType().value(), planit2MatsimModeMapping.get(planitMode.getPredefinedModeType()))); 
+        }
       }
     }   
   }
@@ -172,6 +183,11 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterSettings {
    * Default setting for generating detailed link geometry file is false
    */
   public static final Boolean DEFAULT_GENERATE_DETAILED_LINK_GEOMETRY = false;
+  
+  /**
+   * Default setting for restricting a link's max speed by its supported mode max speeds if more restricting
+   */
+  public static final Boolean DEFAULT_RESTRICT_SPEED_LIMIT_BY_SUPPORTED_MODE = false;
   
   /** default mode for all public transport modes in Matsim is pt, so that is what we use for initial mapping */
   public static final String DEFAULT_PUBLIC_TRANSPORT_MODE = "pt";
@@ -212,7 +228,7 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterSettings {
    * @param planitModeType PLANit mode
    * @param matsimMode the new MATSim mode string to use
    */
-  public void overwritePredefinedModeMapping(PredefinedModeType planitModeType, String matsimMode){
+  public void updatePredefinedModeMapping(PredefinedModeType planitModeType, String matsimMode){
     if(planit2MatsimModeMapping.containsKey(planitModeType)) {
       LOGGER.info(String.format("overwriting mode mapping: PLANit mode %s mapped to MATSIM mode %s",planitModeType.toString(), matsimMode));
     }
@@ -223,13 +239,20 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterSettings {
    * 
    * @param planitModeType to deactivate
    */
-  public void deactivatedPredefinedMode(PredefinedModeType planitModeType) {
+  public void deactivatePredefinedMode(PredefinedModeType planitModeType) {
     if(activatedPlanitModes.contains(planitModeType)) {
       LOGGER.info(String.format("deactivating PLANit mode %s for MATSIM network writer", planitModeType));
       activatedPlanitModes.remove(planitModeType); 
     }
   }
   
+  /**
+   * Deactivate all currently activated modes
+   */
+  public void deactivateAllModes() {
+    activatedPlanitModes.clear();    
+  }
+
   /** Activate the provided predefined mode from the activated modes listed for inclusion in the MATSIM network (in mapped form). By default all
    * PLANit modes are active, so this is only needed when a mode has been deactivated earlier
    * 
@@ -300,7 +323,7 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterSettings {
    * @param networkLayer the networkLayer
    * @return the mapped PLANit mode instances to MATSIM modes (string)
    */
-  public Map<Mode, String> createPlanitModeToMatsimModeMapping(MacroscopicNetworkLayerImpl networkLayer) {
+  public Map<Mode, String> collectActivatedPlanitModeToMatsimModeMapping(MacroscopicNetworkLayerImpl networkLayer) {
     Map<Mode, String> modeToMatsimMapping = new HashMap<Mode, String>();
     for(Mode mode : networkLayer.getSupportedModes()) {
       if(!mode.isPredefinedModeType()) {
@@ -333,6 +356,23 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterSettings {
    */
   public void setGenerateDetailedLinkGeometryFile(boolean generateDetailedLinkGeometryFile) {
     this.generateDetailedLinkGeometryFile = generateDetailedLinkGeometryFile;
+  }
+  
+  /** Check if link speed is to be restricted by the supported modes' max speed (if more restrictive)
+   * 
+   * @return true when active, false otherwise
+   */
+  public boolean isRestrictLinkSpeedBySupportedModes() {
+    return restrictLinkSpeedBySupportedModes;
+  }
+
+  /**
+   * Set if link speed is to be restricted by the supported modes' max speed (if more restrictive)
+   * 
+   * @param restrictLinkSpeedBySupportedModes flag to set
+   */
+  public void setRestrictLinkSpeedBySupportedModes(boolean restrictLinkSpeedBySupportedModes) {
+    this.restrictLinkSpeedBySupportedModes = restrictLinkSpeedBySupportedModes;
   }  
   
   /**
