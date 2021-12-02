@@ -35,11 +35,11 @@ public abstract class MatsimWriter<T> extends BaseWriterImpl<T> {
   private static final Logger LOGGER = Logger.getLogger(MatsimWriter.class.getCanonicalName());
       
   /** track indentation level */
-  protected int indentLevel = 0;
+  private int indentLevel = 0;
   
   /** when the destination CRS differs from the network CRS all geometries require transforming, for which this transformer will be initialised */
-  protected MathTransform destinationCrsTransformer = null;
-  
+  private MathTransform destinationCrsTransformer = null;
+    
   /**
    * Validate the network instance available, throw or log when issues are found
    * 
@@ -109,21 +109,13 @@ public abstract class MatsimWriter<T> extends BaseWriterImpl<T> {
   protected Coordinate extractDestinationCrsCompatibleCoordinate(Point location) throws MismatchedDimensionException, TransformException {
     /* geometry of the node (optional) */
     Coordinate coordinate = null;
-    if(destinationCrsTransformer!=null) {
-      coordinate = ((Point)JTS.transform(location, destinationCrsTransformer)).getCoordinate();
+    if(getDestinationCrsTransformer()!=null) {
+      coordinate = ((Point)JTS.transform(location, getDestinationCrsTransformer())).getCoordinate();
     }else {
       coordinate = location.getCoordinate();  
     }
     return coordinate;
   }  
-  
-  /** Constructor
-   * 
-   * @param idMapperType to use
-   */
-  protected MatsimWriter(IdMapperType idMapperType) {
-    super(idMapperType);
-  }
   
   /** Add indentation to stream at current indentation level
    * 
@@ -132,8 +124,9 @@ public abstract class MatsimWriter<T> extends BaseWriterImpl<T> {
    */
   protected void writeIndentation(XMLStreamWriter xmlWriter) throws XMLStreamException {
     PlanitXmlWriterUtils.writeIndentation(xmlWriter, indentLevel);
-  }  
-  
+  }
+
+
   /** Increase indentation level
    * 
    * @throws XMLStreamException thrown when error
@@ -141,7 +134,8 @@ public abstract class MatsimWriter<T> extends BaseWriterImpl<T> {
   protected void increaseIndentation() throws XMLStreamException {
     ++indentLevel;
   }
-  
+
+
   /** Decrease indentation level
    * 
    * @throws XMLStreamException thrown when error
@@ -149,7 +143,8 @@ public abstract class MatsimWriter<T> extends BaseWriterImpl<T> {
   protected void decreaseIndentation() throws XMLStreamException {
     --indentLevel;
   }
-    
+
+
   /**
    * write a start element and add newline afterwards
    * 
@@ -163,8 +158,9 @@ public abstract class MatsimWriter<T> extends BaseWriterImpl<T> {
     if(increaseIndentation) {
       increaseIndentation();
     }
-  }  
-    
+  }
+
+
   /**
    * write an end element and add newline afterwards
    * 
@@ -177,6 +173,24 @@ public abstract class MatsimWriter<T> extends BaseWriterImpl<T> {
       decreaseIndentation(); 
     }
     PlanitXmlWriterUtils.writeEndElementNewLine(xmlWriter, indentLevel);
+  }
+
+
+  /** Constructor
+   * 
+   * @param idMapperType to use
+   */
+  protected MatsimWriter(IdMapperType idMapperType) {
+    super(idMapperType);
+  }
+
+
+  int getIndentLevel() {
+    return indentLevel;
+  }
+  
+  MathTransform getDestinationCrsTransformer() {
+    return destinationCrsTransformer;
   }  
   
   /**

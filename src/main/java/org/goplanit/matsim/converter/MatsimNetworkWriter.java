@@ -24,8 +24,8 @@ import org.geotools.geometry.jts.JTS;
 import org.goplanit.converter.IdMapperFunctionFactory;
 import org.goplanit.converter.IdMapperType;
 import org.goplanit.converter.network.NetworkWriter;
-import org.goplanit.matsim.xml.MatsimNetworkXmlAttributes;
-import org.goplanit.matsim.xml.MatsimNetworkXmlElements;
+import org.goplanit.matsim.xml.MatsimNetworkAttributes;
+import org.goplanit.matsim.xml.MatsimNetworkElements;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.network.TransportLayerNetwork;
 import org.goplanit.network.layer.MacroscopicNetworkLayerImpl;
@@ -125,7 +125,7 @@ public class MatsimNetworkWriter extends MatsimWriter<TransportLayerNetwork<?,?>
     }
     
     try {
-      PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimNetworkXmlElements.LINK, indentLevel);           
+      PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimNetworkElements.LINK, getIndentLevel());           
       matsimLinkCounter.increment();
       
       /* attributes  of element*/
@@ -135,16 +135,16 @@ public class MatsimNetworkWriter extends MatsimWriter<TransportLayerNetwork<?,?>
           /* ID */
           String matsimLinkId = setUniqueExternalIdIfNeeded(linkSegment, linkIdMapping.apply(linkSegment), usedExternalMatsimLinkIds);
 
-          xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.ID, matsimLinkId);
+          xmlWriter.writeAttribute(MatsimNetworkAttributes.ID, matsimLinkId);
     
           /* FROM node */
-          xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.FROM, nodeIdMapping.apply(((Node) linkSegment.getUpstreamVertex())));
+          xmlWriter.writeAttribute(MatsimNetworkAttributes.FROM, nodeIdMapping.apply(((Node) linkSegment.getUpstreamVertex())));
           
           /* TO node */
-          xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.TO, nodeIdMapping.apply(((Node) linkSegment.getDownstreamVertex())));
+          xmlWriter.writeAttribute(MatsimNetworkAttributes.TO, nodeIdMapping.apply(((Node) linkSegment.getDownstreamVertex())));
           
           /* LENGTH */
-          xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.LENGTH, String.format("%.2f",Unit.KM.convertTo(Unit.METER, linkSegment.getParentLink().getLengthKm())));  
+          xmlWriter.writeAttribute(MatsimNetworkAttributes.LENGTH, String.format("%.2f",Unit.KM.convertTo(Unit.METER, linkSegment.getParentLink().getLengthKm())));  
         }
         
         if(linkSegment.getLinkSegmentType() == null) {
@@ -159,14 +159,14 @@ public class MatsimNetworkWriter extends MatsimWriter<TransportLayerNetwork<?,?>
             double minModeSpeed = planitModeToMatsimModeMapping.keySet().stream().map(m -> m.getMaximumSpeedKmH()).sorted().findFirst().orElse(linkSpeedLimit);
             linkSpeedLimit = Math.min(linkSpeedLimit, minModeSpeed);
           }
-          xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.FREESPEED_METER_SECOND, 
+          xmlWriter.writeAttribute(MatsimNetworkAttributes.FREESPEED_METER_SECOND, 
               String.format("%.2f",Unit.KM_HOUR.convertTo(Unit.METER_SECOND, linkSpeedLimit)));
           
           /* CAPACITY */
-          xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.CAPACITY_HOUR, String.format("%.1f",linkSegment.getCapacityOrDefaultPcuH()));
+          xmlWriter.writeAttribute(MatsimNetworkAttributes.CAPACITY_HOUR, String.format("%.1f",linkSegment.getCapacityOrDefaultPcuH()));
           
           /* PERMLANES */
-          xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.PERMLANES, String.valueOf(linkSegment.getNumberOfLanes()));
+          xmlWriter.writeAttribute(MatsimNetworkAttributes.PERMLANES, String.valueOf(linkSegment.getNumberOfLanes()));
           
           /* MODES */
           Set<String> matsimModes = new TreeSet<String>();
@@ -176,7 +176,7 @@ public class MatsimNetworkWriter extends MatsimWriter<TransportLayerNetwork<?,?>
             }
           }
           String allowedModes = matsimModes.stream().collect(Collectors.joining(","));
-          xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.MODES,allowedModes);
+          xmlWriter.writeAttribute(MatsimNetworkAttributes.MODES,allowedModes);
         }
         
         /** OTHER **/
@@ -186,24 +186,24 @@ public class MatsimNetworkWriter extends MatsimWriter<TransportLayerNetwork<?,?>
           /* ORIG ID */
           Object originalExternalId = linkSegment.getExternalId() != null ? linkSegment.getExternalId() : linkSegment.getParentLink().getExternalId();
           if(originalExternalId!= null) {
-            xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.ORIGID, String.valueOf(originalExternalId));
+            xmlWriter.writeAttribute(MatsimNetworkAttributes.ORIGID, String.valueOf(originalExternalId));
           }
           
           /** USER DEFINED **/
           
           /* NT_CATEGORY */
           if(settings.linkNtCategoryfunction != null) {
-            xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.NT_CATEGORY, settings.linkNtCategoryfunction.apply(linkSegment));
+            xmlWriter.writeAttribute(MatsimNetworkAttributes.NT_CATEGORY, settings.linkNtCategoryfunction.apply(linkSegment));
           }
           
           /* NT_CATEGORY */
           if(settings.linkNtTypefunction != null) {
-            xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.NT_TYPE, settings.linkNtTypefunction.apply(linkSegment));
+            xmlWriter.writeAttribute(MatsimNetworkAttributes.NT_TYPE, settings.linkNtTypefunction.apply(linkSegment));
           }
           
           /* TYPE */
           if(settings.linkTypefunction != null) {
-            xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.NT_TYPE, settings.linkTypefunction.apply(linkSegment));
+            xmlWriter.writeAttribute(MatsimNetworkAttributes.NT_TYPE, settings.linkTypefunction.apply(linkSegment));
           }  
           
         }                     
@@ -259,7 +259,7 @@ public class MatsimNetworkWriter extends MatsimWriter<TransportLayerNetwork<?,?>
       Function<MacroscopicLinkSegment, String> linkIdMapping, 
       Function<Vertex, String> nodeIdMapping) throws PlanItException {   
     try {
-      writeStartElementNewLine(xmlWriter,MatsimNetworkXmlElements.LINKS, true /* ++indent */);
+      writeStartElementNewLine(xmlWriter,MatsimNetworkElements.LINKS, true /* ++indent */);
       
       Map<Mode, String> planitModeToMatsimModeMapping = settings.collectActivatedPlanitModeToMatsimModeMapping(networkLayer);
       /* write link(segments) one by one */
@@ -283,21 +283,21 @@ public class MatsimNetworkWriter extends MatsimWriter<TransportLayerNetwork<?,?>
    */
   private void writeMatsimNode(XMLStreamWriter xmlWriter, Node node, Function<Vertex, String> nodeIdMapping) throws PlanItException {
     try {
-      PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimNetworkXmlElements.NODE, indentLevel);           
+      PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimNetworkElements.NODE, getIndentLevel());           
       matsimNodeCounter.increment();
       
       /* attributes  of element*/
       {
         /* ID */
-        xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.ID, nodeIdMapping.apply(node));
+        xmlWriter.writeAttribute(MatsimNetworkAttributes.ID, nodeIdMapping.apply(node));
         
         /* geometry of the node (optional) */
         Coordinate nodeCoordinate = extractDestinationCrsCompatibleCoordinate(node.getPosition());
         if(nodeCoordinate != null) {        
           /* X */
-          xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.X, settings.getDecimalFormat().format(nodeCoordinate.x));
+          xmlWriter.writeAttribute(MatsimNetworkAttributes.X, settings.getDecimalFormat().format(nodeCoordinate.x));
           /* Y */
-          xmlWriter.writeAttribute(MatsimNetworkXmlAttributes.Y, settings.getDecimalFormat().format(nodeCoordinate.y));
+          xmlWriter.writeAttribute(MatsimNetworkAttributes.Y, settings.getDecimalFormat().format(nodeCoordinate.y));
           /* Z coordinate not yet supported */
         }
         
@@ -321,7 +321,7 @@ public class MatsimNetworkWriter extends MatsimWriter<TransportLayerNetwork<?,?>
    */
   private void writeMatsimNodes(XMLStreamWriter xmlWriter, MacroscopicNetworkLayerImpl networkLayer, Function<Vertex, String> nodeIdMapping) throws PlanItException {
     try {
-      writeStartElementNewLine(xmlWriter,MatsimNetworkXmlElements.NODES, true /* ++indent */);
+      writeStartElementNewLine(xmlWriter,MatsimNetworkElements.NODES, true /* ++indent */);
       
       /* write nodes one by one */
       for(Node node : networkLayer.getNodes()) {
@@ -344,7 +344,7 @@ public class MatsimNetworkWriter extends MatsimWriter<TransportLayerNetwork<?,?>
    */
   private void writeMatsimNetworkXML(XMLStreamWriter xmlWriter, MacroscopicNetworkLayerImpl networkLayer) throws PlanItException {
     try {
-      writeStartElementNewLine(xmlWriter,MatsimNetworkXmlElements.NETWORK, true /* add indentation*/);
+      writeStartElementNewLine(xmlWriter,MatsimNetworkElements.NETWORK, true /* add indentation*/);
       
       /* mapping for how to generated id's for various entities */
       Function<Vertex, String> nodeIdMapping = IdMapperFunctionFactory.createVertexIdMappingFunction(getIdMapperType());
@@ -420,8 +420,8 @@ public class MatsimNetworkWriter extends MatsimWriter<TransportLayerNetwork<?,?>
         
         /* extract geometry to write */
         LineString destinationCrsGeometry = null;
-        if(destinationCrsTransformer!=null) {
-          destinationCrsGeometry = ((LineString)JTS.transform(linkSegment.getParentLink().getGeometry(), destinationCrsTransformer));
+        if(getDestinationCrsTransformer()!=null) {
+          destinationCrsGeometry = ((LineString)JTS.transform(linkSegment.getParentLink().getGeometry(), getDestinationCrsTransformer()));
         }else {
           destinationCrsGeometry = linkSegment.getParentLink().getGeometry();  
         }        

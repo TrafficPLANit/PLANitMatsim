@@ -6,7 +6,7 @@ package org.goplanit.matsim.xml;
  * @author markr
  *
  */
-public class MatsimTransitXmlElements {
+public class MatsimTransitElements {
   
   public static final String TRANSIT_SCHEDULE = "transitSchedule";
   

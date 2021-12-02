@@ -6,7 +6,7 @@ package org.goplanit.matsim.xml;
  * @author markr
  *
  */
-public class MatsimNetworkXmlElements {
+public class MatsimNetworkElements {
   
   public static final String LINKS = "links";
   
