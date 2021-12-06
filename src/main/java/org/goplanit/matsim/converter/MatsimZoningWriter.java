@@ -20,10 +20,10 @@ public class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWr
   /** Logger to use */
   private static final Logger LOGGER = Logger.getLogger(MatsimZoningWriter.class.getCanonicalName());
   
-  /** the network writer settings used for the matsim reference network */
+  /** the network writer settings used for the MATSim reference network */
   private final MatsimNetworkWriterSettings networkWriterSettings;
   
-  /** the zoning writer settings used for the matsim pt component*/
+  /** the zoning writer settings used for the MATSim pt component*/
   private final MatsimZoningWriterSettings zoningWriterSettings;  
     
   /**
@@ -36,7 +36,7 @@ public class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWr
         LOGGER.info(String.format("Matsim zoning output directory not set, adopting network output directory %s instead", getSettings().getOutputDirectory()));
       }
     }
-  }  
+  }    
     
 
   /** constructor 
@@ -93,6 +93,8 @@ public class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWr
     if(getSettings().isGenerateMatrixBasedPtRouterFiles()) {
       new MatsimPtMatrixBasedRouterWriter(this).write(zoning);
     }
+    
+    
   }
 
   /**
