@@ -3,6 +3,7 @@ package org.goplanit.matsim.converter;
 import java.io.Writer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Function;
 import java.util.logging.Logger;
 
@@ -40,6 +41,9 @@ class MatsimPtXmlWriter {
   
   /** the zoning writer used for the MATSim pt component*/
   private final MatsimZoningWriter zoningWriter; 
+  
+  /** track number of MATSim stop facilities persisted */
+  private final LongAdder matsimStopFacilityCounter = new LongAdder();    
     
 
   /** write the transit stops (stop facilities) which we extract from the planit directed connectoids
@@ -55,7 +59,7 @@ class MatsimPtXmlWriter {
       zoningWriter.writeStartElementNewLine(xmlWriter,MatsimTransitElements.TRANSIT_STOPS, true /* add indentation*/);
            
       /* directed connectoids as stop facilities */      
-      writeMatsimStopFacilities(xmlWriter, zoning.transferConnectoids, stopFacilityIdMapping, linkSegmentReferenceIdMapping);
+      writeMatsimStopFacilities(xmlWriter, zoning.getTransferConnectoids(), stopFacilityIdMapping, linkSegmentReferenceIdMapping);
                   
       zoningWriter.writeEndElementNewLine(xmlWriter, true /* undo indentation */ ); // transit schedule
     } catch (XMLStreamException e) {
@@ -74,8 +78,9 @@ class MatsimPtXmlWriter {
    */
   private void writeMatsimStopFacilities(
       XMLStreamWriter xmlWriter, DirectedConnectoids transferConnectoids, Function<Connectoid, String> stopFacilityIdMapping, Function<MacroscopicLinkSegment, String> linkSegmentIdMapping) throws PlanItException {
-    for(DirectedConnectoid transferConnectoid : transferConnectoids) {
+    for(var transferConnectoid : transferConnectoids) {
       writeMatsimStopFacility(xmlWriter, transferConnectoid, stopFacilityIdMapping, linkSegmentIdMapping);
+      matsimStopFacilityCounter.increment();
     }
   }
 
@@ -132,7 +137,7 @@ class MatsimPtXmlWriter {
         
         /* STOP_AREA_ID (v2) - not supported yet in MATSIM I believe, when it is, we can use our transfer zone groups to map these */
         
-        /* IS_BLOCKING - unknown information in planit at this point */
+        /* IS_BLOCKING - unknown information in PLANit at this point */
         
       }
       
@@ -142,6 +147,13 @@ class MatsimPtXmlWriter {
       throw new PlanItException("error while writing MATSIM stopFacility element id:%d",transferConnectoid.getId());
     }
   }
+  
+  /**
+   * Log some aggregate stats on the MATSim writer regarding the number of elements persisted
+   */
+  private void logWriterStats() {
+    LOGGER.info(String.format("[STATS] created %d stop facilities",matsimStopFacilityCounter.longValue()));
+  }   
 
   /** Starting point for persisting the MATSim transit schedule file
    * 
@@ -172,6 +184,8 @@ class MatsimPtXmlWriter {
         LOGGER.severe("Unable to finalise Xml document after planit exception");  
       }
     }
+    
+    logWriterStats();
   }  
   
   /** convert the PLANit public transport infrastructure to MATSim transit schedule XML
