@@ -28,7 +28,7 @@ import org.goplanit.matsim.xml.MatsimNetworkAttributes;
 import org.goplanit.matsim.xml.MatsimNetworkElements;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.network.TransportLayerNetwork;
-import org.goplanit.network.layer.MacroscopicNetworkLayerImpl;
+import org.goplanit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
 import org.goplanit.utils.exceptions.PlanItException;
 import org.goplanit.utils.graph.Vertex;
 import org.goplanit.utils.misc.Pair;

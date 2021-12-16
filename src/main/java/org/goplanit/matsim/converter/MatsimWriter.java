@@ -10,7 +10,7 @@ import org.goplanit.converter.BaseWriterImpl;
 import org.goplanit.converter.IdMapperType;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.network.TransportLayerNetwork;
-import org.goplanit.network.layer.MacroscopicNetworkLayerImpl;
+import org.goplanit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
 import org.goplanit.utils.exceptions.PlanItException;
 import org.goplanit.utils.geo.PlanitJtsUtils;
 import org.goplanit.utils.xml.PlanitXmlWriterUtils;
