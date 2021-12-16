@@ -13,7 +13,7 @@ import java.util.logging.Logger;
 
 import org.goplanit.matsim.util.PlanitMatsimWriterSettings;
 import org.goplanit.network.MacroscopicNetwork;
-import org.goplanit.network.layer.MacroscopicNetworkLayerImpl;
+import org.goplanit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
 import org.goplanit.utils.math.Precision;
 import org.goplanit.utils.misc.StringUtils;
 import org.goplanit.utils.mode.Mode;
