@@ -23,7 +23,7 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
   protected MacroscopicNetwork referenceNetwork;  
   
   /**
-   * While persisting generate the input files for the MATSim PtMatrixRouter contribution as per {@link https://github.com/matsim-org/matsim-libs/tree/master/contribs/matrixbasedptrouter} 
+   * While persisting generate the input files for the MATSim PtMatrixRouter contribution as per <a href="https://github.com/matsim-org/matsim-libs/tree/master/contribs/matrixbasedptrouter">MATSim matrix based Pt router</a> 
    */
   protected boolean generateMatrixBasedPtRouterFiles = DEFAULT_GENERATE_MATRIX_BASED_PT_ROUTER_FILES;
   
