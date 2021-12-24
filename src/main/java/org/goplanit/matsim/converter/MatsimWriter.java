@@ -9,7 +9,7 @@ import org.geotools.geometry.jts.JTS;
 import org.goplanit.converter.BaseWriterImpl;
 import org.goplanit.converter.IdMapperType;
 import org.goplanit.network.MacroscopicNetwork;
-import org.goplanit.network.TransportLayerNetwork;
+import org.goplanit.network.LayeredNetwork;
 import org.goplanit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
 import org.goplanit.utils.exceptions.PlanItException;
 import org.goplanit.utils.geo.PlanitJtsUtils;
@@ -47,7 +47,7 @@ public abstract class MatsimWriter<T> extends BaseWriterImpl<T> {
    * @return true when valid, false otherwise
    * @throws PlanItException thrown if invalid
    */
-  protected boolean validateNetwork(TransportLayerNetwork<?,?> referenceNetwork) throws PlanItException {
+  protected boolean validateNetwork(LayeredNetwork<?,?> referenceNetwork) throws PlanItException {
     if(referenceNetwork == null) {
       LOGGER.severe("Matsim macroscopic planit network to extract from is null");
       return false;

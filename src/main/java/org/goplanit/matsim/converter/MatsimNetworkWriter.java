@@ -27,7 +27,7 @@ import org.goplanit.converter.network.NetworkWriter;
 import org.goplanit.matsim.xml.MatsimNetworkAttributes;
 import org.goplanit.matsim.xml.MatsimNetworkElements;
 import org.goplanit.network.MacroscopicNetwork;
-import org.goplanit.network.TransportLayerNetwork;
+import org.goplanit.network.LayeredNetwork;
 import org.goplanit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
 import org.goplanit.utils.exceptions.PlanItException;
 import org.goplanit.utils.graph.Vertex;
@@ -49,7 +49,7 @@ import org.locationtech.jts.geom.LineString;
  * 
  * @author markr
   */
-public class MatsimNetworkWriter extends MatsimWriter<TransportLayerNetwork<?,?>> implements NetworkWriter{
+public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> implements NetworkWriter{
   
   /** the logger to use */
   private static final Logger LOGGER = Logger.getLogger(MatsimNetworkWriter.class.getCanonicalName());
@@ -494,7 +494,7 @@ public class MatsimNetworkWriter extends MatsimWriter<TransportLayerNetwork<?,?>
    * {@inheritDoc}
    */
   @Override
-  public void write(TransportLayerNetwork<?,?> network) throws PlanItException {
+  public void write(LayeredNetwork<?,?> network) throws PlanItException {
     PlanItException.throwIfNull(network, "network is null, cannot write undefined network to MATSIM format");
     
     boolean networkValid = validateNetwork(network);
