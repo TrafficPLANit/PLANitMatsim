@@ -93,7 +93,6 @@ class MatsimPtMatrixBasedRouterWriter {
    * Constructor 
    * 
    * @param zoningWriter to use
-   * @param zoning to use
    */
   public MatsimPtMatrixBasedRouterWriter(final MatsimZoningWriter zoningWriter) {
     this.zoningWriter = zoningWriter;
