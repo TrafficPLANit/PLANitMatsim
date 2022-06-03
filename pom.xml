@@ -37,9 +37,7 @@
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
-			<!-- only used locally for testing so not an actual dependency for using 
-				the API -->
-			<optional>true</optional>
+			<scope>test</scope>
 		</dependency>
 
 	</dependencies>
