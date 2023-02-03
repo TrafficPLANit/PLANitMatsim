@@ -13,9 +13,9 @@ import javax.xml.stream.XMLStreamWriter;
 import org.goplanit.converter.IdMapperFunctionFactory;
 import org.goplanit.matsim.xml.MatsimTransitAttributes;
 import org.goplanit.matsim.xml.MatsimTransitElements;
+import org.goplanit.service.routed.RoutedServices;
 import org.goplanit.utils.exceptions.PlanItException;
 import org.goplanit.utils.misc.Pair;
-import org.goplanit.utils.network.layer.MacroscopicNetworkLayer;
 import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
 import org.goplanit.utils.network.layer.physical.LinkSegment;
 import org.goplanit.utils.xml.PlanitXmlWriterUtils;
@@ -40,7 +40,7 @@ class MatsimPtXmlWriter {
   private static final Logger LOGGER = Logger.getLogger(MatsimPtXmlWriter.class.getCanonicalName());
   
   /** the zoning writer used for the MATSim pt component*/
-  private final MatsimZoningWriter zoningWriter; 
+  private final MatsimWriter<?> matsimWriter;
   
   /** track number of MATSim stop facilities persisted */
   private final LongAdder matsimStopFacilityCounter = new LongAdder();    
@@ -56,12 +56,12 @@ class MatsimPtXmlWriter {
    */
   private void writeMatsimTransitStops(XMLStreamWriter xmlWriter, Zoning zoning, Function<Connectoid, String> stopFacilityIdMapping, Function<MacroscopicLinkSegment, String> linkSegmentReferenceIdMapping) throws PlanItException {
     try {
-      zoningWriter.writeStartElementNewLine(xmlWriter,MatsimTransitElements.TRANSIT_STOPS, true /* add indentation*/);
+      matsimWriter.writeStartElementNewLine(xmlWriter,MatsimTransitElements.TRANSIT_STOPS, true /* add indentation*/);
            
       /* directed connectoids as stop facilities */      
       writeMatsimStopFacilities(xmlWriter, zoning.getTransferConnectoids(), stopFacilityIdMapping, linkSegmentReferenceIdMapping);
                   
-      zoningWriter.writeEndElementNewLine(xmlWriter, true /* undo indentation */ ); // transit schedule
+      matsimWriter.writeEndElementNewLine(xmlWriter, true /* undo indentation */ ); // transit schedule
     } catch (XMLStreamException e) {
       LOGGER.severe(e.getMessage());
       throw new PlanItException("error while writing MATSIM transitStops XML element");
@@ -94,7 +94,7 @@ class MatsimPtXmlWriter {
    */  
   private void writeMatsimStopFacility(XMLStreamWriter xmlWriter, DirectedConnectoid transferConnectoid, Function<Connectoid, String> stopFacilityIdMapping, Function<MacroscopicLinkSegment, String> linkSegmentIdMapping) throws PlanItException {
     try {
-      PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimTransitElements.STOP_FACILITY, zoningWriter.getIndentLevel());           
+      PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimTransitElements.STOP_FACILITY, matsimWriter.getIndentLevel());
             
       /* attributes  of element*/
       {
@@ -110,12 +110,12 @@ class MatsimPtXmlWriter {
         /* for now we use the downstream vertex of the access link segment as the stop location */
         Point stopFacilityLocation = accessLinkSegment.getDownstreamVertex().getPosition();
         
-        Coordinate nodeCoordinate = zoningWriter.extractDestinationCrsCompatibleCoordinate(stopFacilityLocation);
+        Coordinate nodeCoordinate = matsimWriter.extractDestinationCrsCompatibleCoordinate(stopFacilityLocation);
         if(nodeCoordinate != null) {        
           /* X */
-          xmlWriter.writeAttribute(MatsimTransitAttributes.X, zoningWriter.getNetworkWriterSettings().getDecimalFormat().format(nodeCoordinate.x));
+          xmlWriter.writeAttribute(MatsimTransitAttributes.X, matsimWriter.getSettings().getDecimalFormat().format(nodeCoordinate.x));
           /* Y */
-          xmlWriter.writeAttribute(MatsimTransitAttributes.Y, zoningWriter.getNetworkWriterSettings().getDecimalFormat().format(nodeCoordinate.y));
+          xmlWriter.writeAttribute(MatsimTransitAttributes.Y, matsimWriter.getSettings().getDecimalFormat().format(nodeCoordinate.y));
           /* Z coordinate (v2) not supported */
         }
         
@@ -155,13 +155,13 @@ class MatsimPtXmlWriter {
     LOGGER.info(String.format("[STATS] created %d stop facilities",matsimStopFacilityCounter.longValue()));
   }   
 
-  /** Starting point for persisting the MATSim transit schedule file
+  /** Starting point for persisting the MATSim transit schedule file (infrastructure, e.g., stops and stations, only)
    * 
    * @param zoning to persist
    * @throws PlanItException  thrown if error
    */
   protected void writeXmlTransitScheduleFile(Zoning zoning) throws PlanItException {
-    Path matsimNetworkPath =  Paths.get(zoningWriter.getSettings().getOutputDirectory(), zoningWriter.getSettings().getOutputFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));    
+    Path matsimNetworkPath =  Paths.get(matsimWriter.getSettings().getOutputDirectory(), matsimWriter.getSettings().getOutputFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
     Pair<XMLStreamWriter,Writer> xmlFileWriterPair = PlanitXmlWriterUtils.createXMLWriter(matsimNetworkPath);
     LOGGER.info(String.format("Persisting MATSIM public transport schedule to: %s",matsimNetworkPath.toString()));
     
@@ -170,7 +170,7 @@ class MatsimPtXmlWriter {
       PlanitXmlWriterUtils.startXmlDocument(xmlFileWriterPair.first(), MatsimZoningWriter.DOCTYPE);
       
       /* body */
-      writeTransitScheduleXML(xmlFileWriterPair.first(), zoning, zoningWriter.getSettings().getReferenceNetwork().getTransportLayers().getFirst());
+      writeTransitScheduleXML(xmlFileWriterPair.first(), zoning);
       
     }catch (Exception e) {
       LOGGER.severe(e.getMessage());
@@ -181,31 +181,41 @@ class MatsimPtXmlWriter {
       try {
         PlanitXmlWriterUtils.endXmlDocument(xmlFileWriterPair);
       }catch(Exception e) {
-        LOGGER.severe("Unable to finalise Xml document after planit exception");  
+        LOGGER.severe("Unable to finalise Xml document after PLANit exception");
       }
     }
     
     logWriterStats();
-  }  
+  }
+
+  /** Starting point for persisting the MATSim transit schedule file of stops, stations and routed services
+   *
+   * @param routedServices to persist
+   * @param routedServicesSettings to use
+   * @throws PlanItException  thrown if error
+   */
+  protected void writeXmlTransitScheduleFile(RoutedServices routedServices, MatsimRoutedServicesWriterSettings routedServicesSettings) throws PlanItException {
+    //todo: have a look at writeXmlTransitScheduleFile for zoning above such that we can extract common parts where possible, then continue with routed services
+    throw new PlanItException("CONTINUE HERE, NOT YET IMPLEMENTED");
+  }
   
   /** convert the PLANit public transport infrastructure to MATSim transit schedule XML
    * @param xmlWriter to use
    * @param zoning to use
-   * @param networkLayer to use
    * @throws PlanItException thrown if error
    */
-  protected void writeTransitScheduleXML(XMLStreamWriter xmlWriter, Zoning zoning, MacroscopicNetworkLayer networkLayer) throws PlanItException {
+  protected void writeTransitScheduleXML(XMLStreamWriter xmlWriter, Zoning zoning) throws PlanItException {
     try {
-      zoningWriter.writeStartElementNewLine(xmlWriter,MatsimTransitElements.TRANSIT_SCHEDULE, true /* add indentation*/);
+      matsimWriter.writeStartElementNewLine(xmlWriter,MatsimTransitElements.TRANSIT_SCHEDULE, true /* add indentation*/);
       
       /* mapping for how to generated id's for various entities */
-      Function<Connectoid, String> stopFacilityIdMapping = IdMapperFunctionFactory.createConnectoidIdMappingFunction(zoningWriter.getIdMapperType());
-      Function<MacroscopicLinkSegment, String> linkSegmentReferenceIdMapping = IdMapperFunctionFactory.createLinkSegmentIdMappingFunction(zoningWriter.getIdMapperType());
+      Function<Connectoid, String> stopFacilityIdMapping = IdMapperFunctionFactory.createConnectoidIdMappingFunction(matsimWriter.getIdMapperType());
+      Function<MacroscopicLinkSegment, String> linkSegmentReferenceIdMapping = IdMapperFunctionFactory.createLinkSegmentIdMappingFunction(matsimWriter.getIdMapperType());
       
       /* directed connectoids as stop facilities */
       writeMatsimTransitStops(xmlWriter, zoning, stopFacilityIdMapping, linkSegmentReferenceIdMapping);
                   
-      zoningWriter.writeEndElementNewLine(xmlWriter, true /* undo indentation */ ); // transit schedule
+      matsimWriter.writeEndElementNewLine(xmlWriter, true /* undo indentation */ ); // transit schedule
     } catch (XMLStreamException e) {
       LOGGER.severe(e.getMessage());
       throw new PlanItException("error while writing MATSIM transitSchedule XML element");
@@ -215,9 +225,9 @@ class MatsimPtXmlWriter {
   /**
    * Constructor 
    * 
-   * @param zoningWriter to use
+   * @param matsimWriter to use
    */
-  public MatsimPtXmlWriter(final MatsimZoningWriter zoningWriter) {
-    this.zoningWriter = zoningWriter;
+  public MatsimPtXmlWriter(final MatsimWriter<?> matsimWriter) {
+    this.matsimWriter = matsimWriter;
   }
 }

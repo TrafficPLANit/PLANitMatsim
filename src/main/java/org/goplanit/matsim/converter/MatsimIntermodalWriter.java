@@ -5,6 +5,8 @@ import java.util.logging.Logger;
 import org.goplanit.converter.IdMapperType;
 import org.goplanit.converter.intermodal.IntermodalWriter;
 import org.goplanit.network.MacroscopicNetwork;
+import org.goplanit.network.ServiceNetwork;
+import org.goplanit.service.routed.RoutedServices;
 import org.goplanit.utils.exceptions.PlanItException;
 import org.goplanit.zoning.Zoning;
 
@@ -18,7 +20,7 @@ import org.goplanit.zoning.Zoning;
  * @author markr
  *
  */
-public class MatsimIntermodalWriter implements IntermodalWriter {
+public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, RoutedServices> {
   
   /** the logger */
   @SuppressWarnings("unused")
@@ -31,13 +33,56 @@ public class MatsimIntermodalWriter implements IntermodalWriter {
    * the id mapper to use
    */
   protected IdMapperType idMapper;
-      
-  /** Default constructor using all default settings for underlying writers 
+
+  /**
+   * Persist the PLANit network as a MATSIM network to disk
+   *
+   * @param infrastructureNetwork to persist as MATSIM network
+   *
    */
-  protected MatsimIntermodalWriter() {
-    this(new MatsimIntermodalWriterSettings());    
-  }  
-      
+  private void writeMatsimNetwork(MacroscopicNetwork infrastructureNetwork) throws PlanItException {
+    MatsimNetworkWriter networkWriter =
+        MatsimNetworkWriterFactory.create(getSettings().getNetworkSettings());
+
+    /* write network */
+    networkWriter.setIdMapperType(idMapper);
+    networkWriter.write(infrastructureNetwork);
+  }
+
+  /**
+   * Persist the PLANit zoning as a partial MATSIM pt schedule, only containing the stops infrastructure
+   *
+   * @param zoning to extract stops information from
+   * @param infrastructureNetwork to persist as MATSIM network
+   *
+   */
+  private void writeMatsimPartialPtSchedule(Zoning zoning, MacroscopicNetwork infrastructureNetwork) throws PlanItException {
+    /* zoning writer */
+    MatsimZoningWriter zoningWriter =
+        MatsimZoningWriterFactory.create(getSettings().getNetworkSettings(), infrastructureNetwork);
+    /* write zoning */
+    zoningWriter.setIdMapperType(idMapper);
+    zoningWriter.write(zoning);
+  }
+
+  /**
+   * Persist the PLANit routed services, service network, and zoning combined as a full MATSIM pt schedule
+   *
+   * @param serviceNetwork containing all service legs between stops (service nodes) related to physical network links
+   * @param routedServices the services running on the service network
+   * @param zoning to extract stops information from (transfer zones)
+   * @param infrastructureNetwork containing the physical network the service network relates to
+   *
+   */
+  private void writeMatsimFullPtSchedule(ServiceNetwork serviceNetwork, RoutedServices routedServices, Zoning zoning, MacroscopicNetwork infrastructureNetwork) throws PlanItException {
+    /* routed services writer */
+    var routedServicesWriter = MatsimRoutedServicesWriterFactory.create(
+        getSettings().getNetworkSettings(), infrastructureNetwork, zoning, serviceNetwork);
+
+    /* write routed services */
+    routedServicesWriter.write(routedServices);
+  }
+
   /** Constructor 
    *
    * @param settings to use
@@ -48,7 +93,7 @@ public class MatsimIntermodalWriter implements IntermodalWriter {
   }  
       
   /**
-   * Persist the PLANit network and zoning and a MATSIM compatible network to disk
+   * Persist the PLANit network and zoning as a MATSIM network to disk
    * 
    * @param infrastructureNetwork to persist as MATSIM network
    * @param zoning to extract public transport infratructure from (poles, platforms, stations)
@@ -56,33 +101,51 @@ public class MatsimIntermodalWriter implements IntermodalWriter {
    */
   @Override
   public void write(final MacroscopicNetwork infrastructureNetwork, final Zoning zoning) throws PlanItException {
-    PlanItException.throwIfNull(infrastructureNetwork, "network is null when persisting Matsim intermodal network");
-    PlanItException.throwIfNull(zoning, "zoning is null when persisting Matsim intermodal network");
-    PlanItException.throwIf(!(infrastructureNetwork instanceof MacroscopicNetwork), "Matsim intermodal writer only supports macroscopic networks");
-    
-    MacroscopicNetwork macroscopicNetwork = (MacroscopicNetwork)infrastructureNetwork;
-    
+    PlanItException.throwIfNull(infrastructureNetwork, "network is null when persisting MATSIM intermodal network");
+    PlanItException.throwIfNull(zoning, "zoning is null when persisting MATSIM intermodal network");
+    PlanItException.throwIf(!(infrastructureNetwork instanceof MacroscopicNetwork), "MATSIM intermodal writer only supports macroscopic networks");
+
     /* make sure destination country is consistent for both outputs */
     PlanItException.throwIf(!getSettings().getNetworkSettings().getCountry().equals(getSettings().getZoningSettings().getCountry()), 
         String.format(
             "Destination country for intermodal writer should be identical for both network and zoning writer, but found %s and %s instead",
             getSettings().getNetworkSettings().getCountry(), getSettings().getZoningSettings().getCountry()));
-    
-    /* network writer */
-    MatsimNetworkWriter networkWriter = 
-        MatsimNetworkWriterFactory.create(getSettings().getNetworkSettings());    
 
-    /* write network */
-    networkWriter.setIdMapperType(idMapper);
-    networkWriter.write(infrastructureNetwork);
-        
-    /* zoning writer */
-    MatsimZoningWriter zoningWriter = 
-        MatsimZoningWriterFactory.create(getSettings().getNetworkSettings(), macroscopicNetwork);   
-    /* write zoning */
-    zoningWriter.setIdMapperType(idMapper);
-    zoningWriter.write(zoning);    
+    /* network writer */
+    writeMatsimNetwork(infrastructureNetwork);
+
+    /* zoning writer, only persisting stops in absence of services */
+    writeMatsimPartialPtSchedule(zoning, infrastructureNetwork);
   }
+
+
+  /**
+   * Persist the PLANit network and zoning as a MATSIM compatible network to disk
+   *
+   * @param infrastructureNetwork to persist as MATSIM network
+   * @param zoning to extract public transport infratructure from (poles, platforms, stations)
+   * @param serviceNetwork to extract physical routing information from
+   * @param routedServices to extract service routing information from
+   *
+   */
+  @Override
+  public void writeWithServices(MacroscopicNetwork infrastructureNetwork, Zoning zoning, ServiceNetwork serviceNetwork, RoutedServices routedServices) throws PlanItException {
+    PlanItException.throwIfNull(serviceNetwork, "service network is null when persisting MATSIM intermodal network");
+    PlanItException.throwIfNull(routedServices, "routed services are null when persisting MATSIM intermodal network");
+
+    if(getSettings().getRoutedServicesSettings() == null){
+      /* writer should be created with routedServices settings to support full fledged persisting of services to MATSim */
+      LOGGER.warning("MATSim writer was created without support for persisting with PT services, possibly only for PT infrastructure, ignoring call to persist services, abort");
+      return;
+    }
+
+    /* network writer */
+    writeMatsimNetwork(infrastructureNetwork);
+
+    /* persist PT stops, services and schedule*/
+    writeMatsimFullPtSchedule(serviceNetwork, routedServices, zoning, infrastructureNetwork);
+  }
+
 
   /**
    * {@inheritDoc}

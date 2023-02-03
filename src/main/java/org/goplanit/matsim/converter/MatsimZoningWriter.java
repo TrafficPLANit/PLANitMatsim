@@ -9,8 +9,9 @@ import org.goplanit.zoning.Zoning;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 /**
- * A class that takes a PLANit zoning and extracts and writes the MATSIM public transport information to disk. 
- * 
+ * A class that takes a PLANit zoning and extracts and writes the MATSIM public transport information to disk. Since
+ * a PLANit zoning only contains information about stops, a MATsim zoning writer is rather limited in outs outputs. It can only
+ * support MATSim stops and a matrix based assignment on the MATSim side.
  * 
  * @author markr
  *
@@ -60,9 +61,6 @@ public class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWr
     return zoningWriterSettings;
   }
 
-
-  /** the doc type of MATSIM public transport schedule. For now we persist in v1 (v2 does exist but is not documented (yet) in Matsim manual) */
-  public static final String DOCTYPE = "<!DOCTYPE network SYSTEM \"http://www.matsim.org/files/dtd/transitSchedule_v1.dtd\">";         
 
   /**
    * extract public transport information from PLANit zoning and use it to persist as much  of the MATSim public transport

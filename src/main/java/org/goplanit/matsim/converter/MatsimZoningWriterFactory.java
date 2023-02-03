@@ -15,20 +15,23 @@ public class MatsimZoningWriterFactory {
    * 
    * @param networkWriterSettings to use
    * @param referenceNetwork to use the same setup regarding id creation for zoning
-   * @return create Matsim zoning (pt) writer
+   * @return create MATSim zoning (pt) writer
    */
   public static MatsimZoningWriter create(MatsimNetworkWriterSettings networkWriterSettings, MacroscopicNetwork referenceNetwork) {
     return create(
         new MatsimZoningWriterSettings(
-          networkWriterSettings.getOutputDirectory(), MatsimZoningWriterSettings.DEFAULT_TRANSIT_SCHEDULE_FILE_NAME, networkWriterSettings.getCountry(), referenceNetwork), 
+            networkWriterSettings.getOutputDirectory(),
+            MatsimZoningWriterSettings.DEFAULT_TRANSIT_SCHEDULE_FILE_NAME,
+            networkWriterSettings.getCountry(),
+            referenceNetwork),
           networkWriterSettings);    
   }   
       
-  /** Create a PLANitMAtsimWriter
+  /** Create a PLANitMatsimWriter
    * 
    * @param zoningWriterSettings to use
    * @param networkWriterSettings to use
-   * @return create matsim writer
+   * @return create MATSim writer
    */
   public static MatsimZoningWriter create(MatsimZoningWriterSettings zoningWriterSettings, MatsimNetworkWriterSettings networkWriterSettings) {
     return new MatsimZoningWriter(zoningWriterSettings, networkWriterSettings);    

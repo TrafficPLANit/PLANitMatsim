@@ -65,12 +65,7 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterSettings {
    * optional function used to populate the MATSIM link's type field if set
    */    
   protected Function<MacroscopicLinkSegment,String> linkTypefunction = null;
-  
-  /**
-   * number of decimals to use, default is Precision.DEFAULT_DECIMAL_FORMAT
-   */
-  protected DecimalFormat decimalFormat = Precision.DEFAULT_DECIMAL_FORMAT; 
-  
+
   /** when set to true, a separate detailed geometry file is generated that provides the detailed geometry of each link
    * it can be used in the VIA viewer to enhance the look of the network which otherwise only depicts the end and start node, default is false
    */
@@ -90,7 +85,7 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterSettings {
    * @return default mode mapping based on predefined modes
    */
   protected static Map<PredefinedModeType, String> createDefaultPredefinedModeMappings() {
-    Map<PredefinedModeType, String> thePlanit2MatsimModeMapping = new HashMap<PredefinedModeType, String>();
+    Map<PredefinedModeType, String> thePlanit2MatsimModeMapping = new HashMap<>();
     EnumSet<PredefinedModeType> predefinedModes = PredefinedModeType.getPredefinedModeTypesWithout(
         PredefinedModeType.CUSTOM, PredefinedModeType.BICYCLE, PredefinedModeType.PEDESTRIAN  /* exclude */);
     for(PredefinedModeType modeType : predefinedModes) {
@@ -142,7 +137,7 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterSettings {
   protected void logSettings(MacroscopicNetwork macroscopicNetwork) {
   
     Path matsimNetworkPath =  Paths.get(getOutputDirectory(), getOutputFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));    
-    LOGGER.info(String.format("Persisting MATSIM network to: %s",matsimNetworkPath.toString()));    
+    LOGGER.info(String.format("Persisting MATSIM network to: %s", matsimNetworkPath));
     
     LOGGER.info(String.format("Decimal fidelity set to %s", decimalFormat.getMaximumFractionDigits()));
     if(getDestinationCoordinateReferenceSystem() != null) {
@@ -217,8 +212,8 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterSettings {
    * @param countryName to use
    */
   public MatsimNetworkWriterSettings(String outputDirectory, String outputFileName, String countryName){
-    this.planit2MatsimModeMapping = new HashMap<PredefinedModeType, String>(DEFAULT_PLANIT2MATSIM_MODE_MAPPING);
-    this.activatedPlanitModes = new HashSet<PredefinedModeType>(DEFAULT_ACTIVATED_MODES);
+    this.planit2MatsimModeMapping = new HashMap<>(DEFAULT_PLANIT2MATSIM_MODE_MAPPING);
+    this.activatedPlanitModes = new HashSet<>(DEFAULT_ACTIVATED_MODES);
     setOutputDirectory(outputDirectory);
     setCountry(countryName);
     setOutputFileName(outputFileName);
@@ -270,23 +265,7 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterSettings {
   
   
   // getters-setters
-  
-  /** Collect number of decimals used in writing coordinates
-   * 
-   * @return number of decimals used
-   */
-  public DecimalFormat getDecimalFormat() {
-    return decimalFormat;
-  }
 
-  /** Set number of decimals used in writing coordinates
-   * 
-   * @param decimalFormat format to use
-   */
-  public void setDecimalFormat(DecimalFormat decimalFormat) {
-    this.decimalFormat = decimalFormat;
-  }
-  
   /**
    * Allow the user to provide their own function on how to populate the nt_category field of a MATSIM link
    * based on the link segment that is provided to it
