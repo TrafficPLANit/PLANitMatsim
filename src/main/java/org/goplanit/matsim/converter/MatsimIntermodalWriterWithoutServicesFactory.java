@@ -1,13 +1,21 @@
 package org.goplanit.matsim.converter;
 
+import org.goplanit.network.MacroscopicNetwork;
+import org.goplanit.network.ServiceNetwork;
+import org.goplanit.service.routed.RoutedServices;
 import org.goplanit.utils.locale.CountryNames;
+import org.goplanit.zoning.Zoning;
 
 /**
- * Factory for creating PLANitMatsimIntermodalWriters
+ * Factory for creating PLANitMatsimIntermodalWriters that creates a writer that only supports #{@link MatsimIntermodalWriter#write(MacroscopicNetwork, Zoning)} but not
+ * #{@link MatsimIntermodalWriter#writeWithServices(MacroscopicNetwork, Zoning, ServiceNetwork, RoutedServices)}
+ *
  * @author markr
  *
  */
-public class MatsimIntermodalWriterFactory {
+public class MatsimIntermodalWriterWithoutServicesFactory {
+
+  private static boolean SUPPORT_PT_SERVICES = false;
   
   /** Create a PLANitMatsimIntermodalWriter which persists PLANit networks and pt infrastructure in MATSIM network format, using all defaults, 
    * requires the user to set output directory afterwards
@@ -35,7 +43,7 @@ public class MatsimIntermodalWriterFactory {
    * @return created MATSim writer
    */
   public static MatsimIntermodalWriter create(String outputDirectory, String countryName) {
-    MatsimIntermodalWriterSettings settings= new MatsimIntermodalWriterSettings(outputDirectory, countryName);
+    MatsimIntermodalWriterSettings settings= new MatsimIntermodalWriterSettings(outputDirectory, countryName, SUPPORT_PT_SERVICES);
     return new MatsimIntermodalWriter(settings);    
   }
 

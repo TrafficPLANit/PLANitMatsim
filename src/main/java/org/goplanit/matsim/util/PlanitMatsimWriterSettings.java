@@ -1,7 +1,10 @@
 package org.goplanit.matsim.util;
 
 import org.goplanit.converter.ConverterWriterSettings;
+import org.goplanit.utils.math.Precision;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
+
+import java.text.DecimalFormat;
 
 /**
  * Base writer settings class to be used by all available matsim writer settings classes.
@@ -26,8 +29,18 @@ public abstract class PlanitMatsimWriterSettings implements ConverterWriterSetti
   protected String countryName;
   
   /** the coordinate reference system used for writing entities of this network */
-  protected CoordinateReferenceSystem destinationCoordinateReferenceSystem = null;    
-  
+  protected CoordinateReferenceSystem destinationCoordinateReferenceSystem = null;
+
+  /**
+   * number of decimals to use, default is Precision.DEFAULT_DECIMAL_FORMAT
+   */
+  protected DecimalFormat decimalFormat = Precision.DEFAULT_DECIMAL_FORMAT;
+
+  /**
+   * default names used for MATSIM public transport schedule file that is being generated
+   */
+  public static final String DEFAULT_TRANSIT_SCHEDULE_FILE_NAME = "transitschedule";
+
   /**
    * Default constructor 
    */
@@ -108,5 +121,21 @@ public abstract class PlanitMatsimWriterSettings implements ConverterWriterSetti
    */
   public void setDestinationCoordinateReferenceSystem(CoordinateReferenceSystem destinationCoordinateReferenceSystem) {
     this.destinationCoordinateReferenceSystem = destinationCoordinateReferenceSystem;
-  }    
+  }
+
+  /** Collect number of decimals used in writing coordinates
+   *
+   * @return number of decimals used
+   */
+  public DecimalFormat getDecimalFormat() {
+    return decimalFormat;
+  }
+
+  /** Set number of decimals used in writing coordinates
+   *
+   * @param decimalFormat format to use
+   */
+  public void setDecimalFormat(DecimalFormat decimalFormat) {
+    this.decimalFormat = decimalFormat;
+  }
 }
