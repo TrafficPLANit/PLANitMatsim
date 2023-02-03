@@ -221,7 +221,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
    * 
    * @param xmlWriter to use
    * @param link to extract MATSIM link(s) from
-   * @param planitModeIdToMatsimModeMapping quick mapping from PLANit mode to MATSIM mode string
+   * @param planitModeToMatsimModeMapping quick mapping from PLANit mode to MATSIM mode string
    * @param linkIdMapping function to map PLANit link segment id to MATSIM link id
    * @param nodeIdMapping function to map PLANit node id to MATSIM node id
    * @throws PlanItException thrown if error

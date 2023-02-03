@@ -7,7 +7,9 @@ import javax.xml.stream.XMLStreamWriter;
 
 import org.geotools.geometry.jts.JTS;
 import org.goplanit.converter.BaseWriterImpl;
+import org.goplanit.converter.ConverterWriterSettings;
 import org.goplanit.converter.IdMapperType;
+import org.goplanit.matsim.util.PlanitMatsimWriterSettings;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.network.LayeredNetwork;
 import org.goplanit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
@@ -49,12 +51,12 @@ public abstract class MatsimWriter<T> extends BaseWriterImpl<T> {
    */
   protected boolean validateNetwork(LayeredNetwork<?,?> referenceNetwork) throws PlanItException {
     if(referenceNetwork == null) {
-      LOGGER.severe("Matsim macroscopic planit network to extract from is null");
+      LOGGER.severe("MATSim macroscopic planit network to extract from is null");
       return false;
     }
         
     if (!(referenceNetwork instanceof MacroscopicNetwork)) {
-      LOGGER.severe("Matsim writer currently only supports writing macroscopic networks");
+      LOGGER.severe("MATSim writer currently only supports writing macroscopic networks");
       return false;
     }
     
@@ -128,19 +130,17 @@ public abstract class MatsimWriter<T> extends BaseWriterImpl<T> {
 
 
   /** Increase indentation level
-   * 
-   * @throws XMLStreamException thrown when error
+   *
    */
-  protected void increaseIndentation() throws XMLStreamException {
+  protected void increaseIndentation() {
     ++indentLevel;
   }
 
 
   /** Decrease indentation level
-   * 
-   * @throws XMLStreamException thrown when error
+   *
    */
-  protected void decreaseIndentation() throws XMLStreamException {
+  protected void decreaseIndentation() {
     --indentLevel;
   }
 
@@ -191,8 +191,18 @@ public abstract class MatsimWriter<T> extends BaseWriterImpl<T> {
   
   MathTransform getDestinationCrsTransformer() {
     return destinationCrsTransformer;
-  }  
-  
+  }
+
+
+  /** any settings to configure the writer can be configured by collecting these settings
+   * @return the settings to configure the writer
+   */
+  @Override
+  public abstract PlanitMatsimWriterSettings getSettings();
+
+  /** the doc type of MATSIM public transport schedule. For now we persist in v1 (v2 does exist but is not documented (yet) in Matsim manual) */
+  public static final String DOCTYPE = "<!DOCTYPE network SYSTEM \"http://www.matsim.org/files/dtd/transitSchedule_v1.dtd\">";
+
   /**
    * default extension for xml files generated
    */

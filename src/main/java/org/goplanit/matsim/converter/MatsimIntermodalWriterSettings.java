@@ -1,6 +1,7 @@
 package org.goplanit.matsim.converter;
 
 import org.goplanit.converter.ConverterWriterSettings;
+import org.goplanit.matsim.util.PlanitMatsimWriterSettings;
 import org.goplanit.utils.locale.CountryNames;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
@@ -15,24 +16,34 @@ public class MatsimIntermodalWriterSettings implements ConverterWriterSettings {
   /** the network settings to use */
   protected final MatsimNetworkWriterSettings networkSettings;
   
-  /** the zoning settings to use */
-  protected final MatsimZoningWriterSettings zoningSettings;  
-  
+  /** the zoning settings to use, mutual exclusive to routed services settings */
+  protected final MatsimZoningWriterSettings zoningSettings;
+
+  /** the routed services settings to use, mutual exclusive to zoning settings */
+  protected final MatsimRoutedServicesWriterSettings routedServicesWriterSettings;
+
   /**
-   * Default constructor 
+   * Constructor for persisting only PT infrastructure via zoning settings
+   *
+   *  @param networkWriterSettings writer settings to use
+   *  @param zoningWriterSettings writer settings to use
+   *  @param routedServicesWriterSettings writer settings to use
    */
-  public MatsimIntermodalWriterSettings() {
-    this(null, CountryNames.GLOBAL);
+  protected MatsimIntermodalWriterSettings(final MatsimNetworkWriterSettings networkWriterSettings, final MatsimZoningWriterSettings zoningWriterSettings, final MatsimRoutedServicesWriterSettings routedServicesWriterSettings) {
+    this.networkSettings = networkWriterSettings;
+    this.zoningSettings = zoningWriterSettings;
+    this.routedServicesWriterSettings = routedServicesWriterSettings;
   }
-      
+
   /**
    * Constructor 
    * 
    * @param outputDirectory to use
    * @param countryName to use
+   * @param supportServices when true routed service settings are created, otherwise infrastructure only zoning settings
    */
-  public MatsimIntermodalWriterSettings(final String outputDirectory, final String countryName) {
-    this(new MatsimNetworkWriterSettings(outputDirectory, countryName), new MatsimZoningWriterSettings(outputDirectory, countryName));
+  public MatsimIntermodalWriterSettings(final String outputDirectory, final String countryName, boolean supportServices) {
+    this(outputDirectory, countryName, MatsimNetworkWriterSettings.DEFAULT_NETWORK_FILE_NAME, PlanitMatsimWriterSettings.DEFAULT_TRANSIT_SCHEDULE_FILE_NAME, supportServices);
   }  
   
   /**
@@ -42,25 +53,34 @@ public class MatsimIntermodalWriterSettings implements ConverterWriterSettings {
    * @param countryName to use
    * @param networkOutputFileName to use
    * @param ptOutputFileName to use
+   * @param supportServices when true routed service settings are created, otherwise infrastructure only zoning settings
    */
-  public MatsimIntermodalWriterSettings(final String outputDirectory, final String countryName, final String networkOutputFileName, final String ptOutputFileName) {
+  public MatsimIntermodalWriterSettings(final String outputDirectory, final String countryName, final String networkOutputFileName, final String ptOutputFileName, boolean supportServices) {
     this(
-        new MatsimNetworkWriterSettings(outputDirectory, networkOutputFileName, countryName), 
-        new MatsimZoningWriterSettings(outputDirectory, ptOutputFileName, countryName));
+        new MatsimNetworkWriterSettings(outputDirectory, networkOutputFileName, countryName),
+        supportServices ? null : new MatsimZoningWriterSettings(outputDirectory, ptOutputFileName, countryName),
+        supportServices ? new MatsimRoutedServicesWriterSettings(outputDirectory, ptOutputFileName, countryName) : null);
   }    
   
   /**
-   * Constructor
+   * Constructor for persisting only PT infrastructure via zoning settings
    * 
    *  @param networkWriterSettings writer settings to use
    *  @param zoningWriterSettings writer settings to use
    */
-  public MatsimIntermodalWriterSettings(final MatsimNetworkWriterSettings networkWriterSettings, final MatsimZoningWriterSettings zoningWriterSettings) {    
-    this.networkSettings = networkWriterSettings;
-    this.zoningSettings = zoningWriterSettings;
-  }  
-  
+  public MatsimIntermodalWriterSettings(final MatsimNetworkWriterSettings networkWriterSettings, final MatsimZoningWriterSettings zoningWriterSettings) {
+    this(networkWriterSettings, zoningWriterSettings, null);
+  }
 
+  /**
+   * Constructor for persisting both PT infrastructure and services via routedServicesSettings
+   *
+   *  @param networkWriterSettings writer settings to use
+   *  @param routedServicesWriterSettings writer settings to use
+   */
+  public MatsimIntermodalWriterSettings(final MatsimNetworkWriterSettings networkWriterSettings, final MatsimRoutedServicesWriterSettings routedServicesWriterSettings) {
+    this(networkWriterSettings, null, routedServicesWriterSettings);
+  }
 
   /**
    * {@inheritDoc}
@@ -68,14 +88,26 @@ public class MatsimIntermodalWriterSettings implements ConverterWriterSettings {
   @Override
   public void reset() {
     getNetworkSettings().reset();
-    getZoningSettings().reset();
+    if(getZoningSettings() != null){
+      getZoningSettings().reset();
+    }
+    if(getRoutedServicesSettings() != null){
+      getRoutedServicesSettings().reset();
+    }
   }
 
-  /** Collect zoning settings
+  /** Collect zoning settings (if present)
    * @return zoning settings
    */
   public MatsimZoningWriterSettings getZoningSettings() {
     return zoningSettings;
+  }
+
+  /** Collect routedServicesWriterSettings
+   * @return routedServicesWriterSettings
+   */
+  public MatsimRoutedServicesWriterSettings getRoutedServicesSettings() {
+    return routedServicesWriterSettings;
   }
 
   /** Collect network settings
@@ -91,7 +123,12 @@ public class MatsimIntermodalWriterSettings implements ConverterWriterSettings {
    */
   public void setOutputDirectory(String outputDirectory) {
     getNetworkSettings().setOutputDirectory(outputDirectory);
-    getZoningSettings().setOutputDirectory(outputDirectory);
+    if(getZoningSettings() != null){
+      getZoningSettings().setOutputDirectory(outputDirectory);
+    }
+    if(getRoutedServicesSettings() != null){
+      getRoutedServicesSettings().setOutputDirectory(outputDirectory);
+    }
   }
   
   /** set the country to use on both network and zoning settings
@@ -99,7 +136,12 @@ public class MatsimIntermodalWriterSettings implements ConverterWriterSettings {
    */
   public void setCountry(String countryName) {
     getNetworkSettings().setCountry(countryName);
-    getZoningSettings().setCountry(countryName);
+    if(getZoningSettings() != null){
+      getZoningSettings().setCountry(countryName);
+    }
+    if(getRoutedServicesSettings() != null){
+      getRoutedServicesSettings().setCountry(countryName);
+    }
   }  
   
   /** Explicitly set a particular crs for writing geometries for both zoning and network
@@ -107,7 +149,12 @@ public class MatsimIntermodalWriterSettings implements ConverterWriterSettings {
    */
   public void setDestinationCoordinateReferenceSystem(CoordinateReferenceSystem destinationCoordinateReferenceSystem) {
     getNetworkSettings().setDestinationCoordinateReferenceSystem(destinationCoordinateReferenceSystem);
-    getZoningSettings().setDestinationCoordinateReferenceSystem(destinationCoordinateReferenceSystem);
+    if(getZoningSettings() != null){
+      getZoningSettings().setDestinationCoordinateReferenceSystem(destinationCoordinateReferenceSystem);
+    }
+    if(getRoutedServicesSettings() != null){
+      getRoutedServicesSettings().setDestinationCoordinateReferenceSystem(destinationCoordinateReferenceSystem);
+    }
   }      
  
 }

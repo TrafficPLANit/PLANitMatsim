@@ -48,12 +48,7 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
   protected MacroscopicNetwork getReferenceNetwork() {
     return referenceNetwork;
   }      
-  
-  /**
-   * default names used for MATSIM public transport schedule file that is being generated
-   */
-  public static final String DEFAULT_TRANSIT_SCHEDULE_FILE_NAME = "transitschedule";
-  
+
   /**
    * Default setting for generating files required to run MATSim matrix based pt router
    */
