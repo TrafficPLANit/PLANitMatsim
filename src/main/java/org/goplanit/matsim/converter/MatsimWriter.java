@@ -61,16 +61,16 @@ public abstract class MatsimWriter<T> extends BaseWriterImpl<T> {
     }
     
     if(referenceNetwork.getTransportLayers().isEachLayerEmpty()) {
-      LOGGER.severe("Planit Network to persist is empty");
+      LOGGER.severe("PLANit Network to persist is empty");
       return false;
     }        
 
     if(referenceNetwork.getTransportLayers().size()!=1) {
-      LOGGER.severe(String.format("Matsim zoning writer currently only supports networks with a single layer, the provided network has %d",referenceNetwork.getTransportLayers().size()));
+      LOGGER.severe(String.format("MATSim writer currently only supports networks with a single layer, the provided network has %d",referenceNetwork.getTransportLayers().size()));
       return false;
     }   
     if(!(referenceNetwork.getTransportLayers().getFirst() instanceof MacroscopicNetworkLayerImpl)) {
-      LOGGER.severe(String.format("Matsim only supports macroscopic physical network layers, the provided network is of a different type"));
+      LOGGER.severe(String.format("MATSim only supports macroscopic physical network layers, the provided network is of a different type"));
       return false;
     }
     

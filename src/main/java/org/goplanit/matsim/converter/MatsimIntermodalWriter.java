@@ -68,16 +68,14 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
   /**
    * Persist the PLANit routed services, service network, and zoning combined as a full MATSIM pt schedule
    *
-   * @param serviceNetwork containing all service legs between stops (service nodes) related to physical network links
    * @param routedServices the services running on the service network
    * @param zoning to extract stops information from (transfer zones)
-   * @param infrastructureNetwork containing the physical network the service network relates to
    *
    */
-  private void writeMatsimFullPtSchedule(ServiceNetwork serviceNetwork, RoutedServices routedServices, Zoning zoning, MacroscopicNetwork infrastructureNetwork) throws PlanItException {
+  private void writeMatsimFullPtSchedule(RoutedServices routedServices, Zoning zoning) throws PlanItException {
     /* routed services writer */
-    var routedServicesWriter = MatsimRoutedServicesWriterFactory.create(
-        getSettings().getNetworkSettings(), infrastructureNetwork, zoning, serviceNetwork);
+    var routedServicesWriter = MatsimPublicTransportServicesWriterFactory.create(
+        getSettings().getNetworkSettings(), zoning);
 
     /* write routed services */
     routedServicesWriter.write(routedServices);
@@ -96,7 +94,7 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
    * Persist the PLANit network and zoning as a MATSIM network to disk
    * 
    * @param infrastructureNetwork to persist as MATSIM network
-   * @param zoning to extract public transport infratructure from (poles, platforms, stations)
+   * @param zoning to extract public transport infratsructure from (poles, platforms, stations)
    * 
    */
   @Override
@@ -122,9 +120,7 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
   /**
    * Persist the PLANit network and zoning as a MATSIM compatible network to disk
    *
-   * @param infrastructureNetwork to persist as MATSIM network
-   * @param zoning to extract public transport infratructure from (poles, platforms, stations)
-   * @param serviceNetwork to extract physical routing information from
+   * @param zoning to extract public transport infrastructure from (poles, platforms, stations)
    * @param routedServices to extract service routing information from
    *
    */
@@ -133,17 +129,11 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
     PlanItException.throwIfNull(serviceNetwork, "service network is null when persisting MATSIM intermodal network");
     PlanItException.throwIfNull(routedServices, "routed services are null when persisting MATSIM intermodal network");
 
-    if(getSettings().getRoutedServicesSettings() == null){
-      /* writer should be created with routedServices settings to support full fledged persisting of services to MATSim */
-      LOGGER.warning("MATSim writer was created without support for persisting with PT services, possibly only for PT infrastructure, ignoring call to persist services, abort");
-      return;
-    }
-
     /* network writer */
     writeMatsimNetwork(infrastructureNetwork);
 
     /* persist PT stops, services and schedule*/
-    writeMatsimFullPtSchedule(serviceNetwork, routedServices, zoning, infrastructureNetwork);
+    writeMatsimFullPtSchedule(routedServices, zoning);
   }
 
 

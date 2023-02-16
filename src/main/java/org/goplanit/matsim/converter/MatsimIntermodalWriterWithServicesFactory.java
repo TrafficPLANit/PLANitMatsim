@@ -54,7 +54,7 @@ public class MatsimIntermodalWriterWithServicesFactory {
    * @param routedServicesWriterSettings to use
    * @return created MATSim writer
    */
-  public static MatsimIntermodalWriter create(MatsimNetworkWriterSettings networkWriterSettings, MatsimRoutedServicesWriterSettings routedServicesWriterSettings) {
+  public static MatsimIntermodalWriter create(MatsimNetworkWriterSettings networkWriterSettings, MatsimPublicTransportServicesWriterSettings routedServicesWriterSettings) {
     return new MatsimIntermodalWriter(new MatsimIntermodalWriterSettings(networkWriterSettings, routedServicesWriterSettings));
   }  
       
