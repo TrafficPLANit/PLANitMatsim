@@ -31,6 +31,9 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
    * the output file name to use for the transit schedule, default is set to DEFAULT_TRANSIT_SCHEDULE_FILE_NAME
    */
   protected String transitScheduleFileName = DEFAULT_TRANSIT_SCHEDULE_FILE_NAME;
+
+  /** flag indicating the default for whether transit routes are blocking at their stop facilities */
+  protected boolean ptBlockingAtStopFacility = PT_BLOCKING_AT_STOP_DEFAULT;
   
   /**
    * Log settings
@@ -53,6 +56,9 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
    * Default setting for generating files required to run MATSim matrix based pt router
    */
   public static final boolean DEFAULT_GENERATE_MATRIX_BASED_PT_ROUTER_FILES = true;
+
+  /** default value aligned with MATSim default */
+  public static final boolean PT_BLOCKING_AT_STOP_DEFAULT = false;
   
   /**
    * Default constructor using default output file name and Global country name
@@ -134,6 +140,22 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
   public void reset() {
     // TODO Auto-generated method stub    
   }
- 
+
+  /**
+   *
+   * @return is pt blocking flag
+   */
+  public boolean isPtBlockingAtStopFacility() {
+    return ptBlockingAtStopFacility;
+  }
+
+  /**
+   * when set to true all transit lines by default will be blocking at their stop facilities
+   *
+   * @param ptBlockingAtStopFacility set flag
+   */
+  public void setPtBlockingAtStopFacility(boolean ptBlockingAtStopFacility) {
+    this.ptBlockingAtStopFacility = ptBlockingAtStopFacility;
+  }
       
 }
