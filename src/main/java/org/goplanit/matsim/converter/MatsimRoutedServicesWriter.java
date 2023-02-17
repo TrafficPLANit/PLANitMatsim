@@ -1,11 +1,8 @@
 package org.goplanit.matsim.converter;
 
-import com.sun.media.jai.util.Service;
 import org.goplanit.converter.IdMapperType;
 import org.goplanit.converter.service.RoutedServicesWriter;
-import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.network.ServiceNetwork;
-import org.goplanit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
 import org.goplanit.network.layer.service.ServiceNetworkLayerImpl;
 import org.goplanit.service.routed.RoutedServices;
 import org.goplanit.utils.exceptions.PlanItException;
@@ -25,7 +22,7 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
   private static final Logger LOGGER = Logger.getLogger(MatsimRoutedServicesWriter.class.getCanonicalName());
 
   /** the routed services writer settings used for the MATSim pt component*/
-  private final MatsimPublicTransportServicesWriterSettings routedServicesWriterSettings;
+  private final MatsimPtServicesWriterSettings routedServicesWriterSettings;
 
   /**
    * Validate the service network to make sure it is compatible with MATSim
@@ -65,7 +62,7 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
    *
    * @param routedServicesWriterSettings to use
    */
-  protected MatsimRoutedServicesWriter(MatsimPublicTransportServicesWriterSettings routedServicesWriterSettings) {
+  protected MatsimRoutedServicesWriter(MatsimPtServicesWriterSettings routedServicesWriterSettings) {
     super(IdMapperType.ID);
     this.routedServicesWriterSettings = routedServicesWriterSettings;
   }
@@ -95,7 +92,8 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
     getSettings().setDestinationCoordinateReferenceSystem(destinationCrs);
             
     /* write stops */    
-    new MatsimPtXmlWriter(this).writeXmlTransitScheduleFile(getSettings().getReferenceZoning(), routedServices, getSettings());
+    new MatsimPtXmlWriter(this).writeXmlTransitScheduleFile(
+        getSettings().getReferenceZoning(), getSettings().getZoningSettings(), routedServices, getSettings());
 
   }
 
@@ -111,7 +109,7 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
    * 
    * @return settings
    */
-  public MatsimPublicTransportServicesWriterSettings getSettings() {
+  public MatsimPtServicesWriterSettings getSettings() {
     return routedServicesWriterSettings;
   }
 

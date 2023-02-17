@@ -7,7 +7,6 @@ import javax.xml.stream.XMLStreamWriter;
 
 import org.geotools.geometry.jts.JTS;
 import org.goplanit.converter.BaseWriterImpl;
-import org.goplanit.converter.ConverterWriterSettings;
 import org.goplanit.converter.IdMapperType;
 import org.goplanit.matsim.util.PlanitMatsimWriterSettings;
 import org.goplanit.network.MacroscopicNetwork;
@@ -130,18 +129,35 @@ public abstract class MatsimWriter<T> extends BaseWriterImpl<T> {
 
 
   /** Increase indentation level
-   *
+   * @return updated indentation level
    */
-  protected void increaseIndentation() {
+  protected int increaseIndentation() {
     ++indentLevel;
+    return getIndentLevel();
   }
 
 
   /** Decrease indentation level
-   *
+   * @return updated indentation level
    */
-  protected void decreaseIndentation() {
+  protected int decreaseIndentation() {
     --indentLevel;
+    return getIndentLevel();
+  }
+
+  /**
+   * write a start element and add newline afterwards
+   *
+   * @param xmlWriter to use
+   * @param xmlElementName element to start tag, e.g. {@code <xmlElementName>}
+   * @param increaseIndentation when true, increase indentation after this element has been written
+   * @throws XMLStreamException thrown if error
+   */
+  protected void writeStartElement(XMLStreamWriter xmlWriter, String xmlElementName, boolean increaseIndentation) throws XMLStreamException {
+    PlanitXmlWriterUtils.writeStartElement(xmlWriter, xmlElementName, indentLevel);
+    if(increaseIndentation) {
+      increaseIndentation();
+    }
   }
 
 
@@ -200,8 +216,11 @@ public abstract class MatsimWriter<T> extends BaseWriterImpl<T> {
   @Override
   public abstract PlanitMatsimWriterSettings getSettings();
 
-  /** the doc type of MATSIM public transport schedule. For now we persist in v1 (v2 does exist but is not documented (yet) in Matsim manual) */
-  public static final String DOCTYPE = "<!DOCTYPE network SYSTEM \"http://www.matsim.org/files/dtd/transitSchedule_v1.dtd\">";
+  /** the doc type of MATSIM public transport schedule. */
+  public static final String TRANSIT_SCHEDULE_DOCTYPE = "<!DOCTYPE transitSchedule SYSTEM \"https://www.matsim.org/files/dtd/transitSchedule_v2.dtd\">";
+
+  /** the doc type of MATSIM public transport schedule. */
+  public static final String NETWORK_DOCTYPE = "<!DOCTYPE network SYSTEM \"https://www.matsim.org/files/dtd/network_v2.dtd\">";
 
   /**
    * default extension for xml files generated
