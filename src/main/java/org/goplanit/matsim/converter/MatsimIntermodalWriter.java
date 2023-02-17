@@ -75,7 +75,7 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
   private void writeMatsimFullPtSchedule(RoutedServices routedServices, Zoning zoning) throws PlanItException {
     /* routed services writer */
     var routedServicesWriter = MatsimPublicTransportServicesWriterFactory.create(
-        getSettings().getNetworkSettings(), zoning);
+        getSettings().getNetworkSettings(), getSettings().getZoningSettings(), zoning);
 
     /* write routed services */
     routedServicesWriter.write(routedServices);
@@ -91,17 +91,17 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
   }  
       
   /**
-   * Persist the PLANit network and zoning as a MATSIM network to disk
+   * Persist the PLANit network and zoning as a MATSim network to disk
    * 
-   * @param infrastructureNetwork to persist as MATSIM network
-   * @param zoning to extract public transport infratsructure from (poles, platforms, stations)
+   * @param infrastructureNetwork to persist as MATSim network
+   * @param zoning to extract public transport infrastructure from (poles, platforms, stations)
    * 
    */
   @Override
   public void write(final MacroscopicNetwork infrastructureNetwork, final Zoning zoning) throws PlanItException {
-    PlanItException.throwIfNull(infrastructureNetwork, "network is null when persisting MATSIM intermodal network");
-    PlanItException.throwIfNull(zoning, "zoning is null when persisting MATSIM intermodal network");
-    PlanItException.throwIf(!(infrastructureNetwork instanceof MacroscopicNetwork), "MATSIM intermodal writer only supports macroscopic networks");
+    PlanItException.throwIfNull(infrastructureNetwork, "network is null when persisting MATSim intermodal network");
+    PlanItException.throwIfNull(zoning, "zoning is null when persisting MATSim intermodal network");
+    PlanItException.throwIf(!(infrastructureNetwork instanceof MacroscopicNetwork), "MATSim intermodal writer only supports macroscopic networks");
 
     /* make sure destination country is consistent for both outputs */
     PlanItException.throwIf(!getSettings().getNetworkSettings().getCountry().equals(getSettings().getZoningSettings().getCountry()), 
@@ -126,8 +126,8 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
    */
   @Override
   public void writeWithServices(MacroscopicNetwork infrastructureNetwork, Zoning zoning, ServiceNetwork serviceNetwork, RoutedServices routedServices) throws PlanItException {
-    PlanItException.throwIfNull(serviceNetwork, "service network is null when persisting MATSIM intermodal network");
-    PlanItException.throwIfNull(routedServices, "routed services are null when persisting MATSIM intermodal network");
+    PlanItException.throwIfNull(serviceNetwork, "service network is null when persisting MATSim intermodal network");
+    PlanItException.throwIfNull(routedServices, "routed services are null when persisting MATSim intermodal network");
 
     /* network writer */
     writeMatsimNetwork(infrastructureNetwork);

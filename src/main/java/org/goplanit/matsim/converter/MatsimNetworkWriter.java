@@ -388,7 +388,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
     
     try {
       /* start */
-      PlanitXmlWriterUtils.startXmlDocument(xmlFileWriterPair.first(), DOCTYPE);
+      PlanitXmlWriterUtils.startXmlDocument(xmlFileWriterPair.first(), NETWORK_DOCTYPE);
       
       /* body */
       writeMatsimNetworkXML(xmlFileWriterPair.first(), networkLayer);
@@ -455,11 +455,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
       throw new PlanItException("unable to write detailed gemoetry file %d an error occured during writing", e);
     }
   }  
-  
-  
-  /** the doc type of MATSIM network */
-  public static final String DOCTYPE = "<!DOCTYPE network SYSTEM \"http://www.matsim.org/files/dtd/network_v2.dtd\">";  
-        
+
   /**
    * default names used for MATSIM network file that is being generated
    */

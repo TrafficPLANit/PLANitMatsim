@@ -1,6 +1,5 @@
 package org.goplanit.matsim.converter;
 
-import org.goplanit.service.routed.RoutedServices;
 import org.goplanit.zoning.Zoning;
 
 /**
@@ -20,12 +19,13 @@ public class MatsimPublicTransportServicesWriterFactory {
    */
   public static MatsimRoutedServicesWriter create(
       MatsimNetworkWriterSettings networkWriterSettings,
+      MatsimZoningWriterSettings zoningWriterSettings,
       Zoning referenceZoning) {
     return create(
-        new MatsimPublicTransportServicesWriterSettings(
-            networkWriterSettings.getOutputDirectory(),
+        new MatsimPtServicesWriterSettings(
+            networkWriterSettings,
+            zoningWriterSettings,
             MatsimZoningWriterSettings.DEFAULT_TRANSIT_SCHEDULE_FILE_NAME,
-            networkWriterSettings.getCountry(),
             referenceZoning));
   }   
       
@@ -34,7 +34,7 @@ public class MatsimPublicTransportServicesWriterFactory {
    * @param routedServicesWriterSettings to use
    * @return create MATSim writer
    */
-  public static MatsimRoutedServicesWriter create(MatsimPublicTransportServicesWriterSettings routedServicesWriterSettings) {
+  public static MatsimRoutedServicesWriter create(MatsimPtServicesWriterSettings routedServicesWriterSettings) {
     return new MatsimRoutedServicesWriter(routedServicesWriterSettings);
   }  
    
