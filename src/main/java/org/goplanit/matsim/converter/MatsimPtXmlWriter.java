@@ -5,11 +5,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Function;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
@@ -27,6 +27,7 @@ import org.goplanit.utils.mode.Mode;
 import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
 import org.goplanit.utils.network.layer.physical.LinkSegment;
 import org.goplanit.utils.service.routed.*;
+import org.goplanit.utils.time.ExtendedLocalTime;
 import org.goplanit.utils.xml.PlanitXmlWriterUtils;
 import org.goplanit.utils.zoning.Connectoid;
 import org.goplanit.utils.zoning.DirectedConnectoid;
@@ -36,6 +37,7 @@ import org.goplanit.zoning.Zoning;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Point;
 import org.opengis.referencing.operation.TransformException;
+import org.w3.xlink.Extended;
 
 /**
  * Class that takes on the responsibility of writing all PT XML based files for a given PLANit memory model
@@ -104,6 +106,19 @@ class MatsimPtXmlWriter {
   }
 
   /**
+   * Verify if stop facility id has been generated before based on given information
+   *
+   * @param accessLinkSegment to use
+   * @param nodeAccessDownstream to use
+   * @return true when already registered, false otherwise
+   */
+  private boolean hasStopFacilityId(LinkSegment accessLinkSegment, boolean nodeAccessDownstream){
+    int key = Math.toIntExact(nodeAccessDownstream ? accessLinkSegment.getId() : -accessLinkSegment.getId());
+    Integer stopFacilityId = stopFacilityIdTracking.get(key);
+    return stopFacilityId != null;
+  }
+
+  /**
    * Prepare the id mapping functionality for persistence based on on user chosen mapping approach
    */
   private void initialiseIdMappers(){
@@ -137,13 +152,26 @@ class MatsimPtXmlWriter {
       return false;
     }
 
-    /* stop */
-    matsimWriter.writeStartElement(xmlWriter, MatsimTransitElements.STOP, false);
-
     /* ref id <-- stop facility ref id is based on macroscopic link segment and node location, see #writeMatsimStopFacility */
     var physicalLinkSegmentsOfLeg = relLegTiming.getParentLegSegment().getPhysicalParentSegments();
     var accessLinkSegment = upstreamStop ? ListUtils.getFirst(physicalLinkSegmentsOfLeg) : ListUtils.getLastValue(physicalLinkSegmentsOfLeg);
-    xmlWriter.writeAttribute(MatsimTransitAttributes.REF_ID, String.valueOf(getStopFacilityId(accessLinkSegment, upstreamStop)));
+    if(!hasStopFacilityId(accessLinkSegment, !upstreamStop)){
+      // todo: we get this a lot --> bug I think, for zone reason we are missing transfer zones in the zoning that have access link segments for services that we identified
+      // todo: figure out how this can be?? -->
+      //    options when creating paths between transfer zones, the directed connectoids are not updated?
+      //    options when splitting links for new transfer zones in GTFS, connectoids are not updated?
+      //
+      // TODO: AFTER that --> log warning that service ids are not yet parsed, meaning we can egt the warning of duplicate departure times (which we get and should get) --> then implement the option
+      //       in GTFS parser to select certain day/days/times etc.
+      LOGGER.severe("IGNORE No stop facility id registered for leg timing stop on RouteProfile, this shouldn't happen");
+      return false;
+    }
+
+    /* stop */
+    PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimTransitElements.STOP, matsimWriter.getIndentLevel());
+
+    /* top ref id */
+    xmlWriter.writeAttribute(MatsimTransitAttributes.REF_ID, String.valueOf(getStopFacilityId(accessLinkSegment, !upstreamStop)));
 
     /* arrivalOffset */
     if(!upstreamStop){
@@ -156,8 +184,6 @@ class MatsimPtXmlWriter {
 
     /* awaitDeparture */
     xmlWriter.writeAttribute(MatsimTransitAttributes.AWAIT_DEPARTURE, String.valueOf(servicesSettings.isAwaitDepartures()));
-    xmlWriter.writeEndElement();
-
     PlanitXmlWriterUtils.writeNewLine(xmlWriter);
     return true;
   }
@@ -194,10 +220,61 @@ class MatsimPtXmlWriter {
       }
     }
 
-    //TODO --> continue here with departures!!!!
-
     matsimWriter.writeEndElementNewLine(xmlWriter, true);
     return success;
+  }
+
+  /**
+   * persisting MATSim transit route's route links ( PLANit trip schedule legs underlying physical link segments of a routed service)
+   *
+   * @param xmlWriter        to use
+   * @param tripSchedule     to persist
+   * @param servicesSettings to use
+   * @throws XMLStreamException when error
+   */
+  private boolean writeMatsimRouteLinkRefs(XMLStreamWriter xmlWriter, RoutedTripSchedule tripSchedule, MatsimPtServicesWriterSettings servicesSettings) throws XMLStreamException {
+    if(!tripSchedule.hasRelativeLegTimings()){
+      LOGGER.warning("IGNORE: Found PLANit trip schedule without leg timings, unable to create route XML Element, should not happen");
+      return false;
+    }
+
+    /* route*/
+    matsimWriter.writeStartElementNewLine(xmlWriter, MatsimTransitElements.ROUTE, true);
+
+    LocalTime cumulativeTravelTime = LocalTime.MIN;
+    for(var timing : tripSchedule){
+      /* only extract the underlying physical link segments for MATSim */
+      for(var physicalSegment : timing.getParentLegSegment().getPhysicalParentSegments()){
+        PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimTransitElements.LINK, matsimWriter.getIndentLevel());
+        xmlWriter.writeAttribute(MatsimTransitAttributes.REF_ID, getIdMapping(MacroscopicLinkSegment.class).apply((MacroscopicLinkSegment) physicalSegment));
+        PlanitXmlWriterUtils.writeNewLine(xmlWriter);
+      }
+    }
+
+    matsimWriter.writeEndElementNewLine(xmlWriter, true);
+    return true; //success;
+  }
+
+  /**
+   * Write route departure time.
+   * todo: add reference to vehicles --> requires additional work in generating these files.
+   *
+   * @param xmlWriter to use
+   * @param departureIndex index to use
+   * @param departureTime  to use
+   */
+  private void writeRouteDepartureTime(XMLStreamWriter xmlWriter, int departureIndex, ExtendedLocalTime departureTime) {
+    /* departure*/
+    try{
+      PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimTransitElements.DEPARTURE, matsimWriter.getIndentLevel());
+      xmlWriter.writeAttribute(MatsimTransitAttributes.ID, String.valueOf(departureIndex));
+      xmlWriter.writeAttribute(MatsimTransitAttributes.DEPARTURE_TIME, departureTime.toString());
+      PlanitXmlWriterUtils.writeNewLine(xmlWriter);
+      //todo: vehicleRefId --> based on settings we should be able to map thiscatch
+    }catch(Exception e){
+      LOGGER.severe("Unable to write route departure time");
+      throw new PlanItRunTimeException(e.getMessage());
+    }
   }
 
   /**
@@ -205,40 +282,80 @@ class MatsimPtXmlWriter {
    *
    * @param xmlWriter           to use
    * @param routedServicesLayer to use
-   * @param mode                mode of the schedule
+   * @param routedService     related to the schedule
    * @param tripsSchedule       to persist
    * @param servicesSettings    to use
    * @throws XMLStreamException when error
    */
-  private boolean writeMatsimTransitRoute(XMLStreamWriter xmlWriter, RoutedServicesLayer routedServicesLayer, Mode mode, RoutedTripsSchedule tripsSchedule, MatsimPtServicesWriterSettings servicesSettings) throws XMLStreamException {
+  private boolean writeMatsimTransitRoute(XMLStreamWriter xmlWriter, RoutedServicesLayer routedServicesLayer, RoutedService routedService, RoutedTripsSchedule tripsSchedule, MatsimPtServicesWriterSettings servicesSettings) throws XMLStreamException {
     var modeMapping = servicesSettings.getNetworkSettings().collectActivatedPlanitModeToMatsimModeMapping(
         (MacroscopicNetworkLayerImpl) routedServicesLayer.getParentLayer().getParentNetworkLayer());
+    String routedServiceId = getIdMapping(RoutedService.class).apply(routedService);
 
+    var mappedMode = modeMapping.get(routedService.getMode());
+    if(StringUtils.isNullOrBlank(mappedMode)){
+      LOGGER.warning(String.format("no mapped MATSim mode found for PLANit mode %s, ignore",routedService.getMode().getName()));
+      return false;
+    }
+
+    /* in MATSim we cannot have a single schedule with different underlying physical routes or stop timings, so we must group schedules differently, namely group by the same
+     * physical routing and leg timings.
+     */
+    Map<List<RelativeLegTiming>, List<RoutedTripSchedule>> tripScheduleGroupedByLegTimings = tripsSchedule.groupByRelativeLegTimings();
+
+    int uniqueReltimingSeqCounter = 0; // serves as id for MATSim routes within the service
     boolean success = true;
-    var scheduleIdMapping = getIdMapping(RoutedTripSchedule.class);
-    for(var tripSchedule : tripsSchedule){
-      var mappedMode = modeMapping.get(mode);
-      if(StringUtils.isNullOrBlank(mappedMode)){
-        LOGGER.warning(String.format("trip schedule (id: %s external id: %s) has no mapped mode, ignore", tripSchedule.getXmlId(), tripSchedule.getExternalId()));
-        continue;
+    for(var tripScheduleList : tripScheduleGroupedByLegTimings.values()){
+      ++uniqueReltimingSeqCounter;
+
+      /* group by departure time, which one should hope leads to exactly a SINGLE entry per departure times key, if not then, there duplicate entries in the PLANit memory model */
+      var scheduleByDepartureTimes = tripScheduleList.stream().collect(Collectors.groupingBy( rts -> rts.getDepartures().stream().map( rtd -> rtd.getDepartureTime()).collect(Collectors.toList())));
+      /* now order by departure time and unpack the groupby list, so we can process them in order */
+      TreeSet<ExtendedLocalTime> orderedDepartureTimes = new TreeSet<>();
+      for(var entry : scheduleByDepartureTimes.entrySet()) {
+        entry.getKey().forEach( depTime -> {
+          var added = orderedDepartureTimes.add(depTime);
+          if(entry.getValue().size()>1) LOGGER.warning(
+              String.format("[IGNORE] Multiple routed trip schedules with identical servicelegs-departure time (%s) on routed service %s (ext id: %s, mode %s) --> trips [%s]. Ignoring duplicates",
+                  depTime.toString(), routedServiceId, routedService.getExternalId(), routedService.getMode().getName(),
+                  entry.getValue().stream().map( e -> e.hasExternalId() ? e.getExternalId() : "").collect(Collectors.joining(","))));
+        });
       }
 
       /* transitRoute*/
       matsimWriter.writeStartElement(xmlWriter, MatsimTransitElements.TRANSIT_ROUTE, true);
 
       /*id */
-      xmlWriter.writeAttribute(MatsimTransitAttributes.ID, scheduleIdMapping.apply(tripSchedule));
+      xmlWriter.writeAttribute(MatsimTransitAttributes.ID, String.valueOf(uniqueReltimingSeqCounter)); // we can't use schedule id because a PLANit schedule might occur in multiple places due to its higher flexibility
       PlanitXmlWriterUtils.writeNewLine(xmlWriter);
 
       /* transportMode */
       PlanitXmlWriterUtils.writeElementWithValueWithNewLine(xmlWriter, MatsimTransitElements.TRANSPORT_MODE, mappedMode ,matsimWriter.getIndentLevel());
       transitRouteCountersByMode.get(mappedMode).increment();
 
+      /* in MATSim we now create a new route for all transit schedules with #departure times and THE EXACT SAME LEG TIMINGS*/
+      var referenceSchedule = scheduleByDepartureTimes.values().stream().findFirst().get().get(0);
+
       /* routeProfile */
-      success = writeMatsimRouteProfile(xmlWriter, tripSchedule, servicesSettings);
+      success = writeMatsimRouteProfile(xmlWriter, referenceSchedule, servicesSettings);
+
+      /* route */
+      success = writeMatsimRouteLinkRefs(xmlWriter, referenceSchedule, servicesSettings) && success;
+
+      /* departures */
+      {
+        int departureIndex = 1;
+        matsimWriter.writeStartElement(xmlWriter, MatsimTransitElements.DEPARTURES, true);
+        if(success) {
+          PlanitXmlWriterUtils.writeNewLine(xmlWriter);
+          for(var departuretime : orderedDepartureTimes){
+            writeRouteDepartureTime(xmlWriter, ++departureIndex, departuretime);
+          };
+        }
+        matsimWriter.writeEndElementNewLine(xmlWriter, true);
+      }
 
       matsimWriter.writeEndElementNewLine(xmlWriter, true);
-
       if(!success){
         break;
       }
@@ -278,11 +395,12 @@ class MatsimPtXmlWriter {
       PlanitXmlWriterUtils.writeNewLine(xmlWriter);
 
       /* transitRoute (PLANit trip schedule) */
-      boolean success = writeMatsimTransitRoute(xmlWriter, routedServicesLayer, routedService.getMode(), routedService.getTripInfo().getScheduleBasedTrips(), servicesSettings);
+      boolean success = writeMatsimTransitRoute(
+          xmlWriter, routedServicesLayer, routedService, routedService.getTripInfo().getScheduleBasedTrips(), servicesSettings);
 
       matsimWriter.writeEndElementNewLine(xmlWriter, true /* undo indentation */ ); // transit schedule
       if(!success){
-        LOGGER.warning(String.format("Unable to complete a transitroute part transitLine %s as expected, XML likely incomplete or corrupted for this entry", getIdMapping(RoutedService.class).apply(routedService)));
+        LOGGER.warning(String.format("Unable to complete a transit route part transitLine %s as expected, XML likely incomplete or corrupted for this entry", getIdMapping(RoutedService.class).apply(routedService)));
       }
     } catch (XMLStreamException e) {
       LOGGER.severe(e.getMessage());

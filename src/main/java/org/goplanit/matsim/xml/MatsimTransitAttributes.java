@@ -28,4 +28,5 @@ public class MatsimTransitAttributes {
   public static final String DEPARTURE_OFFSET = "departureOffset";
   public static final String AWAIT_DEPARTURE = "awaitDeparture";
 
+  public static final String DEPARTURE_TIME = "departureTime";
 }
