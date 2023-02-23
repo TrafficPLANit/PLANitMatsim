@@ -21,6 +21,7 @@ import org.goplanit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
 import org.goplanit.service.routed.RoutedServices;
 import org.goplanit.utils.collections.ListUtils;
 import org.goplanit.utils.exceptions.PlanItRunTimeException;
+import org.goplanit.utils.misc.IterableUtils;
 import org.goplanit.utils.misc.Pair;
 import org.goplanit.utils.misc.StringUtils;
 import org.goplanit.utils.mode.Mode;
@@ -141,11 +142,11 @@ class MatsimPtXmlWriter {
    * @throws XMLStreamException when error
    */
   private boolean writeMatsimRouteProfileStop(
-      XMLStreamWriter xmlWriter,
-      RelativeLegTiming relLegTiming,
-      LocalTime cumulativeTravelTime,
+      final XMLStreamWriter xmlWriter,
+      final RelativeLegTiming relLegTiming,
+      final LocalTime cumulativeTravelTime,
       boolean upstreamStop,
-      MatsimPtServicesWriterSettings servicesSettings) throws XMLStreamException {
+      final MatsimPtServicesWriterSettings servicesSettings) throws XMLStreamException {
 
     if(!relLegTiming.hasParentLegSegment() || !relLegTiming.getParentLegSegment().hasPhysicalParentSegments()){
       LOGGER.warning("IGNORE: Found PLANit relative leg timing with missing service leg segment or missing underlying physical link segments, unable to create stop XML Element, should not happen");
@@ -155,14 +156,25 @@ class MatsimPtXmlWriter {
     /* ref id <-- stop facility ref id is based on macroscopic link segment and node location, see #writeMatsimStopFacility */
     var physicalLinkSegmentsOfLeg = relLegTiming.getParentLegSegment().getPhysicalParentSegments();
     var accessLinkSegment = upstreamStop ? ListUtils.getFirst(physicalLinkSegmentsOfLeg) : ListUtils.getLastValue(physicalLinkSegmentsOfLeg);
-    if(!hasStopFacilityId(accessLinkSegment, !upstreamStop)){
-      // todo: we get this a lot --> bug I think, for zone reason we are missing transfer zones in the zoning that have access link segments for services that we identified
-      // todo: figure out how this can be?? -->
-      //    options when creating paths between transfer zones, the directed connectoids are not updated?
-      //    options when splitting links for new transfer zones in GTFS, connectoids are not updated?
-      //
-      // TODO: AFTER that --> log warning that service ids are not yet parsed, meaning we can egt the warning of duplicate departure times (which we get and should get) --> then implement the option
-      //       in GTFS parser to select certain day/days/times etc.
+
+    boolean stopFacilityFound = hasStopFacilityId(accessLinkSegment, !upstreamStop) ;
+    if(!stopFacilityFound && upstreamStop){
+      // if it is an upstream stop it might be the beginning of a route, in which case the connectoid is expected to be attached to the upstream node, however, in that case
+      // the access link segment is likely to be an upstream link of that node, and not an exit link. Therefore, search the incoming link segments instead in that case, as this is still a valid
+      // mapping if we find it (as long as it is not the directly opposing link segment, since transit vehicles are expected to not make u-turns
+      final var originalAccessLinkSegment = accessLinkSegment;
+      var stopFacilityAccessLinkSegment = IterableUtils.asStream(accessLinkSegment.getUpstreamNode().<MacroscopicLinkSegment>getEntryLinkSegments()).filter(
+          ls ->  ls.getOppositeDirectionSegment()==null || !ls.getOppositeDirectionSegment().equals(originalAccessLinkSegment) && hasStopFacilityId(ls, true)).findFirst();
+      if(stopFacilityAccessLinkSegment.isPresent()){
+        // update
+        accessLinkSegment = stopFacilityAccessLinkSegment.get();
+        upstreamStop = false;
+        //flag
+        stopFacilityFound = true;
+      }
+    }
+
+    if(!stopFacilityFound){
       LOGGER.severe("IGNORE No stop facility id registered for leg timing stop on RouteProfile, this shouldn't happen");
       return false;
     }
