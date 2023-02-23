@@ -19,4 +19,9 @@ public class MatsimTransitElements {
   public static final String TRANSPORT_MODE = "transportMode";
   public static final String ROUTE_PROFILE = "routeProfile";
   public static final String STOP = "stop";
+  public static final String ROUTE = "route";
+  public static final String DEPARTURES = "departures";
+  public static final String DEPARTURE = "departure";
+  public static final String LINK = "link";
+
 }
