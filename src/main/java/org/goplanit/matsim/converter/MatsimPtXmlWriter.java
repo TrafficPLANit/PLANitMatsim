@@ -328,7 +328,7 @@ class MatsimPtXmlWriter {
         entry.getKey().forEach( depTime -> {
           var added = orderedDepartureTimes.add(depTime);
           if(entry.getValue().size()>1) LOGGER.warning(
-              String.format("Multiple routed trip schedules with identical servicelegs-departure time (%s) on routed service %s (ext id: %s, mode %s) --> trips [%s]. Ignoring duplicates (consider pre-filtering data by day?)",
+              String.format("Multiple routedTripSchedules with identical servicelegs-departure time (%s), routed service %s (ext id: %s, %s) trips [%s]. Ignoring duplicates (pre-filter by day, or invalid GTFS source?)",
                   depTime.toString(), routedServiceId, routedService.getExternalId(), routedService.getMode().getName(),
                   entry.getValue().stream().map( e -> e.hasExternalId() ? e.getExternalId() : "").collect(Collectors.joining(","))));
         });
