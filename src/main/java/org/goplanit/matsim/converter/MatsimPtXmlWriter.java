@@ -17,6 +17,7 @@ import javax.xml.stream.XMLStreamWriter;
 import org.goplanit.converter.IdMapperFunctionFactory;
 import org.goplanit.matsim.xml.MatsimTransitAttributes;
 import org.goplanit.matsim.xml.MatsimTransitElements;
+import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
 import org.goplanit.service.routed.RoutedServices;
 import org.goplanit.utils.collections.ListUtils;
@@ -24,7 +25,6 @@ import org.goplanit.utils.exceptions.PlanItRunTimeException;
 import org.goplanit.utils.misc.IterableUtils;
 import org.goplanit.utils.misc.Pair;
 import org.goplanit.utils.misc.StringUtils;
-import org.goplanit.utils.mode.Mode;
 import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
 import org.goplanit.utils.network.layer.physical.LinkSegment;
 import org.goplanit.utils.service.routed.*;
@@ -38,7 +38,6 @@ import org.goplanit.zoning.Zoning;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Point;
 import org.opengis.referencing.operation.TransformException;
-import org.w3.xlink.Extended;
 
 /**
  * Class that takes on the responsibility of writing all PT XML based files for a given PLANit memory model
@@ -293,14 +292,22 @@ class MatsimPtXmlWriter {
    * persisting MATSim transit route ( PLANit trip schedule of a routed service)
    *
    * @param xmlWriter           to use
+   * @param networkSettings     to use
    * @param routedServicesLayer to use
-   * @param routedService     related to the schedule
+   * @param routedService       related to the schedule
    * @param tripsSchedule       to persist
    * @param servicesSettings    to use
    * @throws XMLStreamException when error
    */
-  private boolean writeMatsimTransitRoute(XMLStreamWriter xmlWriter, RoutedServicesLayer routedServicesLayer, RoutedService routedService, RoutedTripsSchedule tripsSchedule, MatsimPtServicesWriterSettings servicesSettings) throws XMLStreamException {
-    var modeMapping = servicesSettings.getNetworkSettings().collectActivatedPlanitModeToMatsimModeMapping(
+  private boolean writeMatsimTransitRoute(
+      XMLStreamWriter xmlWriter,
+      MatsimNetworkWriterSettings networkSettings,
+      RoutedServicesLayer routedServicesLayer,
+      RoutedService routedService,
+      RoutedTripsSchedule tripsSchedule,
+      MatsimPtServicesWriterSettings servicesSettings) throws XMLStreamException {
+
+    var modeMapping = networkSettings.collectActivatedPlanitModeToMatsimModeMapping(
         (MacroscopicNetworkLayerImpl) routedServicesLayer.getParentLayer().getParentNetworkLayer());
     String routedServiceId = getIdMapping(RoutedService.class).apply(routedService);
 
@@ -379,11 +386,12 @@ class MatsimPtXmlWriter {
    * persisting MATSim transit lines
    *
    * @param xmlWriter           to use
+   * @param networkSettings     to use
    * @param routedServicesLayer to use
    * @param routedService       to persist
    * @param servicesSettings    to use
    */
-  private void writeMatsimTransitLine(XMLStreamWriter xmlWriter, RoutedServicesLayer routedServicesLayer, RoutedService routedService, MatsimPtServicesWriterSettings servicesSettings) {
+  private void writeMatsimTransitLine(XMLStreamWriter xmlWriter, MatsimNetworkWriterSettings networkSettings, RoutedServicesLayer routedServicesLayer, RoutedService routedService, MatsimPtServicesWriterSettings servicesSettings) {
     if(!routedService.getTripInfo().hasScheduleBasedTrips() && !loggedFrequencyTripWarning){
       LOGGER.warning("Found frequency based PLANit routed services. These are ignored in persisting MATSim transit lines due to absence of schedule");
       loggedFrequencyTripWarning = true;
@@ -408,7 +416,7 @@ class MatsimPtXmlWriter {
 
       /* transitRoute (PLANit trip schedule) */
       boolean success = writeMatsimTransitRoute(
-          xmlWriter, routedServicesLayer, routedService, routedService.getTripInfo().getScheduleBasedTrips(), servicesSettings);
+          xmlWriter, networkSettings, routedServicesLayer, routedService, routedService.getTripInfo().getScheduleBasedTrips(), servicesSettings);
 
       matsimWriter.writeEndElementNewLine(xmlWriter, true /* undo indentation */ ); // transit schedule
       if(!success){
@@ -423,15 +431,16 @@ class MatsimPtXmlWriter {
   /**
    * write the transit lines which we extract from the PLANit routed services
    *
-   * @param xmlWriter               to use
-   * @param routedServices          to use
-    * @param servicesSettings       to use
+   * @param xmlWriter        to use
+   * @param networkSettings  to use
+   * @param routedServices   to use
+   * @param servicesSettings to use
    */
-  private void writeMatsimTransitLines(XMLStreamWriter xmlWriter, RoutedServices routedServices, MatsimPtServicesWriterSettings servicesSettings) {
+  private void writeMatsimTransitLines(XMLStreamWriter xmlWriter, MatsimNetworkWriterSettings networkSettings, RoutedServices routedServices, MatsimPtServicesWriterSettings servicesSettings) {
     transitRouteCountersByMode.clear();
     /* reset counters per mapped mode */
     routedServices.getLayers().forEach( layer ->
-        servicesSettings.getNetworkSettings().collectActivatedPlanitModeToMatsimModeMapping(
+        networkSettings.collectActivatedPlanitModeToMatsimModeMapping(
             (MacroscopicNetworkLayerImpl) layer.getParentLayer().getParentNetworkLayer()).entrySet().forEach(
             e -> transitRouteCountersByMode.put(e.getValue(), new LongAdder())));
 
@@ -448,7 +457,7 @@ class MatsimPtXmlWriter {
           continue;
         }
 
-        servicesByMode.forEach( rs -> writeMatsimTransitLine(xmlWriter, routedServicesLayer, rs, servicesSettings));
+        servicesByMode.forEach( rs -> writeMatsimTransitLine(xmlWriter, networkSettings, routedServicesLayer, rs, servicesSettings));
       }
     }
 
@@ -573,14 +582,19 @@ class MatsimPtXmlWriter {
   }   
 
   /** Starting point for persisting the MATSim transit schedule file (infrastructure, e.g., stops and stations, only)
-   * 
-   * @param zoning to persist
+   *
+   * @param zoning to extract information to persist from
    * @param zoningWriterSettings to use
-   * @param routedServices to persist (if not null)
+   * @param routedServices to extract information to persist from (if not null)
    * @param routedServicesSettings to use
+   * @param networkSettings to use, containing for example the mode mapping information required when writing schedules (may be null if no reouted services are provided)
    */
   protected void writeXmlTransitScheduleFile(
-      Zoning zoning, MatsimZoningWriterSettings zoningWriterSettings, RoutedServices routedServices, MatsimPtServicesWriterSettings routedServicesSettings) {
+      Zoning zoning,
+      MatsimZoningWriterSettings zoningWriterSettings,
+      RoutedServices routedServices,
+      MatsimPtServicesWriterSettings routedServicesSettings,
+      MatsimNetworkWriterSettings networkSettings) {
 
     /* prep */
     initialiseIdMappers();
@@ -598,7 +612,7 @@ class MatsimPtXmlWriter {
       
       /* body */
       loggedFrequencyTripWarning = false;
-      writeTransitScheduleXML(xmlFileWriterPair.first(), zoning, zoningWriterSettings, routedServices, routedServicesSettings);
+      writeTransitScheduleXML(xmlFileWriterPair.first(), networkSettings, zoning, zoningWriterSettings, routedServices, routedServicesSettings);
       
     }catch (Exception e) {
       LOGGER.severe(e.getMessage());
@@ -616,15 +630,18 @@ class MatsimPtXmlWriter {
     logWriterStats();
   }
 
-  /** convert the PLANit public transport infrastructure to MATSim transit schedule XML
-   * @param xmlWriter to use
-   * @param zoning to use
+  /**
+   * convert the PLANit public transport infrastructure to MATSim transit schedule XML
+   *
+   * @param xmlWriter            to use
+   * @param networkSettings      to use
+   * @param zoning               to use
    * @param zoningWriterSettings to use
-   * @param routedServices to use
-   * @param servicesSettings to use
+   * @param routedServices       to use
+   * @param servicesSettings     to use
    */
   protected void writeTransitScheduleXML(
-      XMLStreamWriter xmlWriter, Zoning zoning, MatsimZoningWriterSettings zoningWriterSettings, RoutedServices routedServices, MatsimPtServicesWriterSettings servicesSettings) {
+      XMLStreamWriter xmlWriter, MatsimNetworkWriterSettings networkSettings, Zoning zoning, MatsimZoningWriterSettings zoningWriterSettings, RoutedServices routedServices, MatsimPtServicesWriterSettings servicesSettings) {
     try {
       matsimWriter.writeStartElementNewLine(xmlWriter,MatsimTransitElements.TRANSIT_SCHEDULE, true /* add indentation*/);
       
@@ -633,7 +650,7 @@ class MatsimPtXmlWriter {
       writeMatsimTransitStops(xmlWriter, zoning, zoningWriterSettings);
 
       if(routedServices != null){
-        writeMatsimTransitLines(xmlWriter, routedServices, servicesSettings);
+        writeMatsimTransitLines(xmlWriter, networkSettings, routedServices, servicesSettings);
       }
                   
       matsimWriter.writeEndElementNewLine(xmlWriter, true /* undo indentation */ ); // transit schedule

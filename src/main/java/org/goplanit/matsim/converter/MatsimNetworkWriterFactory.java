@@ -9,12 +9,12 @@ import org.goplanit.utils.locale.CountryNames;
  */
 public class MatsimNetworkWriterFactory {
   
-  /** Create a PLANitMatsimWriter which persists PLANit networks in MATSIM network format
+  /** Create a PLANitMatsimWriter which persists PLANit networks in MATSIM network format in current working directory
    * 
    * @return created MATSim writer
    */
   public static MatsimNetworkWriter create() {
-    return new MatsimNetworkWriter();    
+    return create(".");
   }  
   
   /** Create a PLANitMatsimWriter which persists PLANit networks in MATSIM network format
