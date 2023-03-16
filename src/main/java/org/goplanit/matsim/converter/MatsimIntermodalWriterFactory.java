@@ -13,10 +13,8 @@ import org.goplanit.zoning.Zoning;
  * @author markr
  *
  */
-public class MatsimIntermodalWriterWithServicesFactory {
+public class MatsimIntermodalWriterFactory {
 
-  private static boolean SUPPORT_PT_SERVICES = true;
-  
   /** Create a PLANitMatsimIntermodalWriter which persists PLANit networks and their pt infrastructure and services in MATSIM network format, using all defaults,
    * requires the user to set output directory afterwards
    * 
@@ -35,7 +33,7 @@ public class MatsimIntermodalWriterWithServicesFactory {
     return create(outputDirectory, CountryNames.WORLD);    
   }
   
-  /** Create a PLANitMatsimWriter which persists PLANit networks and their pt infrastructure and services in MATSim network format with default mode mapping
+  /** Create a PLANitMatsimWriter which persists PLANit networks and their pt infrastructure (and possibly services) in MATSim network format with default mode mapping
    * 
    * @param outputDirectory to use
    * @param countryName country which the input file represents, used to determine defaults in case not specifically specified in OSM data, when left blank global defaults will be used
@@ -43,18 +41,18 @@ public class MatsimIntermodalWriterWithServicesFactory {
    * @return created MATSim writer
    */
   public static MatsimIntermodalWriter create(String outputDirectory, String countryName) {
-    MatsimIntermodalWriterSettings settings = new MatsimIntermodalWriterSettings(outputDirectory, countryName, SUPPORT_PT_SERVICES);
+    MatsimIntermodalWriterSettings settings = new MatsimIntermodalWriterSettings(outputDirectory, countryName);
     return new MatsimIntermodalWriter(settings);    
   }
 
-  /** create  a PLANitMatsimWriter which persists PLANit networks and their pt infrastructure and services in MATSim network format
-   * settings provided. Using configuration of network and zoning via ptservices settings containing those settings
+  /** create  a PLANitMatsimWriter which persists PLANit networks and their pt infrastructure (and possibly services) in MATSim network format
+   * using the settings provided.
    *
-   * @param ptServicesWriterSettings to use
+   * @param settings to use
    * @return created MATSim writer
    */
-  public static MatsimIntermodalWriter create(MatsimPtServicesWriterSettings ptServicesWriterSettings) {
-    return new MatsimIntermodalWriter(new MatsimIntermodalWriterSettings(ptServicesWriterSettings));
+  public static MatsimIntermodalWriter create(MatsimIntermodalWriterSettings settings) {
+    return new MatsimIntermodalWriter(settings);
   }  
       
 }

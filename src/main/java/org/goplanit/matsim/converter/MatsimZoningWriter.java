@@ -85,8 +85,9 @@ public class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWr
         prepareCoordinateReferenceSystem(getSettings().getReferenceNetwork(), getSettings().getCountry(), getSettings().getDestinationCoordinateReferenceSystem());
     getSettings().setDestinationCoordinateReferenceSystem(destinationCrs);
             
-    /* write stops */    
-    new MatsimPtXmlWriter(this).writeXmlTransitScheduleFile(zoning, getZoningWriterSettings(), null, null);
+    /* results in writing stops only*/
+    new MatsimPtXmlWriter(this).writeXmlTransitScheduleFile(
+        zoning, getZoningWriterSettings(), null, null, null);
     
     if(getSettings().isGenerateMatrixBasedPtRouterFiles()) {
       new MatsimPtMatrixBasedRouterWriter(this).write(zoning);

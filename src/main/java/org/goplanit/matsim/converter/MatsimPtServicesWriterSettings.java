@@ -28,12 +28,6 @@ public class MatsimPtServicesWriterSettings extends PlanitMatsimWriterSettings{
    */
   protected String transitScheduleFileName = DEFAULT_TRANSIT_SCHEDULE_FILE_NAME;
 
-  /** reference to network settings to use, required due to mode mapping present, that we want to keep in sync */
-  protected final MatsimNetworkWriterSettings networkSettings;
-
-  /** reference to zoning settings to use, required due to how to write stop facilities */
-  protected final MatsimZoningWriterSettings zoningSettings;
-
   /** flag indicating the default for transit routes awaiting departure based on their schedule */
   private boolean awaitDepartures = AWAIT_DEPARTURE_DEFAULT;
 
@@ -43,16 +37,6 @@ public class MatsimPtServicesWriterSettings extends PlanitMatsimWriterSettings{
   protected void logSettings() {
     Path matsimZoningPath =  Paths.get(getOutputDirectory(), getOutputFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
     LOGGER.info(String.format("Persisting MATSim public transport to: %s", matsimZoningPath));
-  }
-
-  /** package access to network writer settings */
-  MatsimNetworkWriterSettings getNetworkSettings(){
-    return networkSettings;
-  }
-
-  /** package access to network writer settings */
-  MatsimZoningWriterSettings getZoningSettings(){
-    return zoningSettings;
   }
 
   /** default value aligned with MATSim default */
@@ -98,27 +82,6 @@ public class MatsimPtServicesWriterSettings extends PlanitMatsimWriterSettings{
   /**
    * Constructor
    *
-   * @param networkSettings to use
-   * @param zoningSettings to use
-   * @param transitScheduleFileName to use
-   * @param referenceZoning to use
-   */
-  public MatsimPtServicesWriterSettings(
-      final MatsimNetworkWriterSettings networkSettings,
-      final MatsimZoningWriterSettings zoningSettings,
-      final String transitScheduleFileName,
-      final Zoning referenceZoning) {
-    super(networkSettings.getOutputDirectory(), transitScheduleFileName, networkSettings.getCountry());
-    setReferenceZoning(referenceZoning);
-    this.networkSettings = networkSettings;
-    this.zoningSettings = zoningSettings;
-    setDecimalFormat(networkSettings.getDecimalFormat());
-    setDestinationCoordinateReferenceSystem(networkSettings.getDestinationCoordinateReferenceSystem());
-  }
-
-  /**
-   * Constructor
-   *
    * @param outputDirectory to use
    * @param outputFileName to use
    * @param countryName to use
@@ -131,8 +94,6 @@ public class MatsimPtServicesWriterSettings extends PlanitMatsimWriterSettings{
       final Zoning referenceZoning) {
     super(outputDirectory, outputFileName, countryName);
     setReferenceZoning(referenceZoning);
-    this.networkSettings = new MatsimNetworkWriterSettings(outputDirectory, countryName); // default mode mapping
-    this.zoningSettings = new MatsimZoningWriterSettings(outputDirectory, countryName); // default zoning settings
   }
 
   /** Collect the reference zoning used
@@ -150,33 +111,7 @@ public class MatsimPtServicesWriterSettings extends PlanitMatsimWriterSettings{
     this.referenceZoning = referenceZoning;
   }
 
-  /**
-   * {@inheritDoc}
-   */
-  public void setOutputDirectory(String outputDirectory) {
-    super.setOutputDirectory(outputDirectory);
-    getNetworkSettings().setOutputDirectory(outputDirectory);
-    getZoningSettings().setOutputDirectory(outputDirectory);
-  }
 
-  /**
-   * {@inheritDoc}
-   */
-  public void setCountry(String countryName) {
-    super.setCountry(countryName);
-    getNetworkSettings().setCountry(countryName);
-    getZoningSettings().setCountry(countryName);
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public void setDestinationCoordinateReferenceSystem(CoordinateReferenceSystem destinationCoordinateReferenceSystem) {
-    super.setDestinationCoordinateReferenceSystem(destinationCoordinateReferenceSystem);
-    getNetworkSettings().setDestinationCoordinateReferenceSystem(destinationCoordinateReferenceSystem);
-    getZoningSettings().setDestinationCoordinateReferenceSystem(destinationCoordinateReferenceSystem);
-  }
 
   /**
    * {@inheritDoc}

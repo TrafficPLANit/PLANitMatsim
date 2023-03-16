@@ -168,12 +168,7 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterSettings {
     DEFAULT_PLANIT2MATSIM_MODE_MAPPING = createDefaultPredefinedModeMappings();
     DEFAULT_ACTIVATED_MODES = createDefaultActivatedPlanitModes();
   }
-  
-  /**
-   * default names used for MATSIM network file that is being generated
-   */
-  public static final String DEFAULT_NETWORK_FILE_NAME = "network";  
-  
+
   /**
    * Default setting for generating detailed link geometry file is false
    */

@@ -42,6 +42,11 @@ public abstract class PlanitMatsimWriterSettings implements ConverterWriterSetti
   public static final String DEFAULT_TRANSIT_SCHEDULE_FILE_NAME = "transitschedule";
 
   /**
+   * default names used for MATSIM network file that is being generated
+   */
+  public static final String DEFAULT_NETWORK_FILE_NAME = "network";
+
+  /**
    * Default constructor 
    */
   public PlanitMatsimWriterSettings() {
