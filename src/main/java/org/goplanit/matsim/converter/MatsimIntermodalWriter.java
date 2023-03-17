@@ -73,9 +73,9 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
    *
    */
   private void writeMatsimFullPtSchedule(RoutedServices routedServices, Zoning zoning) throws PlanItException {
+
     /* routed services writer */
-    var routedServicesWriter = MatsimPublicTransportServicesWriterFactory.create(
-        getSettings().getNetworkSettings(), getSettings().getZoningSettings(), zoning);
+    var routedServicesWriter = MatsimPublicTransportServicesWriterFactory.create(getSettings());
 
     /* write routed services */
     routedServicesWriter.write(routedServices);
