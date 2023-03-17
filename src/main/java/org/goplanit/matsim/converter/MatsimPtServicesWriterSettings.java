@@ -1,9 +1,8 @@
 package org.goplanit.matsim.converter;
 
-import org.goplanit.matsim.util.PlanitMatsimWriterSettings;
+import org.goplanit.matsim.util.PlanitMatsimWriterModeMappingSettings;
 import org.goplanit.utils.locale.CountryNames;
 import org.goplanit.zoning.Zoning;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -15,7 +14,7 @@ import java.util.logging.Logger;
  * @author markr
  *
  */
-public class MatsimPtServicesWriterSettings extends PlanitMatsimWriterSettings{
+public class MatsimPtServicesWriterSettings extends PlanitMatsimWriterModeMappingSettings {
 
   /** settings to use */
   private static final Logger LOGGER = Logger.getLogger(MatsimPtServicesWriterSettings.class.getCanonicalName());
@@ -32,9 +31,17 @@ public class MatsimPtServicesWriterSettings extends PlanitMatsimWriterSettings{
   private boolean awaitDepartures = AWAIT_DEPARTURE_DEFAULT;
 
   /**
-   * Log settings
+   * Log settings but do not use parent class log settings as it is assumed this writer is always used
+   * in conjunction with MATStim network writer and we shared the mode mapping with these settings which will
+   * already be logged.
+   *
+   * todo: in future if there is a use case for the pt services to be persisted stand alone, then we can because we already
+   * have the mode mapping as part of its settings, but then we would want to log this mapping to the user in which case this
+   * method needs adjusting to be configurable, either do or do not log the mode mapping depending on the use case. Currently
+   * this mapping is simply not logged.
+   *
    */
-  protected void logSettings() {
+  protected void logSettingsWithoutModeMapping() {
     Path matsimZoningPath =  Paths.get(getOutputDirectory(), getOutputFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
     LOGGER.info(String.format("Persisting MATSim public transport to: %s", matsimZoningPath));
   }
@@ -96,6 +103,15 @@ public class MatsimPtServicesWriterSettings extends PlanitMatsimWriterSettings{
     setReferenceZoning(referenceZoning);
   }
 
+  /**
+   * Copy Constructor based on PlanitMatsimWriterModeMappingSettings
+   *
+   * @param settings to apply
+   */
+  public MatsimPtServicesWriterSettings(final PlanitMatsimWriterModeMappingSettings settings){
+    super(settings);
+  }
+
   /** Collect the reference zoning used
    *
    * @return reference zoning
@@ -111,14 +127,13 @@ public class MatsimPtServicesWriterSettings extends PlanitMatsimWriterSettings{
     this.referenceZoning = referenceZoning;
   }
 
-
-
   /**
    * {@inheritDoc}
    */
   @Override
   public void reset() {
-    // TODO Auto-generated method stub    
+    super.reset();
+    // TODO
   }
 
   // getters-settings
