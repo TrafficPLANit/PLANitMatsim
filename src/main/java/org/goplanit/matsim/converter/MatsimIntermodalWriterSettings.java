@@ -9,7 +9,7 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import java.text.DecimalFormat;
 
 /**
- * Settings specific to writing the intermodal related outputs in Matsim format (network and pt)
+ * Settings specific to writing the intermodal related outputs in MATSim format, i.e., network and pt infrastructure and/or services
  * 
  * @author markr
  *
@@ -25,16 +25,15 @@ public class MatsimIntermodalWriterSettings extends PlanitMatsimWriterSettings i
   protected final MatsimPtServicesWriterSettings ptServicesSettings;
 
   /**
-   * Constructor for persisting only PT infrastructure via zoning settings
+   * Constructor based on settings for zoning and network from which pt services settings will be created (sharing the mode mapping from the network)
    *
    *  @param networkWriterSettings writer settings to use
    *  @param zoningWriterSettings writer settings to use
-   *  @param routedServicesWriterSettings writer settings to use
    */
-  protected MatsimIntermodalWriterSettings(final MatsimNetworkWriterSettings networkWriterSettings, final MatsimZoningWriterSettings zoningWriterSettings, final MatsimPtServicesWriterSettings routedServicesWriterSettings) {
+  protected MatsimIntermodalWriterSettings(final MatsimNetworkWriterSettings networkWriterSettings, final MatsimZoningWriterSettings zoningWriterSettings) {
     this.networkSettings = networkWriterSettings;
     this.zoningSettings = zoningWriterSettings;
-    this.ptServicesSettings = routedServicesWriterSettings;
+    this.ptServicesSettings = new MatsimPtServicesWriterSettings(networkWriterSettings); // shallow copy to share mode mappings between the two, future prepping for option to persist this separately
   }
 
   /**
@@ -57,8 +56,7 @@ public class MatsimIntermodalWriterSettings extends PlanitMatsimWriterSettings i
    */
   public MatsimIntermodalWriterSettings(final String outputDirectory, final String countryName, final String networkOutputFileName, final String ptOutputFileName) {
       this(new MatsimNetworkWriterSettings(outputDirectory, networkOutputFileName, countryName),
-          new MatsimZoningWriterSettings(outputDirectory, ptOutputFileName, countryName),
-          new MatsimPtServicesWriterSettings(outputDirectory, ptOutputFileName, countryName));
+          new MatsimZoningWriterSettings(outputDirectory, ptOutputFileName, countryName));
   }    
 
   /**

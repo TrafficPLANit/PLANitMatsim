@@ -24,6 +24,12 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
   /** the routed services writer settings used for the MATSim pt component*/
   private final MatsimPtServicesWriterSettings routedServicesWriterSettings;
 
+  /** the network settings to use required to sync our services references to zoning information */
+  protected final MatsimNetworkWriterSettings networkSettings;
+
+  /** the zoning settings to use required to sync our services references to zoning information */
+  protected final MatsimZoningWriterSettings zoningSettings;
+
   /**
    * Validate the service network to make sure it is compatible with MATSim
    *
@@ -58,13 +64,19 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
     return true;
   }
 
-  /** constructor
+  /** Constructor.
    *
    * @param routedServicesWriterSettings to use
+   *
+   * @param routedServicesWriterSettings actual settings related to what user has configured for this
+   * @param networkSettings used to make sure references are synced with network, not used to expose/change settings
+   * @param zoningSettings used to make sure references are synced with zoning, not used to expose/change settings
    */
-  protected MatsimRoutedServicesWriter(MatsimPtServicesWriterSettings routedServicesWriterSettings) {
+  protected MatsimRoutedServicesWriter(MatsimPtServicesWriterSettings routedServicesWriterSettings, MatsimNetworkWriterSettings networkSettings, MatsimZoningWriterSettings zoningSettings) {
     super(IdMapperType.ID);
     this.routedServicesWriterSettings = routedServicesWriterSettings;
+    this.networkSettings = networkSettings;
+    this.zoningSettings = zoningSettings;
   }
 
 
@@ -83,7 +95,7 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
     //validateSettings();
     
     /* log settings */
-    getSettings().logSettings();    
+    getSettings().logSettingsWithoutModeMapping();
 
     // todo: likely can be removed as no geo information is used during persistence to MATSim for PT services
     /* CRS */
@@ -93,7 +105,7 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
             
     /* write stops */    
     new MatsimPtXmlWriter(this).writeXmlTransitScheduleFile(
-        getSettings().getReferenceZoning(), getSettings().getZoningSettings(), routedServices, getSettings());
+        getSettings().getReferenceZoning(), zoningSettings, routedServices, getSettings(), networkSettings);
 
   }
 
@@ -102,7 +114,7 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
    */
   @Override
   public void reset() {
-    //TODO:
+    getSettings().reset();
   }
   
   /** Collect the settings

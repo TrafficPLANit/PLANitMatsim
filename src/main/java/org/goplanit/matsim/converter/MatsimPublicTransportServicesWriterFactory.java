@@ -45,39 +45,34 @@ public class MatsimPublicTransportServicesWriterFactory {
    * @return created MatsimRoutedServicesWriter
    */
   public static MatsimRoutedServicesWriter create(MatsimPtServicesWriterSettings settings) {
-    return new MatsimRoutedServicesWriter(settings);
+    return create(settings,
+        new MatsimNetworkWriterSettings(settings.getOutputDirectory(), settings.getCountry()),
+        new MatsimZoningWriterSettings(settings.getOutputDirectory(), settings.getCountry()));
   }
 
-  // CONTINUE HERE --> STREAMLINE THIS FACTORY --> PT SERVICES REQUIRES INFO FROM ZONING/NETWORK SETTINGS, this however should be stored
-  // on the writer not on the settings of this writer, this is what needs to be changed....
+  /** Create a MatsimRoutedServicesWriter which persists PLANit routed services in a public transport schedule in MATSIM format based on settings provided
+   *
+   * @param settings to use
+   * @return created MatsimRoutedServicesWriter
+   */
+  public static MatsimRoutedServicesWriter create(MatsimIntermodalWriterSettings settings) {
+    return create(settings.getPtServicesSettings(), settings.getNetworkSettings(), settings.getZoningSettings());
+  }
 
   /** Create a PLANitMatsimRoutedServicesWriter (pt output) with defaults. It is expected the user sets the appropriate properties
    * afterwards as required for this particular type of writer
-   * 
+   *
    * @param networkWriterSettings to use
-   * @param referenceZoning to use
+   * @param zoningWriterSettings to use
+   * @param routedServicesSettings to use
    * @return create MATSim zoning (pt) writer
    */
   public static MatsimRoutedServicesWriter create(
+      MatsimPtServicesWriterSettings routedServicesSettings,
       MatsimNetworkWriterSettings networkWriterSettings,
-      MatsimZoningWriterSettings zoningWriterSettings,
-      Zoning referenceZoning) {
-    return create(
-        networkWriterSettings,
-        zoningWriterSettings,
-        new MatsimPtServicesWriterSettings(
-            zoningWriterSettings.getOutputFileName(),
-            referenceZoning));
-  }   
-      
-  /** Create a PLANitMatsimRoutedServicesWriter
-   * 
-   * @param routedServicesWriterSettings to use
-   * @return create MATSim writer
-   */
-  public static MatsimRoutedServicesWriter create(MatsimPtServicesWriterSettings routedServicesWriterSettings) {
-    return new MatsimRoutedServicesWriter(routedServicesWriterSettings);
-  }  
-   
+      MatsimZoningWriterSettings zoningWriterSettings) {
+    return new MatsimRoutedServicesWriter(routedServicesSettings, networkWriterSettings, zoningWriterSettings);
+  }
+
   
 }
