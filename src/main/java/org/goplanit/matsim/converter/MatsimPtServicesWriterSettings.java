@@ -32,7 +32,7 @@ public class MatsimPtServicesWriterSettings extends PlanitMatsimWriterModeMappin
 
   /**
    * Log settings but do not use parent class log settings as it is assumed this writer is always used
-   * in conjunction with MATStim network writer and we shared the mode mapping with these settings which will
+   * in conjunction with MATsim network writer and we shared the mode mapping with these settings which will
    * already be logged.
    *
    * todo: in future if there is a use case for the pt services to be persisted stand alone, then we can because we already
@@ -42,7 +42,7 @@ public class MatsimPtServicesWriterSettings extends PlanitMatsimWriterModeMappin
    *
    */
   protected void logSettingsWithoutModeMapping() {
-    Path matsimZoningPath =  Paths.get(getOutputDirectory(), getOutputFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
+    Path matsimZoningPath =  Paths.get(getOutputDirectory(), getFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
     LOGGER.info(String.format("Persisting MATSim public transport to: %s", matsimZoningPath));
   }
 

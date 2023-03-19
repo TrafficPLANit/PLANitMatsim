@@ -73,9 +73,9 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterModeMappingSe
    * @param macroscopicNetwork provided for reference 
    */
   @Override
-  protected void logSettings(MacroscopicNetwork macroscopicNetwork) {
+  public void logSettings(MacroscopicNetwork macroscopicNetwork) {
   
-    Path matsimNetworkPath =  Paths.get(getOutputDirectory(), getOutputFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));    
+    Path matsimNetworkPath =  Paths.get(getOutputDirectory(), getFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
     LOGGER.info(String.format("Persisting MATSim network to: %s", matsimNetworkPath));
     
     LOGGER.info(String.format("Decimal fidelity set to %s", decimalFormat.getMaximumFractionDigits()));

@@ -38,10 +38,11 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
   /**
    * Log settings
    */
-  protected void logSettings() {
-    Path matsimZoningPath =  Paths.get(getOutputDirectory(), getOutputFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));    
-    LOGGER.info(String.format("Persisting MATSIM public transport to: %s",matsimZoningPath.toString()));
-    LOGGER.info(String.format("MATSIM Matrix based PT routing file are %s generated",isGenerateMatrixBasedPtRouterFiles() ? "" : "not"));
+  @Override
+  public void logSettings() {
+    Path matsimZoningPath =  Paths.get(getOutputDirectory(), getFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
+    LOGGER.info(String.format("Persisting MATSIM public transport to: %s", matsimZoningPath));
+    LOGGER.info(String.format("MATSim Matrix based PT routing file are %s generated",isGenerateMatrixBasedPtRouterFiles() ? "" : "not"));
   }    
   
   /** Collect the reference network used
