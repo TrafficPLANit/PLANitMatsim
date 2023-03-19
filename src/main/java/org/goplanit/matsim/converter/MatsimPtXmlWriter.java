@@ -603,7 +603,7 @@ class MatsimPtXmlWriter {
     matsimTransitLineCounter.reset();
     stopFacilityIdTracking.clear();
 
-    Path matsimNetworkPath =  Paths.get(matsimWriter.getSettings().getOutputDirectory(), matsimWriter.getSettings().getOutputFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
+    Path matsimNetworkPath =  Paths.get(matsimWriter.getSettings().getOutputDirectory(), matsimWriter.getSettings().getFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
     Pair<XMLStreamWriter,Writer> xmlFileWriterPair = PlanitXmlWriterUtils.createXMLWriter(matsimNetworkPath);
 
     try {
