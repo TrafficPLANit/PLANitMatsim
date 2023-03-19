@@ -159,7 +159,7 @@ public abstract class PlanitMatsimWriterModeMappingSettings extends PlanitMatsim
    * @param other to create shallow copy (with respect to mode mappings)
    */
   protected PlanitMatsimWriterModeMappingSettings(final PlanitMatsimWriterModeMappingSettings other) {
-    this(other.getOutputDirectory(), other.getOutputFileName(), other.getCountry(), other.planit2MatsimModeMapping, other.activatedPlanitModes);
+    this(other.getOutputDirectory(), other.getFileName(), other.getCountry(), other.planit2MatsimModeMapping, other.activatedPlanitModes);
   }
 
   /**
@@ -290,7 +290,6 @@ public abstract class PlanitMatsimWriterModeMappingSettings extends PlanitMatsim
    */
   @Override
   public void reset() {
-    // TODO
-
+    super.reset();
   }
 }

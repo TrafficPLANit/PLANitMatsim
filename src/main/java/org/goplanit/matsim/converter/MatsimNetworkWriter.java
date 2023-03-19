@@ -72,7 +72,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
       LOGGER.severe("Matsim network output directory not set on settings, unable to persist network");
       return false;
     }
-    if(StringUtils.isNullOrBlank(getSettings().getOutputFileName())) {
+    if(StringUtils.isNullOrBlank(getSettings().getFileName())) {
       LOGGER.severe("Matsim network output file name not set on settings, unable to persist network");
       return false;
     }    
@@ -383,7 +383,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
    * @throws PlanItException thrown if error
    */
   protected void writeXmlNetworkFile(MacroscopicNetworkLayerImpl networkLayer) throws PlanItException { 
-    Path matsimNetworkPath =  Paths.get(getSettings().getOutputDirectory(), getSettings().getOutputFileName().concat(DEFAULT_FILE_NAME_EXTENSION));    
+    Path matsimNetworkPath =  Paths.get(getSettings().getOutputDirectory(), getSettings().getFileName().concat(DEFAULT_FILE_NAME_EXTENSION));
     Pair<XMLStreamWriter,Writer> xmlFileWriterPair = PlanitXmlWriterUtils.createXMLWriter(matsimNetworkPath);
     
     try {
