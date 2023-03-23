@@ -30,10 +30,10 @@ public class MatsimIntermodalWriterSettings extends PlanitMatsimWriterSettings i
    *  @param networkWriterSettings writer settings to use
    *  @param zoningWriterSettings writer settings to use
    */
-  protected MatsimIntermodalWriterSettings(final MatsimNetworkWriterSettings networkWriterSettings, final MatsimZoningWriterSettings zoningWriterSettings) {
+  protected MatsimIntermodalWriterSettings(final MatsimNetworkWriterSettings networkWriterSettings, final MatsimZoningWriterSettings zoningWriterSettings, final MatsimPtServicesWriterSettings ptServicesSettings) {
     this.networkSettings = networkWriterSettings;
     this.zoningSettings = zoningWriterSettings;
-    this.ptServicesSettings = new MatsimPtServicesWriterSettings(networkWriterSettings); // shallow copy to share mode mappings between the two, future prepping for option to persist this separately
+    this.ptServicesSettings = ptServicesSettings;
   }
 
   /**
@@ -56,7 +56,8 @@ public class MatsimIntermodalWriterSettings extends PlanitMatsimWriterSettings i
    */
   public MatsimIntermodalWriterSettings(final String outputDirectory, final String countryName, final String networkOutputFileName, final String ptOutputFileName) {
       this(new MatsimNetworkWriterSettings(outputDirectory, networkOutputFileName, countryName),
-          new MatsimZoningWriterSettings(outputDirectory, ptOutputFileName, countryName));
+          new MatsimZoningWriterSettings(outputDirectory, ptOutputFileName, countryName),
+          new MatsimPtServicesWriterSettings(outputDirectory, ptOutputFileName, countryName));
   }    
 
   /**

@@ -19,9 +19,6 @@ public class MatsimPtServicesWriterSettings extends PlanitMatsimWriterModeMappin
   /** settings to use */
   private static final Logger LOGGER = Logger.getLogger(MatsimPtServicesWriterSettings.class.getCanonicalName());
 
-  /** the reference zoning this writer is supposed to be compatible with */
-  protected Zoning referenceZoning;
-
   /**
    * the output file name to use for the transit schedule, default is set to DEFAULT_TRANSIT_SCHEDULE_FILE_NAME
    */
@@ -82,25 +79,11 @@ public class MatsimPtServicesWriterSettings extends PlanitMatsimWriterModeMappin
    * @param outputFileName to use
    * @param countryName to use
    */
-  public MatsimPtServicesWriterSettings(final String outputDirectory, final String outputFileName, final String countryName) {
-    this(outputDirectory, outputFileName, countryName, null);
-  }
-
-  /**
-   * Constructor
-   *
-   * @param outputDirectory to use
-   * @param outputFileName to use
-   * @param countryName to use
-   * @param referenceZoning to use
-   */
   public MatsimPtServicesWriterSettings(
       final String outputDirectory,
       final String outputFileName,
-      final String countryName,
-      final Zoning referenceZoning) {
+      final String countryName) {
     super(outputDirectory, outputFileName, countryName);
-    setReferenceZoning(referenceZoning);
   }
 
   /**
@@ -110,21 +93,6 @@ public class MatsimPtServicesWriterSettings extends PlanitMatsimWriterModeMappin
    */
   public MatsimPtServicesWriterSettings(final PlanitMatsimWriterModeMappingSettings settings){
     super(settings);
-  }
-
-  /** Collect the reference zoning used
-   *
-   * @return reference zoning
-   */
-  protected Zoning getReferenceZoning() {
-    return referenceZoning;
-  }
-
-  /** Set the reference zoning to use
-   * @param referenceZoning to use
-   */
-  public void setReferenceZoning(Zoning referenceZoning) {
-    this.referenceZoning = referenceZoning;
   }
 
   /**
