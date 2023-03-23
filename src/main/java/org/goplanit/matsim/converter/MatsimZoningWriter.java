@@ -5,6 +5,7 @@ import java.util.logging.Logger;
 import org.goplanit.converter.IdMapperType;
 import org.goplanit.converter.zoning.ZoningWriter;
 import org.goplanit.utils.exceptions.PlanItException;
+import org.goplanit.utils.exceptions.PlanItRunTimeException;
 import org.goplanit.zoning.Zoning;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
@@ -70,6 +71,7 @@ public class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWr
    */  
   @Override
   public void write(Zoning zoning) throws PlanItException {
+    PlanItRunTimeException.throwIfNull(zoning,"Unable to persist MATSim transit schedule file when PLANit zoning object is null");
     
     boolean networkValid = validateNetwork(getSettings().getReferenceNetwork());
     if(!networkValid) {

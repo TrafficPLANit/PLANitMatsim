@@ -6,6 +6,7 @@ import org.goplanit.network.ServiceNetwork;
 import org.goplanit.network.layer.service.ServiceNetworkLayerImpl;
 import org.goplanit.service.routed.RoutedServices;
 import org.goplanit.utils.exceptions.PlanItException;
+import org.goplanit.zoning.Zoning;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 import java.util.logging.Logger;
@@ -29,6 +30,9 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
 
   /** the zoning settings to use required to sync our services references to zoning information */
   protected final MatsimZoningWriterSettings zoningSettings;
+
+  /** reference zoning to extract pt stops from (rather than service nodes) */
+  protected final Zoning referenceZoning;
 
   /**
    * Validate the service network to make sure it is compatible with MATSim
@@ -72,11 +76,14 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
    * @param networkSettings used to make sure references are synced with network, not used to expose/change settings
    * @param zoningSettings used to make sure references are synced with zoning, not used to expose/change settings
    */
-  protected MatsimRoutedServicesWriter(MatsimPtServicesWriterSettings routedServicesWriterSettings, MatsimNetworkWriterSettings networkSettings, MatsimZoningWriterSettings zoningSettings) {
+  protected MatsimRoutedServicesWriter(
+      MatsimPtServicesWriterSettings routedServicesWriterSettings, MatsimNetworkWriterSettings networkSettings, MatsimZoningWriterSettings zoningSettings,
+      Zoning referenceZoning) {
     super(IdMapperType.ID);
     this.routedServicesWriterSettings = routedServicesWriterSettings;
     this.networkSettings = networkSettings;
     this.zoningSettings = zoningSettings;
+    this.referenceZoning = referenceZoning;
   }
 
 
@@ -105,7 +112,7 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
             
     /* write stops */    
     new MatsimPtXmlWriter(this).writeXmlTransitScheduleFile(
-        getSettings().getReferenceZoning(), zoningSettings, routedServices, getSettings(), networkSettings);
+        referenceZoning, zoningSettings, routedServices, getSettings(), networkSettings);
 
   }
 

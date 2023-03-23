@@ -595,6 +595,7 @@ class MatsimPtXmlWriter {
       RoutedServices routedServices,
       MatsimPtServicesWriterSettings routedServicesSettings,
       MatsimNetworkWriterSettings networkSettings) {
+    PlanItRunTimeException.throwIfNull(zoning,"Unable to persist MATSim transit schedule file when PLANit zoning object is null");
 
     /* prep */
     initialiseIdMappers();
@@ -656,7 +657,7 @@ class MatsimPtXmlWriter {
       matsimWriter.writeEndElementNewLine(xmlWriter, true /* undo indentation */ ); // transit schedule
     } catch (XMLStreamException e) {
       LOGGER.severe(e.getMessage());
-      throw new PlanItRunTimeException("error while writing MATSIM transitSchedule XML element");
+      throw new PlanItRunTimeException("error while writing MATSim transitSchedule XML element");
     }
   }
 
