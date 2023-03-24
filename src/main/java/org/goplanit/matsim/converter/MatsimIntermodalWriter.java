@@ -160,7 +160,7 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
    */  
   @Override
   public void reset() {
-    settings.reset();
+    // do not reset settings as reset is meant to cleanup memory if possible on writer, not the settings
   }
 
   /**
