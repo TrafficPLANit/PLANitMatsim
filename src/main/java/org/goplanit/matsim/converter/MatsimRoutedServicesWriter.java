@@ -70,14 +70,15 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
 
   /** Constructor.
    *
-   * @param routedServicesWriterSettings to use
-   *
    * @param routedServicesWriterSettings actual settings related to what user has configured for this
    * @param networkSettings used to make sure references are synced with network, not used to expose/change settings
    * @param zoningSettings used to make sure references are synced with zoning, not used to expose/change settings
+   * @param referenceZoning to use
    */
   protected MatsimRoutedServicesWriter(
-      MatsimPtServicesWriterSettings routedServicesWriterSettings, MatsimNetworkWriterSettings networkSettings, MatsimZoningWriterSettings zoningSettings,
+      MatsimPtServicesWriterSettings routedServicesWriterSettings,
+      MatsimNetworkWriterSettings networkSettings,
+      MatsimZoningWriterSettings zoningSettings,
       Zoning referenceZoning) {
     super(IdMapperType.ID);
     this.routedServicesWriterSettings = routedServicesWriterSettings;
@@ -121,7 +122,6 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
    */
   @Override
   public void reset() {
-    getSettings().reset();
   }
   
   /** Collect the settings
