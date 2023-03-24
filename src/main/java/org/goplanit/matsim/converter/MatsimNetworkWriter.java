@@ -529,7 +529,6 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
    */
   @Override
   public void reset() {
-    getSettings().reset();
     matsimNodeCounter.reset();
     matsimLinkCounter.reset();
   }

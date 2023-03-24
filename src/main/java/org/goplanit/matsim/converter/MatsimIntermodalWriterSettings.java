@@ -29,8 +29,12 @@ public class MatsimIntermodalWriterSettings extends PlanitMatsimWriterSettings i
    *
    *  @param networkWriterSettings writer settings to use
    *  @param zoningWriterSettings writer settings to use
+   * @param ptServicesSettings writer settings to use
    */
-  protected MatsimIntermodalWriterSettings(final MatsimNetworkWriterSettings networkWriterSettings, final MatsimZoningWriterSettings zoningWriterSettings, final MatsimPtServicesWriterSettings ptServicesSettings) {
+  protected MatsimIntermodalWriterSettings(
+      final MatsimNetworkWriterSettings networkWriterSettings,
+      final MatsimZoningWriterSettings zoningWriterSettings,
+      final MatsimPtServicesWriterSettings ptServicesSettings) {
     this.networkSettings = networkWriterSettings;
     this.zoningSettings = zoningWriterSettings;
     this.ptServicesSettings = ptServicesSettings;
