@@ -1,6 +1,8 @@
 package org.goplanit.matsim.converter;
 
-import org.goplanit.converter.IdMapperType;
+import org.goplanit.converter.idmapping.IdMapperType;
+import org.goplanit.converter.idmapping.PlanitComponentIdMapper;
+import org.goplanit.converter.idmapping.RoutedServicesIdMapper;
 import org.goplanit.converter.service.RoutedServicesWriter;
 import org.goplanit.network.ServiceNetwork;
 import org.goplanit.network.layer.service.ServiceNetworkLayerImpl;
@@ -132,4 +134,11 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
     return routedServicesWriterSettings;
   }
 
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public RoutedServicesIdMapper getPrimaryIdMapper() {
+    return getComponentIdMappers().getRoutedServicesIdMapper();
+  }
 }

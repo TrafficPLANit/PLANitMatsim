@@ -2,7 +2,8 @@ package org.goplanit.matsim.converter;
 
 import java.util.logging.Logger;
 
-import org.goplanit.converter.IdMapperType;
+import org.goplanit.converter.idmapping.IdMapperType;
+import org.goplanit.converter.idmapping.NetworkIdMapper;
 import org.goplanit.converter.intermodal.IntermodalWriter;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.network.ServiceNetwork;
@@ -38,44 +39,54 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
    * Persist the PLANit network as a MATSIM network to disk
    *
    * @param infrastructureNetwork to persist as MATSIM network
-   *
+   * @return the used network writer
    */
-  private void writeMatsimNetwork(MacroscopicNetwork infrastructureNetwork) throws PlanItException {
+  private MatsimNetworkWriter writeMatsimNetwork(MacroscopicNetwork infrastructureNetwork) throws PlanItException {
     MatsimNetworkWriter networkWriter =
         MatsimNetworkWriterFactory.create(getSettings().getNetworkSettings());
 
     /* write network */
     networkWriter.setIdMapperType(idMapper);
     networkWriter.write(infrastructureNetwork);
+    return networkWriter;
   }
 
   /**
    * Persist the PLANit zoning as a partial MATSIM pt schedule, only containing the stops infrastructure
    *
-   * @param zoning to extract stops information from
+   * @param parentNetworkIdMapper to use
+   * @param zoning                to extract stops information from
    * @param infrastructureNetwork to persist as MATSIM network
-   *
    */
-  private void writeMatsimPartialPtSchedule(Zoning zoning, MacroscopicNetwork infrastructureNetwork) throws PlanItException {
+  private void writeMatsimPartialPtSchedule(NetworkIdMapper parentNetworkIdMapper, Zoning zoning, MacroscopicNetwork infrastructureNetwork) throws PlanItException {
     /* zoning writer */
     MatsimZoningWriter zoningWriter =
         MatsimZoningWriterFactory.create(getSettings().getNetworkSettings(), infrastructureNetwork);
-    /* write zoning */
+
+    /* prep */
     zoningWriter.setIdMapperType(idMapper);
+    zoningWriter.setParentIdMappers(parentNetworkIdMapper);
+
+    /* write zoning */
     zoningWriter.write(zoning);
   }
 
   /**
    * Persist the PLANit routed services, service network, and zoning combined as a full MATSIM pt schedule
    *
+   * @param parentNetworkIdMapper to use
    * @param routedServices the services running on the service network
    * @param zoning to extract stops information from (transfer zones)
    *
    */
-  private void writeMatsimFullPtSchedule(RoutedServices routedServices, Zoning zoning) throws PlanItException {
+  private void writeMatsimFullPtSchedule(NetworkIdMapper parentNetworkIdMapper, RoutedServices routedServices, Zoning zoning) throws PlanItException {
 
     /* routed services writer */
     var routedServicesWriter = MatsimPublicTransportServicesWriterFactory.create(getSettings(), zoning);
+
+    /* prep */
+    routedServicesWriter.setIdMapperType(idMapper);
+    routedServicesWriter.setParentIdMappers(parentNetworkIdMapper);
 
     /* write routed services */
     routedServicesWriter.write(routedServices);
@@ -110,10 +121,10 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
             getSettings().getNetworkSettings().getCountry(), getSettings().getZoningSettings().getCountry()));
 
     /* network writer */
-    writeMatsimNetwork(infrastructureNetwork);
+    var networkWriter = writeMatsimNetwork(infrastructureNetwork);
 
     /* zoning writer, only persisting stops in absence of services */
-    writeMatsimPartialPtSchedule(zoning, infrastructureNetwork);
+    writeMatsimPartialPtSchedule(networkWriter.getPrimaryIdMapper(), zoning, infrastructureNetwork);
   }
 
 
@@ -132,10 +143,10 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
     PlanItException.throwIfNull(infrastructureNetwork, "Infrastructure network is null when persisting MATSim intermodal network");
 
     /* network writer */
-    writeMatsimNetwork(infrastructureNetwork);
+    var networkWriter = writeMatsimNetwork(infrastructureNetwork);
 
     /* persist PT stops, services and schedule*/
-    writeMatsimFullPtSchedule(routedServices, zoning);
+    writeMatsimFullPtSchedule(networkWriter.getPrimaryIdMapper(), routedServices, zoning);
   }
 
 
