@@ -2,7 +2,9 @@ package org.goplanit.matsim.converter;
 
 import java.util.logging.Logger;
 
-import org.goplanit.converter.IdMapperType;
+import org.goplanit.converter.idmapping.IdMapperType;
+import org.goplanit.converter.idmapping.PlanitComponentIdMapper;
+import org.goplanit.converter.idmapping.ZoningIdMapper;
 import org.goplanit.converter.zoning.ZoningWriter;
 import org.goplanit.utils.exceptions.PlanItException;
 import org.goplanit.utils.exceptions.PlanItRunTimeException;
@@ -114,4 +116,11 @@ public class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWr
     return zoningWriterSettings;
   }
 
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public ZoningIdMapper getPrimaryIdMapper() {
+    return getComponentIdMappers().getZoningIdMappers();
+  }
 }

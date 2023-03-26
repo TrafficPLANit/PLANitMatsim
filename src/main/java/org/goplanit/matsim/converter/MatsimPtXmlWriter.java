@@ -14,10 +14,10 @@ import java.util.stream.Collectors;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 
-import org.goplanit.converter.IdMapperFunctionFactory;
+import org.goplanit.converter.idmapping.IdMapperFunctionFactory;
+import org.goplanit.converter.idmapping.PlanitComponentIdMappers;
 import org.goplanit.matsim.xml.MatsimTransitAttributes;
 import org.goplanit.matsim.xml.MatsimTransitElements;
-import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
 import org.goplanit.service.routed.RoutedServices;
 import org.goplanit.utils.collections.ListUtils;
@@ -69,7 +69,7 @@ class MatsimPtXmlWriter {
   private Map<String, LongAdder> transitRouteCountersByMode = new HashMap<>();
 
   /** track all id mappings by type of PLANit entity */
-  private Map<Class<?>, Function<?, String>> managedIdMappings;
+  private PlanitComponentIdMappers componentIdMappers = new PlanitComponentIdMappers();
 
   /** track stop facility ids via this map */
   private Map<Integer, Integer> stopFacilityIdTracking = new HashMap<>();
@@ -78,16 +78,6 @@ class MatsimPtXmlWriter {
   private boolean loggedFrequencyTripWarning;
 
   private static final DateTimeFormatter HHmmssFormat = DateTimeFormatter.ofPattern("HH:mm:ss");
-
-  /** get the id mapping required
-   *
-   * @param clazz to collect for
-   * @return id mapping function
-   * @param <T> type of clazz
-   */
-  private <T> Function<T, String> getIdMapping(Class<T> clazz){
-    return (Function<T, String>) managedIdMappings.get(clazz);
-  }
 
   /** based on access link segment and whether the stop is up or downstream determine the stop facility id (which internally we create and track).
    * This is needed because only the combination of link segment and node determines a unique stop facility as we might have two stops on the same link segment (one up and one downstream)
@@ -116,17 +106,6 @@ class MatsimPtXmlWriter {
     int key = Math.toIntExact(nodeAccessDownstream ? accessLinkSegment.getId() : -accessLinkSegment.getId());
     Integer stopFacilityId = stopFacilityIdTracking.get(key);
     return stopFacilityId != null;
-  }
-
-  /**
-   * Prepare the id mapping functionality for persistence based on on user chosen mapping approach
-   */
-  private void initialiseIdMappers(){
-    managedIdMappings = new HashMap<>();
-    managedIdMappings.put(Connectoid.class, IdMapperFunctionFactory.createConnectoidIdMappingFunction(matsimWriter.getIdMapperType()));
-    managedIdMappings.put(MacroscopicLinkSegment.class, IdMapperFunctionFactory.createLinkSegmentIdMappingFunction(matsimWriter.getIdMapperType()));
-    managedIdMappings.put(RoutedService.class, IdMapperFunctionFactory.createRoutedServiceIdMappingFunction(matsimWriter.getIdMapperType()));
-    managedIdMappings.put(RoutedTripSchedule.class, IdMapperFunctionFactory.createRoutedTripScheduleIdMappingFunction(matsimWriter.getIdMapperType()));
   }
 
   /**
@@ -252,12 +231,13 @@ class MatsimPtXmlWriter {
     /* route*/
     matsimWriter.writeStartElementNewLine(xmlWriter, MatsimTransitElements.ROUTE, true);
 
-    LocalTime cumulativeTravelTime = LocalTime.MIN;
     for(var timing : tripSchedule){
       /* only extract the underlying physical link segments for MATSim */
       for(var physicalSegment : timing.getParentLegSegment().getPhysicalParentSegments()){
         PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimTransitElements.LINK, matsimWriter.getIndentLevel());
-        xmlWriter.writeAttribute(MatsimTransitAttributes.REF_ID, getIdMapping(MacroscopicLinkSegment.class).apply((MacroscopicLinkSegment) physicalSegment));
+        xmlWriter.writeAttribute(
+                MatsimTransitAttributes.REF_ID,
+                componentIdMappers.getNetworkIdMappers().getLinkSegmentIdMapper().apply((MacroscopicLinkSegment) physicalSegment));
         PlanitXmlWriterUtils.writeNewLine(xmlWriter);
       }
     }
@@ -309,7 +289,7 @@ class MatsimPtXmlWriter {
 
     var modeMapping = networkSettings.collectActivatedPlanitModeToMatsimModeMapping(
         (MacroscopicNetworkLayerImpl) routedServicesLayer.getParentLayer().getParentNetworkLayer());
-    String routedServiceId = getIdMapping(RoutedService.class).apply(routedService);
+    String routedServiceId = componentIdMappers.getRoutedServicesIdMapper().getRoutedServiceRefIdMapper().apply(routedService);
 
     var mappedMode = modeMapping.get(routedService.getMode());
     if(StringUtils.isNullOrBlank(mappedMode)){
@@ -404,7 +384,8 @@ class MatsimPtXmlWriter {
       matsimTransitLineCounter.increment();
 
       /*id */
-      xmlWriter.writeAttribute(MatsimTransitAttributes.ID, getIdMapping(RoutedService.class).apply(routedService));
+      xmlWriter.writeAttribute(MatsimTransitAttributes.ID,
+              componentIdMappers.getRoutedServicesIdMapper().getRoutedServiceRefIdMapper().apply(routedService));
 
       /* name */
       if(routedService.hasName() || routedService.hasNameDescription()){
@@ -420,7 +401,8 @@ class MatsimPtXmlWriter {
 
       matsimWriter.writeEndElementNewLine(xmlWriter, true /* undo indentation */ ); // transit schedule
       if(!success){
-        LOGGER.warning(String.format("Unable to complete a transit route part transitLine %s as expected, XML likely incomplete or corrupted for this entry", getIdMapping(RoutedService.class).apply(routedService)));
+        LOGGER.warning(String.format("Unable to complete a transit route part transitLine %s as expected, XML likely incomplete or corrupted for this entry",
+                componentIdMappers.getRoutedServicesIdMapper().getRoutedServiceRefIdMapper().apply(routedService)));
       }
     } catch (XMLStreamException e) {
       LOGGER.severe(e.getMessage());
@@ -542,7 +524,8 @@ class MatsimPtXmlWriter {
         }
         
         /* LINK REF ID */
-        xmlWriter.writeAttribute(MatsimTransitAttributes.LINK_REF_ID, getIdMapping(MacroscopicLinkSegment.class).apply(accessLinkSegment));
+        xmlWriter.writeAttribute(
+                MatsimTransitAttributes.LINK_REF_ID, componentIdMappers.getNetworkIdMappers().getLinkSegmentIdMapper().apply(accessLinkSegment));
         
         /* NAME - based on the transfer zone names if any */
         String stopFacilityName = "";
@@ -598,7 +581,7 @@ class MatsimPtXmlWriter {
     PlanItRunTimeException.throwIfNull(zoning,"Unable to persist MATSim transit schedule file when PLANit zoning object is null");
 
     /* prep */
-    initialiseIdMappers();
+    componentIdMappers.populateMissingIdMappers(matsimWriter.getIdMapperType());
     transitRouteCountersByMode.clear();
     matsimStopFacilityCounter.reset();
     matsimTransitLineCounter.reset();
