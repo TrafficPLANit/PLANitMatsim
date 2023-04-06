@@ -24,4 +24,5 @@ public class MatsimTransitElements {
   public static final String DEPARTURE = "departure";
   public static final String LINK = "link";
 
+  public static final String DESCRIPTION = "description";
 }

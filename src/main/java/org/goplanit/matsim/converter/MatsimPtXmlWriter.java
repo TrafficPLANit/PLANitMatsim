@@ -130,7 +130,7 @@ class MatsimPtXmlWriter {
 
     /* ref id <-- stop facility ref id is based on macroscopic link segment and node location, see #writeMatsimStopFacility */
     var physicalLinkSegmentsOfLeg = relLegTiming.getParentLegSegment().getPhysicalParentSegments();
-    var accessLinkSegment = upstreamStop ? ListUtils.getFirst(physicalLinkSegmentsOfLeg) : ListUtils.getLastValue(physicalLinkSegmentsOfLeg);
+    var accessLinkSegment = upstreamStop ? ListUtils.getFirstValue(physicalLinkSegmentsOfLeg) : ListUtils.getLastValue(physicalLinkSegmentsOfLeg);
 
     boolean stopFacilityFound = hasStopFacilityId(accessLinkSegment, !upstreamStop) ;
     if(!stopFacilityFound && upstreamStop){
@@ -139,7 +139,8 @@ class MatsimPtXmlWriter {
       // mapping if we find it (as long as it is not the directly opposing link segment, since transit vehicles are expected to not make u-turns
       final var originalAccessLinkSegment = accessLinkSegment;
       var stopFacilityAccessLinkSegment = IterableUtils.asStream(accessLinkSegment.getUpstreamNode().<MacroscopicLinkSegment>getEntryLinkSegments()).filter(
-          ls ->  ls.getOppositeDirectionSegment()==null || !ls.getOppositeDirectionSegment().equals(originalAccessLinkSegment) && hasStopFacilityId(ls, true)).findFirst();
+          ls -> (ls.getOppositeDirectionSegment()==null || !ls.getOppositeDirectionSegment().equals(originalAccessLinkSegment)) &&
+                hasStopFacilityId(ls, true)).findFirst();
       if(stopFacilityAccessLinkSegment.isPresent()){
         // update
         accessLinkSegment = stopFacilityAccessLinkSegment.get();
@@ -150,7 +151,7 @@ class MatsimPtXmlWriter {
     }
 
     if(!stopFacilityFound){
-      LOGGER.severe("IGNORE No stop facility id registered for leg timing stop on RouteProfile, this shouldn't happen");
+      LOGGER.severe(String.format("IGNORE No stop facility id registered for PLANit leg timing stop, utilising access link segment %s, on RouteProfile, this shouldn't happen", accessLinkSegment.getXmlId()));
       return false;
     }
 
@@ -328,6 +329,11 @@ class MatsimPtXmlWriter {
       /* transportMode */
       PlanitXmlWriterUtils.writeElementWithValueWithNewLine(xmlWriter, MatsimTransitElements.TRANSPORT_MODE, mappedMode ,matsimWriter.getIndentLevel());
       transitRouteCountersByMode.get(mappedMode).increment();
+
+      /* description */
+      if(routedService.hasName()) {
+        PlanitXmlWriterUtils.writeElementWithValueWithNewLine(xmlWriter, MatsimTransitElements.DESCRIPTION, routedService.getName(), matsimWriter.getIndentLevel());
+      }
 
       /* in MATSim we now create a new route for all transit schedules with #departure times and THE EXACT SAME LEG TIMINGS*/
       var referenceSchedule = scheduleByDepartureTimes.values().stream().findFirst().get().get(0);
