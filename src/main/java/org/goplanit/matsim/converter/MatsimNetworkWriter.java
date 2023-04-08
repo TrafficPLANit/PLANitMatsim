@@ -32,6 +32,7 @@ import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.network.LayeredNetwork;
 import org.goplanit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
 import org.goplanit.utils.exceptions.PlanItException;
+import org.goplanit.utils.exceptions.PlanItRunTimeException;
 import org.goplanit.utils.graph.Vertex;
 import org.goplanit.utils.misc.Pair;
 import org.goplanit.utils.misc.StringUtils;
@@ -101,20 +102,17 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
       }
     } 
     return uniqueExternalId;
-  }  
-    
-     
+  }
   
   /** write a MATSIM link for given PLANit link segment
    * @param xmlWriter to use
    * @param linkSegment link segment to write
    * @param planitModeToMatsimModeMapping quick mapping from PLANit mode to MATSIM mode string
-   * @throws PlanItException thrown if error
    */
   private void writeMatsimLink(
       XMLStreamWriter xmlWriter, 
       MacroscopicLinkSegment linkSegment, 
-      Map<Mode, String> planitModeToMatsimModeMapping) throws PlanItException {
+      Map<Mode, String> planitModeToMatsimModeMapping){
         
     
     if(Collections.disjoint(planitModeToMatsimModeMapping.keySet(), linkSegment.getAllowedModes())) {
@@ -147,7 +145,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
         }
         
         if(linkSegment.getLinkSegmentType() == null) {
-          throw new PlanItException(String.format("MATSIM requires link segment type to be available on link segment (id:%d)",linkSegment.getId()));
+          throw new PlanItRunTimeException(String.format("MATSim requires link segment type to be available on link segment (id:%d)",linkSegment.getId()));
         }
                 
         /** MODELLING PARAMETERS **/
@@ -212,7 +210,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
       PlanitXmlWriterUtils.writeNewLine(xmlWriter);
     } catch (XMLStreamException e) {
       LOGGER.severe(e.getMessage());
-      throw new PlanItException(String.format("error while writing MATSIM link XML element %s (id:%d)",linkSegment.getExternalId(), linkSegment.getId()));
+      throw new PlanItRunTimeException(String.format("error while writing MATSim link XML element %s (id:%d)",linkSegment.getExternalId(), linkSegment.getId()));
     }
   }    
 
@@ -221,12 +219,11 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
    * @param xmlWriter to use
    * @param link to extract MATSIM link(s) from
    * @param planitModeToMatsimModeMapping quick mapping from PLANit mode to MATSIM mode string
-   * @throws PlanItException thrown if error
    */
   private void writeMatsimLink(
       XMLStreamWriter xmlWriter, 
       Link link, 
-      Map<Mode, String> planitModeToMatsimModeMapping) throws PlanItException {
+      Map<Mode, String> planitModeToMatsimModeMapping){
     
     /* A --> B */
     if(link.hasEdgeSegmentAb()) {
@@ -269,9 +266,8 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
   /** Write a PLANit node as MATSIM node 
    * @param xmlWriter to use
    * @param node to write
-   * @throws PlanItException 
    */
-  private void writeMatsimNode(XMLStreamWriter xmlWriter, Node node) throws PlanItException {
+  private void writeMatsimNode(XMLStreamWriter xmlWriter, Node node){
     try {
       PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimNetworkElements.NODE, getIndentLevel());           
       matsimNodeCounter.increment();
@@ -297,9 +293,9 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
       }
       
       PlanitXmlWriterUtils.writeNewLine(xmlWriter);
-    } catch (XMLStreamException | TransformException e) {
+    } catch (XMLStreamException e) {
       LOGGER.severe(e.getMessage());
-      throw new PlanItException("error while writing MATSim node XML element %s (id:%d)",node.getExternalId(), node.getId());
+      throw new PlanItRunTimeException("Error while writing MATSim node XML element %s (id:%d)",node.getExternalId(), node.getId());
     }
   }  
   
@@ -420,18 +416,18 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
         
         /* only when it has internal coordinates */
         if(coordinates.length > 2) {
-          String lineStringString = "LINESTRING (";
+          StringBuilder lineStringString = new StringBuilder("LINESTRING (");
           int firstInternal = 1;
           int lastInternal = coordinates.length-1;
           for(int index = firstInternal ; index < lastInternal; ++index) {
             Coordinate coordinate = coordinates[index];           
             if(index>firstInternal) {
-              lineStringString += ",";
+              lineStringString.append(",");
             }         
-            lineStringString += String.format("%s %s", settings.getDecimalFormat().format(coordinate.x),settings.getDecimalFormat().format(coordinate.y));
+            lineStringString.append(String.format("%s %s", settings.getDecimalFormat().format(coordinate.x), settings.getDecimalFormat().format(coordinate.y)));
           }
-          lineStringString += ")";
-          csvPrinter.printRecord(linkIdMapping.apply(linkSegment),lineStringString);          
+          lineStringString.append(")");
+          csvPrinter.printRecord(linkIdMapping.apply(linkSegment), lineStringString.toString());
         }
       }
       csvPrinter.close();
@@ -493,10 +489,9 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
     getComponentIdMappers().populateMissingIdMappers(getIdMapperType());
 
     /* CRS */
-    CoordinateReferenceSystem destinationCrs = 
-        prepareCoordinateReferenceSystem(macroscopicNetwork, getSettings().getCountry(), getSettings().getDestinationCoordinateReferenceSystem());
-    settings.setDestinationCoordinateReferenceSystem(destinationCrs);
-    
+    prepareCoordinateReferenceSystem(
+            macroscopicNetwork.getCoordinateReferenceSystem(), getSettings().getDestinationCoordinateReferenceSystem(), getSettings().getCountry());
+
     /* log settings */
     settings.logSettings(macroscopicNetwork);
     
