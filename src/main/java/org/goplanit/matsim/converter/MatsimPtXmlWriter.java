@@ -550,7 +550,7 @@ class MatsimPtXmlWriter {
       }
       
       PlanitXmlWriterUtils.writeNewLine(xmlWriter);
-    } catch (XMLStreamException | TransformException e) {
+    } catch (XMLStreamException e) {
       LOGGER.severe(e.getMessage());
       throw new PlanItRunTimeException("error while writing MATSim stopFacility element id:%d",transferConnectoid.getId());
     }

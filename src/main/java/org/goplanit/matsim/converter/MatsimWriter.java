@@ -7,6 +7,7 @@ import javax.xml.stream.XMLStreamWriter;
 
 import org.geotools.geometry.jts.JTS;
 import org.goplanit.converter.BaseWriterImpl;
+import org.goplanit.converter.CrsWriterImpl;
 import org.goplanit.converter.idmapping.IdMapperType;
 import org.goplanit.matsim.util.PlanitMatsimWriterSettings;
 import org.goplanit.network.MacroscopicNetwork;
@@ -28,7 +29,7 @@ import org.opengis.referencing.operation.TransformException;
  * @author markr
  *
  */
-public abstract class MatsimWriter<T> extends BaseWriterImpl<T> {
+public abstract class MatsimWriter<T> extends CrsWriterImpl<T> {
 
   /**
    * The logger of this class
@@ -37,10 +38,7 @@ public abstract class MatsimWriter<T> extends BaseWriterImpl<T> {
       
   /** track indentation level */
   private int indentLevel = 0;
-  
-  /** when the destination CRS differs from the network CRS all geometries require transforming, for which this transformer will be initialised */
-  private MathTransform destinationCrsTransformer = null;
-    
+
   /**
    * Validate the network instance available, throw or log when issues are found
    * 
@@ -75,49 +73,16 @@ public abstract class MatsimWriter<T> extends BaseWriterImpl<T> {
     
     return true;
   }  
-   
-  
-  /** Prepare the Crs transformer (if any) based on the user configuration settings. If no destinationCrs is provided than we use the country to try and infer the
-   * most appropriate desintation crs. In case the identified destination crs differs from the network one, we also creata destination transformer which is registered on the instance
-   * of the class
-   * 
-   * @param network the network extract current Crs if no user specific settings can be found
-   * @param destinationCountry of the network
-   * @param destinationCrs that we would like to use, maybe null
-   * @return identified destinationCrs to use
-   * @throws PlanItException thrown if error
-   */
-  protected CoordinateReferenceSystem prepareCoordinateReferenceSystem(MacroscopicNetwork network, String destinationCountry, CoordinateReferenceSystem destinationCrs) throws PlanItException {
-    /* CRS and transformer (if needed) */
-    CoordinateReferenceSystem identifiedDestinationCrs = identifyDestinationCoordinateReferenceSystem( destinationCrs, destinationCountry, network.getCoordinateReferenceSystem());    
-    PlanItException.throwIfNull(identifiedDestinationCrs, "destination Coordinate Reference System is null, this is not allowed");
-    
-    /* configure crs transformer if required, to be able to convert geometries to preferred CRS while writing */
-    if(!identifiedDestinationCrs.equals(network.getCoordinateReferenceSystem())) {
-      destinationCrsTransformer = PlanitJtsUtils.findMathTransform(network.getCoordinateReferenceSystem(), identifiedDestinationCrs);
-    }
-    
-    return identifiedDestinationCrs;
-  }   
-  
+
   /** Using the destination crs and its transformer extract the coordinate from the position in the desired crs
-   * 
+   *
    * @param location to extract destination crs compatible coordinate for
    * @return coordinate created
-   * @throws TransformException thrown if error
-   * @throws MismatchedDimensionException thrown if error 
    */
-  protected Coordinate extractDestinationCrsCompatibleCoordinate(Point location) throws MismatchedDimensionException, TransformException {
-    /* geometry of the node (optional) */
-    Coordinate coordinate = null;
-    if(getDestinationCrsTransformer()!=null) {
-      coordinate = ((Point)JTS.transform(location, getDestinationCrsTransformer())).getCoordinate();
-    }else {
-      coordinate = location.getCoordinate();  
-    }
-    return coordinate;
-  }  
-  
+  protected Coordinate extractDestinationCrsCompatibleCoordinate(Point location){
+    return createTransformedCoordinate(location.getCoordinate());
+  }
+
   /** Add indentation to stream at current indentation level
    * 
    * @param xmlWriter to use
@@ -204,11 +169,6 @@ public abstract class MatsimWriter<T> extends BaseWriterImpl<T> {
   int getIndentLevel() {
     return indentLevel;
   }
-  
-  MathTransform getDestinationCrsTransformer() {
-    return destinationCrsTransformer;
-  }
-
 
   /** any settings to configure the writer can be configured by collecting these settings
    * @return the settings to configure the writer

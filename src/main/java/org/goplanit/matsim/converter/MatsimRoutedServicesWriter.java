@@ -109,10 +109,9 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
 
     // todo: likely can be removed as no geo information is used during persistence to MATSim for PT services
     /* CRS */
-    CoordinateReferenceSystem destinationCrs = 
-        prepareCoordinateReferenceSystem(routedServices.getParentNetwork().getParentNetwork(), getSettings().getCountry(), getSettings().getDestinationCoordinateReferenceSystem());
-    getSettings().setDestinationCoordinateReferenceSystem(destinationCrs);
-            
+    prepareCoordinateReferenceSystem(
+            routedServices.getParentNetwork().getParentNetwork().getCoordinateReferenceSystem(), getSettings().getDestinationCoordinateReferenceSystem(), getSettings().getCountry());
+
     /* write stops */    
     new MatsimPtXmlWriter(this).writeXmlTransitScheduleFile(
         referenceZoning, zoningSettings, routedServices, getSettings(), networkSettings);

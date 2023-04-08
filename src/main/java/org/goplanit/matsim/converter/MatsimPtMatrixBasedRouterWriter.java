@@ -17,7 +17,7 @@ import org.opengis.referencing.operation.TransformException;
  * <p>
  * Currently these costs are based on free-flow travel times multiplied by a given factor (optional)
  * <p>
- * More information on the MATSim matrix based router can be found here {@link https://github.com/matsim-org/matsim-libs/tree/master/contribs/matrixbasedptrouter}.
+ * More information on the MATSim matrix based router can be found <a href="https://github.com/matsim-org/matsim-libs/tree/master/contribs/matrixbasedptrouter">here</a>.
  * <p>
  * The naming for the generated files is predetermined at:
  * <ul>
@@ -27,7 +27,7 @@ import org.opengis.referencing.operation.TransformException;
  * Where the former contains the stop information while the latter contains the travel times (in seconds). 
  * <p>
  * Files are generated in the designated output directory of the zoning writer
- * 
+ *
  * @author markr
  *
  */
@@ -40,7 +40,7 @@ class MatsimPtMatrixBasedRouterWriter {
   private final MatsimZoningWriter zoningWriter;
   
   /**
-   * The stops CSV file contains the stop id and its coordinates, based on example in {@link https://github.com/matsim-org/matsim-libs/blob/master/contribs/matrixbasedptrouter/src/main/resources/example/ptStops.csv}
+   * The stops CSV file contains the stop id and its coordinates, based on example in <a href="https://github.com/matsim-org/matsim-libs/blob/master/contribs/matrixbasedptrouter/src/main/resources/example/ptStops.csv">ptstops.csv</a>
    * @param zoning to use
    */
   private void writeStopsCsvFile(Zoning zoning) {
@@ -61,7 +61,7 @@ class MatsimPtMatrixBasedRouterWriter {
         sb.append(transferConnectoid.getXmlId()).append(CharacterUtils.COMMA).append(dm.format(coord.x)).append(CharacterUtils.COMMA).append(dm.format(coord.y));
         csvContent.add(sb.toString());
       }
-    } catch (MismatchedDimensionException | TransformException e) {
+    } catch (MismatchedDimensionException e) {
       LOGGER.severe(e.getMessage());
       LOGGER.severe("Unable to transform pt stop locations to desired coordinate format for MATSim aborting");
       return;
