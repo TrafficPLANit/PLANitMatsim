@@ -77,14 +77,11 @@ public abstract class PlanitMatsimWriterModeMappingSettings extends PlanitMatsim
   protected static String getDefaultPredefinedModeMappings(PredefinedModeType modeType) {
     switch (modeType) {
       case BUS:
-        return DEFAULT_PUBLIC_TRANSPORT_MODE;
       case SUBWAY:
-        return DEFAULT_PUBLIC_TRANSPORT_MODE;
       case TRAIN:
-        return DEFAULT_PUBLIC_TRANSPORT_MODE;
       case TRAM:
-        return DEFAULT_PUBLIC_TRANSPORT_MODE;
       case LIGHTRAIL:
+      case FERRY:
         return DEFAULT_PUBLIC_TRANSPORT_MODE;
       /* all other modes are mapped to car for convenience*/
       default:
@@ -94,7 +91,7 @@ public abstract class PlanitMatsimWriterModeMappingSettings extends PlanitMatsim
 
   /**
    * Create the default activate PLANit modes that the MATSIM write will include when writing the network (if
-   * they are available). By default all predefined PLANit modes that could be reasonably mapped to motorised private
+   * they are available). By default, all predefined PLANit modes that could be reasonably mapped to motorised private
    * mode car (car) or public transport (pt) are activated.
    *
    * @return default activate PLANit modes (by name)
