@@ -25,6 +25,7 @@ import org.goplanit.utils.graph.directed.EdgeSegment;
 import org.goplanit.utils.misc.IterableUtils;
 import org.goplanit.utils.misc.Pair;
 import org.goplanit.utils.misc.StringUtils;
+import org.goplanit.utils.mode.Mode;
 import org.goplanit.utils.mode.TrackModeType;
 import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
 import org.goplanit.utils.network.layer.physical.LinkSegment;
@@ -438,22 +439,27 @@ class MatsimPtXmlWriter {
             (MacroscopicNetworkLayerImpl) layer.getParentLayer().getParentNetworkLayer()).entrySet().forEach(
             e -> transitRouteCountersByMode.put(e.getValue(), new LongAdder())));
 
-    for(var routedServicesLayer : routedServices.getLayers()){
+    routedServices.getLayers().streamSortedBy(RoutedServicesLayer::getId).forEach(routedServicesLayer -> {
+
       var supportedModes = routedServicesLayer.getSupportedModes();
       if(supportedModes == null){
         LOGGER.warning(String.format("IGNORE routed service layer %s has no supported modes", routedServicesLayer.getXmlId()));
-        continue;
+        return;
       }
 
-      for(var mode : supportedModes){
+      supportedModes.stream().sorted(Comparator.comparingLong(Mode::getId)).forEach( mode -> {
         var servicesByMode = routedServicesLayer.getServicesByMode(mode);
         if(servicesByMode.isEmpty()){
-          continue;
+          return;
         }
 
-        servicesByMode.forEach( rs -> writeMatsimTransitLine(xmlWriter, networkSettings, routedServicesLayer, rs, servicesSettings));
-      }
-    }
+        servicesByMode.streamSortedBy(RoutedService::getId).forEach( service -> {
+            writeMatsimTransitLine(xmlWriter, networkSettings, routedServicesLayer, service, servicesSettings);
+        }); // services
+
+      }); // mode
+
+    }); // layer
 
   }
     
@@ -488,10 +494,12 @@ class MatsimPtXmlWriter {
    */
   private void writeMatsimStopFacilities(
       XMLStreamWriter xmlWriter, DirectedConnectoids transferConnectoids, MatsimZoningWriterSettings zoningWriterSettings){
-    for(var transferConnectoid : transferConnectoids) {
+
+    transferConnectoids.streamSortedBy(DirectedConnectoid::getId).forEach( transferConnectoid -> {
       writeMatsimStopFacility(xmlWriter, transferConnectoid, zoningWriterSettings);
       matsimStopFacilityCounter.increment();
-    }
+    });
+
   }
 
   /**
