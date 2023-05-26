@@ -7,6 +7,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -20,9 +21,11 @@ import org.goplanit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
 import org.goplanit.service.routed.RoutedServices;
 import org.goplanit.utils.containers.ListUtils;
 import org.goplanit.utils.exceptions.PlanItRunTimeException;
+import org.goplanit.utils.graph.directed.EdgeSegment;
 import org.goplanit.utils.misc.IterableUtils;
 import org.goplanit.utils.misc.Pair;
 import org.goplanit.utils.misc.StringUtils;
+import org.goplanit.utils.mode.TrackModeType;
 import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
 import org.goplanit.utils.network.layer.physical.LinkSegment;
 import org.goplanit.utils.service.routed.*;
@@ -34,7 +37,6 @@ import org.goplanit.utils.zoning.Zone;
 import org.goplanit.zoning.Zoning;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Point;
-import org.opengis.referencing.operation.TransformException;
 
 /**
  * Class that takes on the responsibility of writing all PT XML based files for a given PLANit memory model
@@ -109,6 +111,7 @@ class MatsimPtXmlWriter {
    * persisting MATSim transit route's route profile stop
    *
    * @param xmlWriter            to use
+   * @param routedService       service the schedule belongs to
    * @param relLegTiming         to persist
    * @param cumulativeTravelTime to reach this stop
    * @param upstreamStop         indicates that stop to persist resides upstream of the service leg segment
@@ -118,6 +121,7 @@ class MatsimPtXmlWriter {
    */
   private boolean writeMatsimRouteProfileStop(
       final XMLStreamWriter xmlWriter,
+      final RoutedService routedService,
       final RelativeLegTiming relLegTiming,
       final LocalTime cumulativeTravelTime,
       boolean upstreamStop,
@@ -136,11 +140,14 @@ class MatsimPtXmlWriter {
     if(!stopFacilityFound && upstreamStop){
       // if it is an upstream stop it might be the beginning of a route, in which case the connectoid is expected to be attached to the upstream node, however, in that case
       // the access link segment is likely to be an upstream link of that node, and not an exit link. Therefore, search the incoming link segments instead in that case, as this is still a valid
-      // mapping if we find it (as long as it is not the directly opposing link segment, since transit vehicles are expected to not make u-turns
+      // mapping if we find it (as long as it is not the directly opposing link segment, since transit vehicles are expected to not make u-turns (unless it is a ferry or train)
+      boolean allowStopFacilityUTurn = routedService.getMode().hasPhysicalFeatures() && routedService.getMode().getPhysicalFeatures().getTrackType() != TrackModeType.ROAD;
       final var originalAccessLinkSegment = accessLinkSegment;
+      Function<EdgeSegment, Boolean> oppDirAccessLinkSegmentAllowed = oppositeDirLinkSegment -> (
+          oppositeDirLinkSegment==null || !oppositeDirLinkSegment.equals(originalAccessLinkSegment) || allowStopFacilityUTurn);
+
       var stopFacilityAccessLinkSegment = IterableUtils.asStream(accessLinkSegment.getUpstreamNode().<MacroscopicLinkSegment>getEntryLinkSegments()).filter(
-          ls -> (ls.getOppositeDirectionSegment()==null || !ls.getOppositeDirectionSegment().equals(originalAccessLinkSegment)) &&
-                hasStopFacilityId(ls, true)).findFirst();
+          ls -> oppDirAccessLinkSegmentAllowed.apply(ls.getOppositeDirectionSegment()) && hasStopFacilityId(ls, true)).findFirst();
       if(stopFacilityAccessLinkSegment.isPresent()){
         // update
         accessLinkSegment = stopFacilityAccessLinkSegment.get();
@@ -180,11 +187,13 @@ class MatsimPtXmlWriter {
    * persisting MATSim transit route's route profile ( PLANit trip schedule of a routed service)
    *
    * @param xmlWriter        to use
+   * @param routedService    service the schedule belongs to
    * @param tripSchedule     to persist
    * @param servicesSettings to use
    * @throws XMLStreamException when error
    */
-  private boolean writeMatsimRouteProfile(XMLStreamWriter xmlWriter, RoutedTripSchedule tripSchedule, MatsimPtServicesWriterSettings servicesSettings) throws XMLStreamException {
+  private boolean writeMatsimRouteProfile(
+      XMLStreamWriter xmlWriter, RoutedService routedService, RoutedTripSchedule tripSchedule, MatsimPtServicesWriterSettings servicesSettings) throws XMLStreamException {
     if(!tripSchedule.hasRelativeLegTimings()){
       LOGGER.warning("IGNORE: Found PLANit trip schedule without leg timings, unable to create routeProfile XML Element, should not happen");
       return false;
@@ -198,11 +207,11 @@ class MatsimPtXmlWriter {
     LocalTime cumulativeTravelTime = LocalTime.MIN;
     for(var timing : tripSchedule){
       if(first){
-        success = writeMatsimRouteProfileStop(xmlWriter, timing, cumulativeTravelTime, first, servicesSettings);
+        success = writeMatsimRouteProfileStop(xmlWriter, routedService, timing, cumulativeTravelTime, first, servicesSettings);
         first = false;
       }
       cumulativeTravelTime = cumulativeTravelTime.plusNanos(timing.getDwellTime().toNanoOfDay()).plusNanos(timing.getDuration().toNanoOfDay());
-      success = success && writeMatsimRouteProfileStop(xmlWriter, timing, cumulativeTravelTime, first, servicesSettings);
+      success = success && writeMatsimRouteProfileStop(xmlWriter, routedService, timing, cumulativeTravelTime, first, servicesSettings);
       if(!success){
         break;
       }
@@ -339,7 +348,7 @@ class MatsimPtXmlWriter {
       var referenceSchedule = scheduleByDepartureTimes.values().stream().findFirst().get().get(0);
 
       /* routeProfile */
-      success = writeMatsimRouteProfile(xmlWriter, referenceSchedule, servicesSettings);
+      success = writeMatsimRouteProfile(xmlWriter, routedService, referenceSchedule, servicesSettings);
 
       /* route */
       success = writeMatsimRouteLinkRefs(xmlWriter, referenceSchedule, servicesSettings) && success;
