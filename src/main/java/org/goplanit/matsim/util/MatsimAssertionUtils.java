@@ -10,7 +10,7 @@ import java.io.*;
 import java.nio.file.Path;
 
 /**
- * Utilities for asserting MATSim outputs for any testinf related code
+ * Utilities for asserting MATSim outputs for any testing related code
  */
 public class MatsimAssertionUtils {
 
