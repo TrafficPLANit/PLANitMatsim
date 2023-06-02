@@ -37,7 +37,31 @@
 		<dependency>
 			<groupId>org.junit.jupiter</groupId>
 			<artifactId>junit-jupiter-engine</artifactId>
+			<scope>test</scope>
 			<optional>true</optional>
+		</dependency>
+
+		<dependency>
+			<groupId>org.goplanit.io</groupId>
+			<artifactId>planit-io</artifactId>
+			<scope>test</scope>
+			<optional>true</optional>
+		</dependency>
+
+		<dependency>
+			<groupId>org.xmlunit</groupId>
+			<artifactId>xmlunit-core</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.xmlunit</groupId>
+			<artifactId>xmlunit-matchers</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.hamcrest</groupId>
+			<artifactId>hamcrest</artifactId>
+			<scope>test</scope>
 		</dependency>
 
 	</dependencies>
