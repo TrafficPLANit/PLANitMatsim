@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <routedservices xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://trafficplanit.github.io/PLANitManual/xsd/routedservicesinput.xsd">
-    <id>1</id>
-    <servicelayers servicenetworkref="2">
+    <id>2</id>
+    <servicelayers servicenetworkref="4">
         <servicelayer id="0" servicelayerref="0">
             <services moderef="bus">
                 <service id="0" externalid="23-607-X-sj2-1">
