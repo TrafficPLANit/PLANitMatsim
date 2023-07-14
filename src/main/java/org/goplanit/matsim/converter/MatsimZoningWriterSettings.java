@@ -23,16 +23,26 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
   protected MacroscopicNetwork referenceNetwork;  
   
   /**
+   * While persisting generate the input files for the MATSim PtMatrixRouter contribution as per <a href="https://github.com/matsim-org/matsim-libs/tree/master/contribs/matrixbasedptrouter">MATSim matrix based Pt router</a> 
+   */
+  protected boolean generateMatrixBasedPtRouterFiles = DEFAULT_GENERATE_MATRIX_BASED_PT_ROUTER_FILES;
+  
+  /**
    * the output file name to use for the transit schedule, default is set to DEFAULT_TRANSIT_SCHEDULE_FILE_NAME
    */
   protected String transitScheduleFileName = DEFAULT_TRANSIT_SCHEDULE_FILE_NAME;
+
+  /** flag indicating the default for whether transit routes are blocking at their stop facilities */
+  protected boolean ptBlockingAtStopFacility = PT_BLOCKING_AT_STOP_DEFAULT;
   
   /**
    * Log settings
    */
-  protected void logSettings() {
-    Path matsimZoningPath =  Paths.get(getOutputDirectory(), getOutputFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));    
-    LOGGER.info(String.format("Persisting MATSIM pt to: %s",matsimZoningPath.toString()));
+  @Override
+  public void logSettings() {
+    Path matsimZoningPath =  Paths.get(getOutputDirectory(), getFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
+    LOGGER.info(String.format("Persisting MATSIM public transport to: %s", matsimZoningPath));
+    LOGGER.info(String.format("MATSim Matrix based PT routing file are %s generated",isGenerateMatrixBasedPtRouterFiles() ? "" : "not"));
   }    
   
   /** Collect the reference network used
@@ -42,11 +52,14 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
   protected MacroscopicNetwork getReferenceNetwork() {
     return referenceNetwork;
   }      
-  
+
   /**
-   * default names used for MATSIM public transport schedule file that is being generated
+   * Default setting for generating files required to run MATSim matrix based pt router
    */
-  public static final String DEFAULT_TRANSIT_SCHEDULE_FILE_NAME = "transitschedule";
+  public static final boolean DEFAULT_GENERATE_MATRIX_BASED_PT_ROUTER_FILES = true;
+
+  /** default value aligned with MATSim default */
+  public static final boolean PT_BLOCKING_AT_STOP_DEFAULT = false;
   
   /**
    * Default constructor using default output file name and Global country name
@@ -105,6 +118,20 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
    */
   public void setReferenceNetwork(MacroscopicNetwork referenceNetwork) {
     this.referenceNetwork = referenceNetwork;
+  }
+  
+  /** Collect the flag indicating if MATSim matrix based pt routing is supported by generating its files
+   * @return flag, when true activated when false not activated
+   */
+  public boolean isGenerateMatrixBasedPtRouterFiles() {
+    return generateMatrixBasedPtRouterFiles;
+  }
+
+  /** Set the flag to indicate if MATSim matrix based pt routing is to be supported by generating its files
+   * @param generateMatrixBasedPtRouterFiles when true activate, when false do not
+   */
+  public void setGenerateMatrixBasedPtRouterFiles(boolean generateMatrixBasedPtRouterFiles) {
+    this.generateMatrixBasedPtRouterFiles = generateMatrixBasedPtRouterFiles;
   }  
   
   /**
@@ -114,6 +141,22 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
   public void reset() {
     // TODO Auto-generated method stub    
   }
- 
+
+  /**
+   *
+   * @return is pt blocking flag
+   */
+  public boolean isPtBlockingAtStopFacility() {
+    return ptBlockingAtStopFacility;
+  }
+
+  /**
+   * when set to true all transit lines by default will be blocking at their stop facilities
+   *
+   * @param ptBlockingAtStopFacility set flag
+   */
+  public void setPtBlockingAtStopFacility(boolean ptBlockingAtStopFacility) {
+    this.ptBlockingAtStopFacility = ptBlockingAtStopFacility;
+  }
       
 }
