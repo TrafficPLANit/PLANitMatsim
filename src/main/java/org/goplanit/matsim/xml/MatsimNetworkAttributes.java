@@ -6,7 +6,7 @@ package org.goplanit.matsim.xml;
  * @author markr
  *
  */
-public class MatsimNetworkXmlAttributes {
+public class MatsimNetworkAttributes {
   
   public static final String ID = "id";
   

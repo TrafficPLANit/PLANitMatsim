@@ -1,3 +1,4 @@
+/.idea
 /target
 /.classpath
 /.settings
@@ -6,3 +7,5 @@
 /logs
 /bin
 /doc
+/docs
+/src/test/resources/testcases

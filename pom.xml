@@ -35,11 +35,33 @@
 		</dependency>
 
 		<dependency>
-			<groupId>junit</groupId>
-			<artifactId>junit</artifactId>
-			<!-- only used locally for testing so not an actual dependency for using 
-				the API -->
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-engine</artifactId>
+			<scope>test</scope>
 			<optional>true</optional>
+		</dependency>
+
+		<dependency>
+			<groupId>org.goplanit.io</groupId>
+			<artifactId>planit-io</artifactId>
+			<scope>test</scope>
+			<optional>true</optional>
+		</dependency>
+
+		<dependency>
+			<groupId>org.xmlunit</groupId>
+			<artifactId>xmlunit-core</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.xmlunit</groupId>
+			<artifactId>xmlunit-matchers</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.hamcrest</groupId>
+			<artifactId>hamcrest</artifactId>
+			<scope>test</scope>
 		</dependency>
 
 	</dependencies>
@@ -72,8 +94,35 @@
 				<artifactId>maven-jar-plugin</artifactId>
 			</plugin>
 
+			<plugin>
+				<artifactId>maven-javadoc-plugin</artifactId>
+				<version>3.2.0</version>
+				<executions>
+					<execution>
+						<id>javadoc-jar</id>
+						<phase>package</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+						<configuration>
+							<!--  place generated javadocs in /docs directory of root-->
+							<destDir>docs</destDir>
+							<includeDependencySources>false</includeDependencySources>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 
 		</plugins>
 	</build>
+
+	<repositories>
+		<!-- PLANit repository to obtain parentpom from-->
+		<repository>
+			<id>planit-repository.goplanit.org</id>
+			<name>PLANit Repository</name>
+			<url>https://repository.goplanit.org</url>
+		</repository>
+	</repositories>
 
 </project>
