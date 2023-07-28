@@ -19,11 +19,6 @@ public class MatsimPtServicesWriterSettings extends PlanitMatsimWriterModeMappin
   /** settings to use */
   private static final Logger LOGGER = Logger.getLogger(MatsimPtServicesWriterSettings.class.getCanonicalName());
 
-  /**
-   * the output file name to use for the transit schedule, default is set to DEFAULT_TRANSIT_SCHEDULE_FILE_NAME
-   */
-  protected String transitScheduleFileName = DEFAULT_TRANSIT_SCHEDULE_FILE_NAME;
-
   /** flag indicating the default for transit routes awaiting departure based on their schedule */
   private boolean awaitDepartures = AWAIT_DEPARTURE_DEFAULT;
 

@@ -167,7 +167,8 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterModeMappingSe
     return generateDetailedLinkGeometryFile;
   }
 
-  /** Set the choice for whether or not a detailed geometry file for each link is created. this geometry is extracted from the PLANit link geometry
+  /** Set the choice for whether a detailed geometry file for each link is created.
+   * This geometry is extracted from the PLANit link geometry.
    * 
    * @param generateDetailedLinkGeometryFile flag indicating to generate geometry file or not
    */
