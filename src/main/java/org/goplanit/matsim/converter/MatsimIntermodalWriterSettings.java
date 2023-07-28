@@ -19,6 +19,8 @@ public class MatsimIntermodalWriterSettings extends PlanitMatsimWriterSettings i
   /** the network and zoning settings to use in case we are writing without services */
   protected final MatsimNetworkWriterSettings networkSettings;
 
+  /** zoning settings to use in case we do not have services but we do have pt infrastructure like platforms), mutually exclusive to
+   * ptServicesSettings */
   protected final MatsimZoningWriterSettings zoningSettings;
 
   /** the routed services settings to use, mutual exclusive to zoning settings */

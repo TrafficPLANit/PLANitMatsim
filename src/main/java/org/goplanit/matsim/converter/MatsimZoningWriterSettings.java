@@ -26,11 +26,6 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
    * While persisting generate the input files for the MATSim PtMatrixRouter contribution as per <a href="https://github.com/matsim-org/matsim-libs/tree/master/contribs/matrixbasedptrouter">MATSim matrix based Pt router</a> 
    */
   protected boolean generateMatrixBasedPtRouterFiles = DEFAULT_GENERATE_MATRIX_BASED_PT_ROUTER_FILES;
-  
-  /**
-   * the output file name to use for the transit schedule, default is set to DEFAULT_TRANSIT_SCHEDULE_FILE_NAME
-   */
-  protected String transitScheduleFileName = DEFAULT_TRANSIT_SCHEDULE_FILE_NAME;
 
   /** flag indicating the default for whether transit routes are blocking at their stop facilities */
   protected boolean ptBlockingAtStopFacility = PT_BLOCKING_AT_STOP_DEFAULT;
