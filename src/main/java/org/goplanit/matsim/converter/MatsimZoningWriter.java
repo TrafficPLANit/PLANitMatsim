@@ -19,7 +19,7 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
  * @author markr
  *
  */
-public class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter{
+class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter{
   
   /** Logger to use */
   private static final Logger LOGGER = Logger.getLogger(MatsimZoningWriter.class.getCanonicalName());
