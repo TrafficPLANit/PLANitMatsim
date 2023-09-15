@@ -9,7 +9,8 @@ import java.nio.file.Paths;
 import java.util.logging.Logger;
 
 /**
- * Settings specific to writing the routed services and related output in MATSim format (pt), including the service network information
+ * Settings specific to writing the routed services and related output in MATSim format (pt),
+ * including the service network information
  * 
  * @author markr
  *
