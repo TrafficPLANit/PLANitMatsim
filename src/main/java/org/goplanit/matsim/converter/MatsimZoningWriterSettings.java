@@ -9,7 +9,7 @@ import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.utils.locale.CountryNames;
 
 /**
- * Settings specific to writing the zoning related output in Matsim format (pt)
+ * Settings specific to writing the zoning related output in MATSim format (pt)
  * 
  * @author markr
  *
