@@ -74,7 +74,7 @@ class MatsimPtMatrixBasedRouterWriter {
     
     /* write */
     var ptStopsFilePath = Path.of(zoningWriter.getSettings().getOutputDirectory(),PT_STOPS_FILE_NAME);
-    LOGGER.info(String.format("Persisting MATSIM %s to: %s",PT_STOPS_FILE_NAME, ptStopsFilePath.toString()));
+    LOGGER.info(String.format("Persisting MATSIM %s to: %s",PT_STOPS_FILE_NAME, ptStopsFilePath));
     try (PrintWriter pw = new PrintWriter(ptStopsFilePath.toFile())) {
       csvContent.stream().forEach(pw::println);
     }catch(Exception e) {

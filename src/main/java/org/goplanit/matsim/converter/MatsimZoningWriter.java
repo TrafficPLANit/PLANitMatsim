@@ -37,7 +37,7 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter{
     if(getSettings().getOutputDirectory() == null || getSettings().getOutputDirectory().isBlank()) {
       getSettings().setOutputDirectory(networkWriterSettings.getOutputDirectory());
       if(networkWriterSettings.getOutputDirectory()!=null && !networkWriterSettings.getOutputDirectory().isBlank()) {
-        LOGGER.info(String.format("Matsim zoning output directory not set, adopting network output directory %s instead", getSettings().getOutputDirectory()));
+        LOGGER.info(String.format("MATSim zoning output directory not set, adopting network output directory %s instead", getSettings().getOutputDirectory()));
       }
     }
   }    
