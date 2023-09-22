@@ -153,10 +153,10 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterModeMappingSe
    * Allow the user to provide their own function on how to populate the type field of a MATSIM link
    * based on the link segment that is provided to it
    * 
-   * @param linkTypefunction to apply
+   * @param linkTypeFunction to apply
    */
-  public void setTypeFunction(Function<MacroscopicLinkSegment,String> linkTypefunction) {
-    this.linkTypefunction = linkTypefunction;
+  public void setTypeFunction(Function<MacroscopicLinkSegment,String> linkTypeFunction) {
+    this.linkTypefunction = linkTypeFunction;
   }
 
   /** Check if a detailed geometry file is generated
