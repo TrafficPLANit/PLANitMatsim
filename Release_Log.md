@@ -2,6 +2,18 @@
 
 This project contains core code to write a MATSIM network to disk based on PLANit memory model
 
+## 0.4.0
+
+**Enhancements**
+
+* [GENERAL] Add support for writing out transit schedules based on PLANit routed services and service network via intermodal writer
+* #11 Add CI by running tests whenever pushing a commit
+* #10 Add option to persist Stops in csv format compatible with MATSim's Matrix based Pt Router for teleported modes
+* #9 Add option to restrict link speeds to maximum speed of supported/activated modes in writer
+* #8 Add option to remove all existing mode mappings for network writer
+
+**Bug fixes**
+
 ## 0.3.0
 
 * mapping of default modes should be based on common matsim modes: car, pt. This has been added #3
