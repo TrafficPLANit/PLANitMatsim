@@ -1,6 +1,6 @@
 package org.goplanit.matsim.converter;
 
-import org.goplanit.converter.idmapping.IdMapperType;
+import org.goplanit.utils.id.IdMapperType;
 import org.goplanit.converter.idmapping.PlanitComponentIdMapper;
 import org.goplanit.converter.idmapping.RoutedServicesIdMapper;
 import org.goplanit.converter.service.RoutedServicesWriter;

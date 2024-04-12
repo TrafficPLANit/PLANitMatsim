@@ -22,7 +22,7 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.geotools.geometry.jts.JTS;
 import org.goplanit.converter.idmapping.IdMapperFunctionFactory;
-import org.goplanit.converter.idmapping.IdMapperType;
+import org.goplanit.utils.id.IdMapperType;
 import org.goplanit.converter.idmapping.NetworkIdMapper;
 import org.goplanit.converter.idmapping.PlanitComponentIdMapper;
 import org.goplanit.converter.network.NetworkWriter;

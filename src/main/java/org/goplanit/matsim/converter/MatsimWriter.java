@@ -8,7 +8,7 @@ import javax.xml.stream.XMLStreamWriter;
 import org.geotools.geometry.jts.JTS;
 import org.goplanit.converter.BaseWriterImpl;
 import org.goplanit.converter.CrsWriterImpl;
-import org.goplanit.converter.idmapping.IdMapperType;
+import org.goplanit.utils.id.IdMapperType;
 import org.goplanit.matsim.util.PlanitMatsimWriterSettings;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.network.LayeredNetwork;
