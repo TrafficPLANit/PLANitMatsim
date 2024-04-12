@@ -2,13 +2,13 @@ package org.goplanit.matsim.converter;
 
 import java.util.logging.Logger;
 
-import org.goplanit.converter.idmapping.IdMapperType;
 import org.goplanit.converter.idmapping.NetworkIdMapper;
 import org.goplanit.converter.intermodal.IntermodalWriter;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.network.ServiceNetwork;
 import org.goplanit.service.routed.RoutedServices;
 import org.goplanit.utils.exceptions.PlanItException;
+import org.goplanit.utils.id.IdMapperType;
 import org.goplanit.zoning.Zoning;
 
 /**
