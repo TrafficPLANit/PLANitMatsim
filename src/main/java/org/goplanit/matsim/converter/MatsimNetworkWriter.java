@@ -141,7 +141,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
           xmlWriter.writeAttribute(MatsimNetworkAttributes.TO, networkIdMappers.getVertexIdMapper().apply(linkSegment.getDownstreamVertex()));
           
           /* LENGTH */
-          xmlWriter.writeAttribute(MatsimNetworkAttributes.LENGTH, String.format("%.2f",Unit.KM.convertTo(Unit.METER, linkSegment.getParentLink().getLengthKm())));  
+          xmlWriter.writeAttribute(MatsimNetworkAttributes.LENGTH, String.format("%.2f",Unit.KM.convertTo(Unit.METER, linkSegment.getParent().getLengthKm())));
         }
         
         if(linkSegment.getLinkSegmentType() == null) {
@@ -181,7 +181,8 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
           /* VOLUME not yet supported */
           
           /* ORIG ID */
-          Object originalExternalId = linkSegment.getExternalId() != null ? linkSegment.getExternalId() : linkSegment.getParentLink().getExternalId();
+          Object originalExternalId =
+              linkSegment.getExternalId() != null ? linkSegment.getExternalId() : linkSegment.getParent().getExternalId();
           if(originalExternalId!= null) {
             xmlWriter.writeAttribute(MatsimNetworkAttributes.ORIGID, String.valueOf(originalExternalId));
           }
@@ -402,9 +403,9 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
         /* extract geometry to write */
         LineString destinationCrsGeometry = null;
         if(getDestinationCrsTransformer()!=null) {
-          destinationCrsGeometry = ((LineString)JTS.transform(linkSegment.getParentLink().getGeometry(), getDestinationCrsTransformer()));
+          destinationCrsGeometry = ((LineString)JTS.transform(linkSegment.getParent().getGeometry(), getDestinationCrsTransformer()));
         }else {
-          destinationCrsGeometry = linkSegment.getParentLink().getGeometry();  
+          destinationCrsGeometry = linkSegment.getParent().getGeometry();
         }        
         if(destinationCrsGeometry==null) {
           LOGGER.severe(String.format("geometry unavailable for link (segment id:%d) even though request for detailed geometry is made, link ignored",linkSegment.getId()));
