@@ -245,7 +245,7 @@ class MatsimPtXmlWriter {
         PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimTransitElements.LINK, matsimWriter.getIndentLevel());
         xmlWriter.writeAttribute(
                 MatsimTransitAttributes.REF_ID,
-                componentIdMappers.getNetworkIdMappers().getLinkSegmentIdMapper().apply((MacroscopicLinkSegment) physicalSegment));
+                componentIdMappers.getNetworkIdMappers().getMacroscopicLinkSegmentIdMapper().apply((MacroscopicLinkSegment) physicalSegment));
         PlanitXmlWriterUtils.writeNewLine(xmlWriter);
       }
     }
@@ -537,15 +537,18 @@ class MatsimPtXmlWriter {
         Coordinate nodeCoordinate = matsimWriter.extractDestinationCrsCompatibleCoordinate(stopFacilityLocation);
         if(nodeCoordinate != null) {        
           /* X */
-          xmlWriter.writeAttribute(MatsimTransitAttributes.X, matsimWriter.getSettings().getDecimalFormat().format(nodeCoordinate.x));
+          xmlWriter.writeAttribute(
+              MatsimTransitAttributes.X, matsimWriter.getSettings().getDecimalFormat().format(nodeCoordinate.x));
           /* Y */
-          xmlWriter.writeAttribute(MatsimTransitAttributes.Y, matsimWriter.getSettings().getDecimalFormat().format(nodeCoordinate.y));
+          xmlWriter.writeAttribute(
+              MatsimTransitAttributes.Y, matsimWriter.getSettings().getDecimalFormat().format(nodeCoordinate.y));
           /* Z coordinate (v2) not supported */
         }
         
         /* LINK REF ID */
         xmlWriter.writeAttribute(
-                MatsimTransitAttributes.LINK_REF_ID, componentIdMappers.getNetworkIdMappers().getLinkSegmentIdMapper().apply(accessLinkSegment));
+                MatsimTransitAttributes.LINK_REF_ID,
+            componentIdMappers.getNetworkIdMappers().getMacroscopicLinkSegmentIdMapper().apply(accessLinkSegment));
         
         /* NAME - based on the transfer zone names if any */
         String stopFacilityName = "";
@@ -563,7 +566,8 @@ class MatsimPtXmlWriter {
         /* STOP_AREA_ID (v2) - not supported yet in MATSIM I believe, when it is, we can use our transfer zone groups to map these */
         
         /* IS_BLOCKING - unknown information in PLANit at this point */
-        xmlWriter.writeAttribute(MatsimTransitAttributes.IS_BLOCKING, String.valueOf(zoningWriterSettings.isPtBlockingAtStopFacility()));
+        xmlWriter.writeAttribute(MatsimTransitAttributes.IS_BLOCKING,
+            String.valueOf(zoningWriterSettings.isPtBlockingAtStopFacility()));
       }
       
       PlanitXmlWriterUtils.writeNewLine(xmlWriter);
@@ -580,7 +584,8 @@ class MatsimPtXmlWriter {
     LOGGER.info(String.format("[STATS] created %d stop facilities",matsimStopFacilityCounter.longValue()));
     LOGGER.info(String.format("[STATS] created %d transit lines", matsimTransitLineCounter.longValue()));
     for(var entry : transitRouteCountersByMode.entrySet()) {
-      LOGGER.info(String.format("[STATS] created %d transit routes for mode: %s", entry.getValue().longValue(), entry.getKey()));
+      LOGGER.info(String.format(
+          "[STATS] created %d transit routes for mode: %s", entry.getValue().longValue(), entry.getKey()));
     }
   }   
 
@@ -590,7 +595,8 @@ class MatsimPtXmlWriter {
    * @param zoningWriterSettings to use
    * @param routedServices to extract information to persist from (if not null)
    * @param routedServicesSettings to use
-   * @param networkSettings to use, containing for example the mode mapping information required when writing schedules (may be null if no reouted services are provided)
+   * @param networkSettings to use, containing for example the mode mapping information required when writing
+   *                        schedules (may be null if no routed services are provided)
    */
   protected void writeXmlTransitScheduleFile(
       Zoning zoning,
@@ -598,7 +604,8 @@ class MatsimPtXmlWriter {
       RoutedServices routedServices,
       MatsimPtServicesWriterSettings routedServicesSettings,
       MatsimNetworkWriterSettings networkSettings) {
-    PlanItRunTimeException.throwIfNull(zoning,"Unable to persist MATSim transit schedule file when PLANit zoning object is null");
+    PlanItRunTimeException.throwIfNull(zoning,
+        "Unable to persist MATSim transit schedule file when PLANit zoning object is null");
 
     /* prep */
     componentIdMappers.populateMissingIdMappers(matsimWriter.getIdMapperType());
@@ -607,7 +614,9 @@ class MatsimPtXmlWriter {
     matsimTransitLineCounter.reset();
     stopFacilityIdTracking.clear();
 
-    Path matsimNetworkPath =  Paths.get(matsimWriter.getSettings().getOutputDirectory(), matsimWriter.getSettings().getFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
+    Path matsimNetworkPath =
+        Paths.get(matsimWriter.getSettings().getOutputDirectory(),
+            matsimWriter.getSettings().getFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
     Pair<XMLStreamWriter,Writer> xmlFileWriterPair = PlanitXmlWriterUtils.createXMLWriter(matsimNetworkPath);
 
     try {
@@ -616,11 +625,13 @@ class MatsimPtXmlWriter {
       
       /* body */
       loggedFrequencyTripWarning = false;
-      writeTransitScheduleXML(xmlFileWriterPair.first(), networkSettings, zoning, zoningWriterSettings, routedServices, routedServicesSettings);
+      writeTransitScheduleXML(
+          xmlFileWriterPair.first(), networkSettings, zoning, zoningWriterSettings, routedServices, routedServicesSettings);
       
     }catch (Exception e) {
       LOGGER.severe(e.getMessage());
-      throw new PlanItRunTimeException(String.format("Error while persisting MATSIM public transit schedule to %s", matsimNetworkPath));
+      throw new PlanItRunTimeException(
+          String.format("Error while persisting MATSIM public transit schedule to %s", matsimNetworkPath));
     }finally {
       
       /* end */
