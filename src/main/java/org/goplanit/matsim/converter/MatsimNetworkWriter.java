@@ -130,7 +130,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
         {
           var networkIdMappers = getComponentIdMappers().getNetworkIdMappers();
           /* ID */
-          String matsimLinkId = setUniqueExternalIdIfNeeded(linkSegment, networkIdMappers.getLinkSegmentIdMapper().apply(linkSegment), usedExternalMatsimLinkIds);
+          String matsimLinkId = setUniqueExternalIdIfNeeded(linkSegment, networkIdMappers.getMacroscopicLinkSegmentIdMapper().apply(linkSegment), usedExternalMatsimLinkIds);
 
           xmlWriter.writeAttribute(MatsimNetworkAttributes.ID, matsimLinkId);
     
