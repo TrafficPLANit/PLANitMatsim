@@ -40,7 +40,8 @@ class MatsimPtMatrixBasedRouterWriter {
   private final MatsimZoningWriter zoningWriter;
   
   /**
-   * The stops CSV file contains the stop id and its coordinates, based on example in <a href="https://github.com/matsim-org/matsim-libs/blob/master/contribs/matrixbasedptrouter/src/main/resources/example/ptStops.csv">ptstops.csv</a>
+   * The stops CSV file contains the stop id and its coordinates, based on example
+   * in <a href="https://github.com/matsim-org/matsim-libs/blob/master/contribs/matrixbasedptrouter/src/main/resources/example/ptStops.csv">ptstops.csv</a>
    * @param zoning to use
    */
   private void writeStopsCsvFile(Zoning zoning) {
@@ -51,14 +52,17 @@ class MatsimPtMatrixBasedRouterWriter {
     var csvContent = new ArrayList<String>();
     
     /* header */
-    sb.append(MatsimTransitAttributes.ID).append(CharacterUtils.COMMA).append(MatsimTransitAttributes.X).append(CharacterUtils.COMMA).append(MatsimTransitAttributes.Y);
+    sb.append(MatsimTransitAttributes.ID).append(CharacterUtils.COMMA).append(
+        MatsimTransitAttributes.X).append(CharacterUtils.COMMA).append(MatsimTransitAttributes.Y);
     csvContent.add(sb.toString());
     
     try {
       for(var transferConnectoid : zoning.getTransferConnectoids()) {
         sb.delete(0, Integer.MAX_VALUE);
-        var coord = zoningWriter.extractDestinationCrsCompatibleCoordinate(transferConnectoid.getAccessNode().getPosition());
-        sb.append(transferConnectoid.getXmlId()).append(CharacterUtils.COMMA).append(dm.format(coord.x)).append(CharacterUtils.COMMA).append(dm.format(coord.y));
+        var coord = zoningWriter.extractDestinationCrsCompatibleCoordinate(
+            transferConnectoid.getAccessNode().getPosition());
+        sb.append(transferConnectoid.getXmlId()).append(CharacterUtils.COMMA).append(
+            dm.format(coord.x)).append(CharacterUtils.COMMA).append(dm.format(coord.y));
         csvContent.add(sb.toString());
       }
     } catch (MismatchedDimensionException e) {
@@ -79,7 +83,8 @@ class MatsimPtMatrixBasedRouterWriter {
       csvContent.stream().forEach(pw::println);
     }catch(Exception e) {
       LOGGER.severe(e.getMessage());
-      LOGGER.severe(String.format("Unable to persist %s file in output dir %s, aborting",PT_STOPS_FILE_NAME, zoningWriter.getSettings().getOutputDirectory()));
+      LOGGER.severe(String.format("Unable to persist %s file in output dir %s, aborting",
+          PT_STOPS_FILE_NAME, zoningWriter.getSettings().getOutputDirectory()));
     }
   }
   
@@ -105,7 +110,8 @@ class MatsimPtMatrixBasedRouterWriter {
    */
   public void write(final Zoning zoning) {
 
-    /* For now, we only generate a stops file. From the MATSim code it appears, the stop-stop travel time matrix can be created on the fly within MATSim */
+    /* For now, we only generate a stops file. From the MATSim code it appears, the stop-stop travel time
+    matrix can be created on the fly within MATSim */
     writeStopsCsvFile(zoning);
   }  
 }

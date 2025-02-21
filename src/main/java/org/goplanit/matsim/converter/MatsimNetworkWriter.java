@@ -57,8 +57,8 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
   /** the logger to use */
   private static final Logger LOGGER = Logger.getLogger(MatsimNetworkWriter.class.getCanonicalName());
   
-  /** when external ids are used for mapping, they need not be unique, in Matsim ids must be unique, we use this map to track
-   * for duplicates, if found, we append unique identifier */
+  /** when external ids are used for mapping, they need not be unique, in Matsim ids must be unique, we use this
+   * map to track for duplicates, if found, we append unique identifier */
   private Map<String,LongAdder> usedExternalMatsimLinkIds = new HashMap<String,LongAdder>();
   
   /** track number of MATSim nodes persisted */
@@ -89,7 +89,9 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
    * @param usedExternalMatsimIds that are used already
    * @return unique externalId (if not external id then copy of original is returned
    */
-  private String setUniqueExternalIdIfNeeded(MacroscopicLinkSegment linkSegment, final String matsimId, final Map<String, LongAdder> usedExternalMatsimIds) {    
+  private String setUniqueExternalIdIfNeeded(
+      MacroscopicLinkSegment linkSegment, final String matsimId, final Map<String, LongAdder> usedExternalMatsimIds) {
+
     String uniqueExternalId = matsimId;
     if(getIdMapperType() == IdMapperType.EXTERNAL_ID) {
       if(usedExternalMatsimIds.containsKey(matsimId)) {
@@ -130,22 +132,28 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
         {
           var networkIdMappers = getComponentIdMappers().getNetworkIdMappers();
           /* ID */
-          String matsimLinkId = setUniqueExternalIdIfNeeded(linkSegment, networkIdMappers.getMacroscopicLinkSegmentIdMapper().apply(linkSegment), usedExternalMatsimLinkIds);
+          String matsimLinkId = setUniqueExternalIdIfNeeded(
+                  linkSegment, networkIdMappers.getMacroscopicLinkSegmentIdMapper().apply(linkSegment),
+                  usedExternalMatsimLinkIds);
 
           xmlWriter.writeAttribute(MatsimNetworkAttributes.ID, matsimLinkId);
     
           /* FROM node */
-          xmlWriter.writeAttribute(MatsimNetworkAttributes.FROM, networkIdMappers.getVertexIdMapper().apply(linkSegment.getUpstreamVertex()));
+          xmlWriter.writeAttribute(
+              MatsimNetworkAttributes.FROM, networkIdMappers.getVertexIdMapper().apply(linkSegment.getUpstreamVertex()));
           
           /* TO node */
-          xmlWriter.writeAttribute(MatsimNetworkAttributes.TO, networkIdMappers.getVertexIdMapper().apply(linkSegment.getDownstreamVertex()));
+          xmlWriter.writeAttribute(
+              MatsimNetworkAttributes.TO, networkIdMappers.getVertexIdMapper().apply(linkSegment.getDownstreamVertex()));
           
           /* LENGTH */
-          xmlWriter.writeAttribute(MatsimNetworkAttributes.LENGTH, String.format("%.2f",Unit.KM.convertTo(Unit.METER, linkSegment.getParent().getLengthKm())));
+          xmlWriter.writeAttribute(MatsimNetworkAttributes.LENGTH,
+              String.format("%.2f",Unit.KM.convertTo(Unit.METER, linkSegment.getParent().getLengthKm())));
         }
         
         if(linkSegment.getLinkSegmentType() == null) {
-          throw new PlanItRunTimeException(String.format("MATSim requires link segment type to be available on link segment (id:%d)",linkSegment.getId()));
+          throw new PlanItRunTimeException(String.format(
+              "MATSim requires link segment type to be available on link segment (id:%d)",linkSegment.getId()));
         }
                 
         /** MODELLING PARAMETERS **/
@@ -153,14 +161,17 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
           /* SPEED */
           double linkSpeedLimit = linkSegment.getPhysicalSpeedLimitKmH();
           if(getSettings().isRestrictLinkSpeedBySupportedModes()) {
-            double minModeSpeed = planitModeToMatsimModeMapping.keySet().stream().map(m -> m.getMaximumSpeedKmH()).sorted().findFirst().orElse(linkSpeedLimit);
+            double minModeSpeed =
+                planitModeToMatsimModeMapping.keySet().stream().map(
+                    Mode::getMaximumSpeedKmH).sorted().findFirst().orElse(linkSpeedLimit);
             linkSpeedLimit = Math.min(linkSpeedLimit, minModeSpeed);
           }
           xmlWriter.writeAttribute(MatsimNetworkAttributes.FREESPEED_METER_SECOND, 
               String.format("%.2f",Unit.KM_HOUR.convertTo(Unit.METER_SECOND, linkSpeedLimit)));
           
           /* CAPACITY */
-          xmlWriter.writeAttribute(MatsimNetworkAttributes.CAPACITY_HOUR, String.format("%.1f",linkSegment.getCapacityOrDefaultPcuH()));
+          xmlWriter.writeAttribute(
+              MatsimNetworkAttributes.CAPACITY_HOUR, String.format("%.1f",linkSegment.getCapacityOrDefaultPcuH()));
           
           /* PERMLANES */
           xmlWriter.writeAttribute(MatsimNetworkAttributes.PERMLANES, String.valueOf(linkSegment.getNumberOfLanes()));
@@ -191,17 +202,20 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
           
           /* NT_CATEGORY */
           if(settings.linkNtCategoryfunction != null) {
-            xmlWriter.writeAttribute(MatsimNetworkAttributes.NT_CATEGORY, settings.linkNtCategoryfunction.apply(linkSegment));
+            xmlWriter.writeAttribute(
+                MatsimNetworkAttributes.NT_CATEGORY, settings.linkNtCategoryfunction.apply(linkSegment));
           }
           
           /* NT_CATEGORY */
           if(settings.linkNtTypefunction != null) {
-            xmlWriter.writeAttribute(MatsimNetworkAttributes.NT_TYPE, settings.linkNtTypefunction.apply(linkSegment));
+            xmlWriter.writeAttribute(
+                MatsimNetworkAttributes.NT_TYPE, settings.linkNtTypefunction.apply(linkSegment));
           }
           
           /* TYPE */
           if(settings.linkTypefunction != null) {
-            xmlWriter.writeAttribute(MatsimNetworkAttributes.NT_TYPE, settings.linkTypefunction.apply(linkSegment));
+            xmlWriter.writeAttribute(
+                MatsimNetworkAttributes.NT_TYPE, settings.linkTypefunction.apply(linkSegment));
           }  
           
         }                     
@@ -211,7 +225,9 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
       PlanitXmlWriterUtils.writeNewLine(xmlWriter);
     } catch (XMLStreamException e) {
       LOGGER.severe(e.getMessage());
-      throw new PlanItRunTimeException(String.format("error while writing MATSim link XML element %s (id:%d)",linkSegment.getExternalId(), linkSegment.getId()));
+      throw new PlanItRunTimeException(
+          String.format("error while writing MATSim link XML element %s (id:%d)",
+              linkSegment.getExternalId(), linkSegment.getId()));
     }
   }    
 
@@ -250,7 +266,9 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
     try {
       writeStartElementNewLine(xmlWriter,MatsimNetworkElements.LINKS, true /* ++indent */);
       
-      Map<Mode, String> planitModeToMatsimModeMapping = settings.collectActivatedPlanitModeToMatsimModeMapping(networkLayer);
+      Map<Mode, String> planitModeToMatsimModeMapping =
+          settings.collectActivatedPlanitModeToMatsimModeMapping(networkLayer);
+
       /* write link(segments) one by one */
       for(Link link: networkLayer.getLinks()) {
         writeMatsimLink(xmlWriter, link, planitModeToMatsimModeMapping);
@@ -276,7 +294,8 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
       /* attributes  of element*/
       {
         /* ID */
-        xmlWriter.writeAttribute(MatsimNetworkAttributes.ID, getComponentIdMappers().getNetworkIdMappers().getVertexIdMapper().apply(node));
+        xmlWriter.writeAttribute(
+            MatsimNetworkAttributes.ID, getComponentIdMappers().getNetworkIdMappers().getVertexIdMapper().apply(node));
         
         /* geometry of the node (optional) */
         Coordinate nodeCoordinate = extractDestinationCrsCompatibleCoordinate(node.getPosition());
@@ -296,7 +315,8 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
       PlanitXmlWriterUtils.writeNewLine(xmlWriter);
     } catch (XMLStreamException e) {
       LOGGER.severe(e.getMessage());
-      throw new PlanItRunTimeException("Error while writing MATSim node XML element %s (id:%d)",node.getExternalId(), node.getId());
+      throw new PlanItRunTimeException(
+          "Error while writing MATSim node XML element %s (id:%d)",node.getExternalId(), node.getId());
     }
   }  
   
@@ -305,7 +325,8 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
    * @param networkLayer to extract from
    * @throws PlanItException thrown if error
    */
-  private void writeMatsimNodes(XMLStreamWriter xmlWriter, MacroscopicNetworkLayerImpl networkLayer) throws PlanItException {
+  private void writeMatsimNodes(
+      XMLStreamWriter xmlWriter, MacroscopicNetworkLayerImpl networkLayer) throws PlanItException {
     try {
       writeStartElementNewLine(xmlWriter,MatsimNetworkElements.NODES, true /* ++indent */);
       
@@ -328,7 +349,8 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
    * @param networkLayer to persist
    * @throws PlanItException thrown if error
    */
-  private void writeMatsimNetworkXML(XMLStreamWriter xmlWriter, MacroscopicNetworkLayerImpl networkLayer) throws PlanItException {
+  private void writeMatsimNetworkXML(
+      XMLStreamWriter xmlWriter, MacroscopicNetworkLayerImpl networkLayer) throws PlanItException {
     try {
       writeStartElementNewLine(xmlWriter,MatsimNetworkElements.NETWORK, true /* add indentation*/);
 
@@ -365,7 +387,8 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
    * @throws PlanItException thrown if error
    */
   protected void writeXmlNetworkFile(MacroscopicNetworkLayerImpl networkLayer) throws PlanItException { 
-    Path matsimNetworkPath =  Paths.get(getSettings().getOutputDirectory(), getSettings().getFileName().concat(DEFAULT_FILE_NAME_EXTENSION));
+    Path matsimNetworkPath =
+        Paths.get(getSettings().getOutputDirectory(), getSettings().getFileName().concat(DEFAULT_FILE_NAME_EXTENSION));
     Pair<XMLStreamWriter,Writer> xmlFileWriterPair = PlanitXmlWriterUtils.createXMLWriter(matsimNetworkPath);
     
     try {
@@ -390,30 +413,38 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
    * @throws PlanItException thrown if error
    */
   protected void writeDetailedGeometryFile(MacroscopicNetworkLayerImpl networkLayer) throws PlanItException {
-    Path matsimNetworkGeometryPath =  Paths.get(getSettings().getOutputDirectory(), DEFAULT_NETWORK_GEOMETRY_FILE_NAME.concat(DEFAULT_NETWORK_GEOMETRY_FILE_NAME_EXTENSION)).toAbsolutePath();
+    Path matsimNetworkGeometryPath =
+        Paths.get(getSettings().getOutputDirectory(),
+            DEFAULT_NETWORK_GEOMETRY_FILE_NAME.concat(DEFAULT_NETWORK_GEOMETRY_FILE_NAME_EXTENSION)).toAbsolutePath();
     LOGGER.info(String.format("persisting MATSIM network geometry to: %s",matsimNetworkGeometryPath.toString()));
     
     try {
       CSVPrinter csvPrinter = new CSVPrinter(new FileWriter(matsimNetworkGeometryPath.toFile()), CSVFormat.TDF);      
       csvPrinter.printRecord("LINK_ID", "GEOMETRY");
       
-      Function<MacroscopicLinkSegment, String> linkIdMapping = IdMapperFunctionFactory.createLinkSegmentIdMappingFunction(getIdMapperType());
+      Function<MacroscopicLinkSegment, String> linkIdMapping =
+          IdMapperFunctionFactory.createLinkSegmentIdMappingFunction(getIdMapperType());
       for(MacroscopicLinkSegment linkSegment : networkLayer.getLinkSegments()) {
         
         /* extract geometry to write */
         LineString destinationCrsGeometry = null;
         if(getDestinationCrsTransformer()!=null) {
-          destinationCrsGeometry = ((LineString)JTS.transform(linkSegment.getParent().getGeometry(), getDestinationCrsTransformer()));
+          destinationCrsGeometry =
+              ((LineString)JTS.transform(linkSegment.getParent().getGeometry(), getDestinationCrsTransformer()));
         }else {
           destinationCrsGeometry = linkSegment.getParent().getGeometry();
         }        
         if(destinationCrsGeometry==null) {
-          LOGGER.severe(String.format("geometry unavailable for link (segment id:%d) even though request for detailed geometry is made, link ignored",linkSegment.getId()));
+          LOGGER.severe(String.format(
+              "geometry unavailable for link (segment id:%d) even though request for detailed geometry is made, " +
+                  "link ignored",linkSegment.getId()));
           continue;
         }
         
         /* get correct coordinate sequence, reverse when segment is reverse direction */
-        Coordinate[] coordinates = linkSegment.isDirectionAb() ? destinationCrsGeometry.getCoordinates() : destinationCrsGeometry.reverse().getCoordinates();
+        Coordinate[] coordinates =
+            linkSegment.isDirectionAb() ? destinationCrsGeometry.getCoordinates() :
+                destinationCrsGeometry.reverse().getCoordinates();
         
         /* only when it has internal coordinates */
         if(coordinates.length > 2) {
@@ -425,7 +456,8 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
             if(index>firstInternal) {
               lineStringString.append(",");
             }         
-            lineStringString.append(String.format("%s %s", settings.getDecimalFormat().format(coordinate.x), settings.getDecimalFormat().format(coordinate.y)));
+            lineStringString.append(String.format("%s %s",
+                settings.getDecimalFormat().format(coordinate.x), settings.getDecimalFormat().format(coordinate.y)));
           }
           lineStringString.append(")");
           csvPrinter.printRecord(linkIdMapping.apply(linkSegment), lineStringString.toString());
@@ -491,13 +523,16 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
 
     /* CRS */
     prepareCoordinateReferenceSystem(
-            macroscopicNetwork.getCoordinateReferenceSystem(), getSettings().getDestinationCoordinateReferenceSystem(), getSettings().getCountry());
+        macroscopicNetwork.getCoordinateReferenceSystem(),
+        getSettings().getDestinationCoordinateReferenceSystem(),
+        getSettings().getCountry());
 
     /* log settings */
     settings.logSettings(macroscopicNetwork);
     
     /* write */
-    final MacroscopicNetworkLayerImpl macroscopicPhysicalNetworkLayer = (MacroscopicNetworkLayerImpl)macroscopicNetwork.getTransportLayers().getFirst();
+    final MacroscopicNetworkLayerImpl macroscopicPhysicalNetworkLayer =
+        (MacroscopicNetworkLayerImpl)macroscopicNetwork.getTransportLayers().getFirst();
     
     writeXmlNetworkFile(macroscopicPhysicalNetworkLayer);
     if(settings.isGenerateDetailedLinkGeometryFile()) {

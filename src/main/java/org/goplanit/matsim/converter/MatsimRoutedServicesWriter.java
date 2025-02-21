@@ -14,7 +14,8 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import java.util.logging.Logger;
 
 /**
- * A class that takes a PLANit routed services (and its reference service network, zoning and physical network) to extract and writes the MATSIM public transport information to disk.
+ * A class that takes a PLANit routed services (and its reference service network, zoning and physical network)
+ * to extract and writes the MATSIM public transport information to disk.
  * 
  * @author markr
  *
@@ -59,11 +60,13 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
     }
 
     if(parentNetwork.getTransportLayers().size()!=1) {
-      LOGGER.severe(String.format("MATSim routed services writer currently only supports service networks with a single layer, the provided service network has %d",parentNetwork.getTransportLayers().size()));
+      LOGGER.severe(String.format("MATSim routed services writer currently only supports service networks with " +
+          "a single layer, the provided service network has %d",parentNetwork.getTransportLayers().size()));
       return false;
     }
     if(!(parentNetwork.getTransportLayers().getFirst() instanceof ServiceNetworkLayerImpl)) {
-      LOGGER.severe(String.format("MATSim only supports vanilla service network layers, the provided layer is of a different type"));
+      LOGGER.severe(String.format("MATSim only supports vanilla service network layers, the provided layer is " +
+          "of a different type"));
       return false;
     }
 
@@ -91,14 +94,16 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
 
 
   /**
-   * extract public transport information from PLANit zoning and use it to persist as much  of the MATSim public transport
+   * extract public transport information from PLANit zoning and use it to persist as much  of the MATSim public
+   * transport
    * XML as possible
    * 
    * @param routedServices to use for MATSim pt persistence
    */  
   @Override
   public void write(RoutedServices routedServices) throws PlanItException {
-    if(!validateServiceNetwork(routedServices.getParentNetwork()) || !validateNetwork(routedServices.getParentNetwork().getParentNetwork())) {
+    if(!validateServiceNetwork(routedServices.getParentNetwork()) ||
+        !validateNetwork(routedServices.getParentNetwork().getParentNetwork())) {
       return;
     }
 
@@ -110,7 +115,9 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
     // todo: likely can be removed as no geo information is used during persistence to MATSim for PT services
     /* CRS */
     prepareCoordinateReferenceSystem(
-            routedServices.getParentNetwork().getParentNetwork().getCoordinateReferenceSystem(), getSettings().getDestinationCoordinateReferenceSystem(), getSettings().getCountry());
+        routedServices.getParentNetwork().getParentNetwork().getCoordinateReferenceSystem(),
+        getSettings().getDestinationCoordinateReferenceSystem(),
+        getSettings().getCountry());
 
     /* write stops */    
     new MatsimPtXmlWriter(this).writeXmlTransitScheduleFile(

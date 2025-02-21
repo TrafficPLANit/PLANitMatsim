@@ -23,7 +23,9 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
   protected MacroscopicNetwork referenceNetwork;  
   
   /**
-   * While persisting generate the input files for the MATSim PtMatrixRouter contribution as per <a href="https://github.com/matsim-org/matsim-libs/tree/master/contribs/matrixbasedptrouter">MATSim matrix based Pt router</a> 
+   * While persisting generate the input files for the MATSim PtMatrixRouter contribution as per
+   * <a href="https://github.com/matsim-org/matsim-libs/tree/master/contribs/matrixbasedptrouter">MATSim matrix
+   * based Pt router</a>
    */
   protected boolean generateMatrixBasedPtRouterFiles = DEFAULT_GENERATE_MATRIX_BASED_PT_ROUTER_FILES;
 
@@ -35,9 +37,11 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
    */
   @Override
   public void logSettings() {
-    Path matsimZoningPath =  Paths.get(getOutputDirectory(), getFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
+    Path matsimZoningPath =  Paths.get(getOutputDirectory(), getFileName().concat(
+        MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
     LOGGER.info(String.format("Persisting MATSIM public transport to: %s", matsimZoningPath));
-    LOGGER.info(String.format("MATSim Matrix based PT routing file are %s generated",isGenerateMatrixBasedPtRouterFiles() ? "" : "not"));
+    LOGGER.info(String.format("MATSim Matrix based PT routing file are %s generated",
+        isGenerateMatrixBasedPtRouterFiles() ? "" : "not"));
   }    
   
   /** Collect the reference network used
@@ -90,7 +94,8 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
    * @param outputFileName to use
    * @param countryName to use
    */
-  public MatsimZoningWriterSettings(final String outputDirectory, final String outputFileName, final String countryName) {
+  public MatsimZoningWriterSettings(
+      final String outputDirectory, final String outputFileName, final String countryName) {
     this(outputDirectory, outputFileName, countryName, null);
   }  
   
@@ -103,7 +108,10 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
    * @param referenceNetwork to use
    */
   public MatsimZoningWriterSettings(
-      final String outputDirectory, final String outputFileName, final String countryName, final MacroscopicNetwork referenceNetwork) {
+      final String outputDirectory,
+      final String outputFileName,
+      final String countryName,
+      final MacroscopicNetwork referenceNetwork) {
     super(outputDirectory, outputFileName, countryName);
     setReferenceNetwork(referenceNetwork);
   }  

@@ -14,9 +14,9 @@ import org.goplanit.zoning.Zoning;
 /**
  * A class that takes a PLANit intermodal network and writes it as a MATSim intermodal network.
  * Since an intermodal mapper requires transit elements to reference network elements, the only valid id mapping that
- * we allow is either PLANit internal ids (default), or PLANit XML ids. External ids cannot be used since they cannot be guaranteed to be unique
- * causing problems with references between links and stop facility link references. If the user still wants to check against the original extrnal ids
- * in MATSim, we still write then as origids.   
+ * we allow is either PLANit internal ids (default), or PLANit XML ids. External ids cannot be used since they cannot
+ * be guaranteed to be unique causing problems with references between links and stop facility link references. If
+ * the user still wants to check against the original external ids in MATSim, we still write then as origids.
  * 
  * @author markr
  *
@@ -58,7 +58,10 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
    * @param zoning                to extract stops information from
    * @param infrastructureNetwork to persist as MATSIM network
    */
-  private void writeMatsimPartialPtSchedule(NetworkIdMapper parentNetworkIdMapper, Zoning zoning, MacroscopicNetwork infrastructureNetwork) throws PlanItException {
+  private void writeMatsimPartialPtSchedule(
+      NetworkIdMapper parentNetworkIdMapper, Zoning zoning, MacroscopicNetwork infrastructureNetwork)
+      throws PlanItException {
+
     /* zoning writer */
     MatsimZoningWriter zoningWriter =
         MatsimZoningWriterFactory.create(getSettings().getNetworkSettings(), infrastructureNetwork);
@@ -79,10 +82,12 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
    * @param zoning to extract stops information from (transfer zones)
    *
    */
-  private void writeMatsimFullPtSchedule(NetworkIdMapper parentNetworkIdMapper, RoutedServices routedServices, Zoning zoning) throws PlanItException {
+  private void writeMatsimFullPtSchedule(
+      NetworkIdMapper parentNetworkIdMapper, RoutedServices routedServices, Zoning zoning) throws PlanItException {
 
     /* routed services writer */
-    var routedServicesWriter = MatsimPublicTransportServicesWriterFactory.create(getSettings(), zoning);
+    var routedServicesWriter =
+        MatsimPublicTransportServicesWriterFactory.create(getSettings(), zoning);
 
     /* prep */
     routedServicesWriter.setIdMapperType(idMapper);
@@ -110,14 +115,19 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
    */
   @Override
   public void write(final MacroscopicNetwork infrastructureNetwork, final Zoning zoning) throws PlanItException {
-    PlanItException.throwIfNull(infrastructureNetwork, "network is null when persisting MATSim intermodal network");
-    PlanItException.throwIfNull(zoning, "zoning is null when persisting MATSim intermodal network");
-    PlanItException.throwIf(!(infrastructureNetwork instanceof MacroscopicNetwork), "MATSim intermodal writer only supports macroscopic networks");
+    PlanItException.throwIfNull(infrastructureNetwork,
+        "network is null when persisting MATSim intermodal network");
+    PlanItException.throwIfNull(zoning,
+        "zoning is null when persisting MATSim intermodal network");
+    PlanItException.throwIf(!(infrastructureNetwork instanceof MacroscopicNetwork),
+        "MATSim intermodal writer only supports macroscopic networks");
 
     /* make sure destination country is consistent for both outputs */
-    PlanItException.throwIf(!getSettings().getNetworkSettings().getCountry().equals(getSettings().getZoningSettings().getCountry()), 
+    PlanItException.throwIf(
+        !getSettings().getNetworkSettings().getCountry().equals(getSettings().getZoningSettings().getCountry()),
         String.format(
-            "Destination country for intermodal writer should be identical for both network and zoning writer, but found %s and %s instead",
+            "Destination country for intermodal writer should be identical for both network and zoning writer, " +
+                "but found %s and %s instead",
             getSettings().getNetworkSettings().getCountry(), getSettings().getZoningSettings().getCountry()));
 
     /* network writer */
@@ -137,10 +147,14 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
    */
   @Override
   public void writeWithServices(MacroscopicNetwork infrastructureNetwork, Zoning zoning, ServiceNetwork serviceNetwork, RoutedServices routedServices) throws PlanItException {
-    PlanItException.throwIfNull(serviceNetwork, "Service network is null when persisting MATSim intermodal network");
-    PlanItException.throwIfNull(routedServices, "Routed services are null when persisting MATSim intermodal network");
-    PlanItException.throwIfNull(zoning, "Zoning is null when persisting MATSim intermodal network");
-    PlanItException.throwIfNull(infrastructureNetwork, "Infrastructure network is null when persisting MATSim intermodal network");
+    PlanItException.throwIfNull(serviceNetwork,
+        "Service network is null when persisting MATSim intermodal network");
+    PlanItException.throwIfNull(routedServices,
+        "Routed services are null when persisting MATSim intermodal network");
+    PlanItException.throwIfNull(zoning,
+        "Zoning is null when persisting MATSim intermodal network");
+    PlanItException.throwIfNull(infrastructureNetwork,
+        "Infrastructure network is null when persisting MATSim intermodal network");
 
     /* network writer */
     var networkWriter = writeMatsimNetwork(infrastructureNetwork);
