@@ -24,7 +24,7 @@ import org.opengis.referencing.operation.MathTransform;
 import org.opengis.referencing.operation.TransformException;
 
 /**
- * Base class from which all matsim writers derive
+ * Base class from which all MATSIM writers derive
  * 
  * @author markr
  *
@@ -63,11 +63,13 @@ public abstract class MatsimWriter<T> extends CrsWriterImpl<T> {
     }        
 
     if(referenceNetwork.getTransportLayers().size()!=1) {
-      LOGGER.severe(String.format("MATSim writer currently only supports networks with a single layer, the provided network has %d",referenceNetwork.getTransportLayers().size()));
+      LOGGER.severe(String.format("MATSim writer currently only supports networks with a single layer, " +
+          "the provided network has %d",referenceNetwork.getTransportLayers().size()));
       return false;
     }   
     if(!(referenceNetwork.getTransportLayers().getFirst() instanceof MacroscopicNetworkLayerImpl)) {
-      LOGGER.severe(String.format("MATSim only supports macroscopic physical network layers, the provided network is of a different type"));
+      LOGGER.severe(String.format("MATSim only supports macroscopic physical network layers, the " +
+          "provided network is of a different type"));
       return false;
     }
     
@@ -118,7 +120,8 @@ public abstract class MatsimWriter<T> extends CrsWriterImpl<T> {
    * @param increaseIndentation when true, increase indentation after this element has been written
    * @throws XMLStreamException thrown if error
    */
-  protected void writeStartElement(XMLStreamWriter xmlWriter, String xmlElementName, boolean increaseIndentation) throws XMLStreamException {
+  protected void writeStartElement(
+      XMLStreamWriter xmlWriter, String xmlElementName, boolean increaseIndentation) throws XMLStreamException {
     PlanitXmlWriterUtils.writeStartElement(xmlWriter, xmlElementName, indentLevel);
     if(increaseIndentation) {
       increaseIndentation();
@@ -134,7 +137,8 @@ public abstract class MatsimWriter<T> extends CrsWriterImpl<T> {
    * @param increaseIndentation when true, increase indentation after this element has been written
    * @throws XMLStreamException thrown if error
    */
-  protected void writeStartElementNewLine(XMLStreamWriter xmlWriter, String xmlElementName, boolean increaseIndentation) throws XMLStreamException {
+  protected void writeStartElementNewLine(
+      XMLStreamWriter xmlWriter, String xmlElementName, boolean increaseIndentation) throws XMLStreamException {
     PlanitXmlWriterUtils.writeStartElementNewLine(xmlWriter, xmlElementName, indentLevel);
     if(increaseIndentation) {
       increaseIndentation();
@@ -149,7 +153,8 @@ public abstract class MatsimWriter<T> extends CrsWriterImpl<T> {
    * @param decreaseIndentation when true decrease indentation level before this element has been written
    * @throws XMLStreamException thrown if error
    */  
-  protected void writeEndElementNewLine(XMLStreamWriter xmlWriter, boolean decreaseIndentation) throws XMLStreamException {
+  protected void writeEndElementNewLine(
+      XMLStreamWriter xmlWriter, boolean decreaseIndentation) throws XMLStreamException {
     if(decreaseIndentation) {
       decreaseIndentation(); 
     }
@@ -177,10 +182,12 @@ public abstract class MatsimWriter<T> extends CrsWriterImpl<T> {
   public abstract PlanitMatsimWriterSettings getSettings();
 
   /** the doc type of MATSIM public transport schedule. */
-  public static final String TRANSIT_SCHEDULE_DOCTYPE = "<!DOCTYPE transitSchedule SYSTEM \"https://www.matsim.org/files/dtd/transitSchedule_v2.dtd\">";
+  public static final String TRANSIT_SCHEDULE_DOCTYPE =
+      "<!DOCTYPE transitSchedule SYSTEM \"https://www.matsim.org/files/dtd/transitSchedule_v2.dtd\">";
 
   /** the doc type of MATSIM public transport schedule. */
-  public static final String NETWORK_DOCTYPE = "<!DOCTYPE network SYSTEM \"https://www.matsim.org/files/dtd/network_v2.dtd\">";
+  public static final String NETWORK_DOCTYPE =
+      "<!DOCTYPE network SYSTEM \"https://www.matsim.org/files/dtd/network_v2.dtd\">";
 
   /**
    * default extension for xml files generated

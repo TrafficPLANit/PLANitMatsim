@@ -26,18 +26,20 @@ import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
 /** Settings for the MATSIM writer
  * 
  * By default the MATSIM writer will activate all available predefined PLANit modes for writing. In case the user wants
- * to include custom modes as well, then they must be added manually via the class' available functionality. In case the user wants to exclude certain modes that
- * are available in the network that is provided, they must be removed manually here as well.
+ * to include custom modes as well, then they must be added manually via the class' available functionality.
+ * In case the user wants to exclude certain modes that are available in the network that is provided, they must
+ * be removed manually here as well.
  * 
- * The CRS used for the writer is based on the CRS defined in the settings, if this is not set, we utilise the CRS corresponding to 
- * the provided country, if no country is provided, it will retain the CRS of the network provided. If the network has no CRS an exception will be 
- * thrown
+ * The CRS used for the writer is based on the CRS defined in the settings, if this is not set, we utilise the
+ * CRS corresponding to the provided country, if no country is provided, it will retain the CRS of the network
+ * provided. If the network has no CRS an exception will be thrown
  * 
  * 
  * @author markr
  *
  */
-public class MatsimNetworkWriterSettings extends PlanitMatsimWriterModeMappingSettings implements ConverterWriterSettings {
+public class MatsimNetworkWriterSettings extends PlanitMatsimWriterModeMappingSettings
+    implements ConverterWriterSettings {
   
   private static final Logger LOGGER = Logger.getLogger(MatsimNetworkWriterSettings.class.getCanonicalName());    
 
@@ -57,13 +59,15 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterModeMappingSe
   protected Function<MacroscopicLinkSegment,String> linkTypefunction = null;
 
   /** when set to true, a separate detailed geometry file is generated that provides the detailed geometry of each link
-   * it can be used in the VIA viewer to enhance the look of the network which otherwise only depicts the end and start node, default is false
+   * it can be used in the VIA viewer to enhance the look of the network which otherwise only depicts the end and
+   * start node, default is false
    */
   protected boolean generateDetailedLinkGeometryFile = DEFAULT_GENERATE_DETAILED_LINK_GEOMETRY;
   
-  /** Flag that indicates if a link's physical speed limit is to be reduced in case only modes with a lower top speed than the speed limit 
-   * are included on this link. for example when a bus only network is generated, the bus max speed might be lower than the link speed limit.
-   * when set to true the speed limit is the minimum of the physical and mode speed limit. When false the physical speed limit it used.
+  /** Flag that indicates if a link's physical speed limit is to be reduced in case only modes with a lower top
+   * speed than the speed limit are included on this link. for example when a bus only network is generated, the
+   * bus max speed might be lower than the link speed limit. When set to true the speed limit is the minimum
+   * of the physical and mode speed limit. When false the physical speed limit it used.
    */
   protected boolean restrictLinkSpeedBySupportedModes = DEFAULT_RESTRICT_SPEED_LIMIT_BY_SUPPORTED_MODE;
 
@@ -75,12 +79,14 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterModeMappingSe
   @Override
   public void logSettings(MacroscopicNetwork macroscopicNetwork) {
   
-    Path matsimNetworkPath =  Paths.get(getOutputDirectory(), getFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
+    Path matsimNetworkPath =  Paths.get(getOutputDirectory(),
+        getFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
     LOGGER.info(String.format("Persisting MATSim network to: %s", matsimNetworkPath));
     
     LOGGER.info(String.format("Decimal fidelity set to %s", decimalFormat.getMaximumFractionDigits()));
     if(getDestinationCoordinateReferenceSystem() != null) {
-      LOGGER.info(String.format("Destination Coordinate Reference System set to: %s", getDestinationCoordinateReferenceSystem().getName()));
+      LOGGER.info(String.format("Destination Coordinate Reference System set to: %s",
+          getDestinationCoordinateReferenceSystem().getName()));
     }
 
     super.logSettings(macroscopicNetwork);

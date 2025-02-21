@@ -15,7 +15,8 @@ import java.text.DecimalFormat;
  * @author markr
  *
  */
-public abstract class PlanitMatsimWriterSettings extends SingleFileBasedConverterWriterSettings implements ConverterWriterSettings {
+public abstract class PlanitMatsimWriterSettings extends SingleFileBasedConverterWriterSettings
+    implements ConverterWriterSettings {
 
   /**
    * number of decimals to use, default is Precision.DEFAULT_DECIMAL_FORMAT
@@ -46,7 +47,8 @@ public abstract class PlanitMatsimWriterSettings extends SingleFileBasedConverte
    * @param outputFileName to use
    * @param countryName to use
    */
-  public PlanitMatsimWriterSettings(final String outputDirectory, final String outputFileName, final String countryName) {
+  public PlanitMatsimWriterSettings(
+      final String outputDirectory, final String outputFileName, final String countryName) {
     super(outputDirectory, outputFileName, countryName);
   }   
 

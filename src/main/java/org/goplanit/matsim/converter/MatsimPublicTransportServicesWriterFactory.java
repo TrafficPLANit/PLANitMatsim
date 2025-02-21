@@ -12,16 +12,19 @@ import org.goplanit.zoning.Zoning;
  */
 public class MatsimPublicTransportServicesWriterFactory {
 
-  /** Create a MatsimRoutedServicesWriter which persists PLANit routed services in a public transport schedule in MATSIM format in current working directory
+  /** Create a MatsimRoutedServicesWriter which persists PLANit routed services in a public transport schedule in
+   * MATSIM format in current working directory
    *
    * @param referenceZoning as these contain the transfer zones (stops) that MATSim requires
    * @return created MatsimRoutedServicesWriter
    */
-  public static MatsimRoutedServicesWriter create(Zoning referenceZoning) {
+  public static MatsimRoutedServicesWriter create(
+      Zoning referenceZoning) {
     return create(".", referenceZoning);
   }
 
-  /** Create a MatsimRoutedServicesWriter which persists PLANit routed services in a public transport schedule in MATSIM format in given  directory
+  /** Create a MatsimRoutedServicesWriter which persists PLANit routed services in a public transport schedule in
+   * MATSIM format in given  directory
    *
    * @param outputDirectory to use
    * @param referenceZoning as these contain the transfer zones (stops) that MATSim requires
@@ -31,7 +34,8 @@ public class MatsimPublicTransportServicesWriterFactory {
     return create(outputDirectory, CountryNames.GLOBAL, referenceZoning);
   }
 
-  /** Create a MatsimRoutedServicesWriter which persists PLANit routed services in a public transport schedule in MATSIM format in given  directory for a given country
+  /** Create a MatsimRoutedServicesWriter which persists PLANit routed services in a public transport schedule in
+   * MATSIM format in given  directory for a given country
    *
    * @param outputDirectory to use
    * @param countryName country which the input file represents, used to determine defaults
@@ -42,7 +46,8 @@ public class MatsimPublicTransportServicesWriterFactory {
     return create(new MatsimPtServicesWriterSettings(outputDirectory, countryName), referenceZoning);
   }
 
-  /** Create a MatsimRoutedServicesWriter which persists PLANit routed services in a public transport schedule in MATSIM format based on settings provided
+  /** Create a MatsimRoutedServicesWriter which persists PLANit routed services in a public transport schedule in
+   * MATSIM format based on settings provided
    *
    * @param settings to use
    * @param referenceZoning as these contain the transfer zones (stops) that MATSim requires
@@ -55,18 +60,20 @@ public class MatsimPublicTransportServicesWriterFactory {
         referenceZoning);
   }
 
-  /** Create a MatsimRoutedServicesWriter which persists PLANit routed services in a public transport schedule in MATSIM format based on settings provided
+  /** Create a MatsimRoutedServicesWriter which persists PLANit routed services in a public transport schedule in
+   * MATSIM format based on settings provided
    *
    * @param settings to use
    * @param referenceZoning as these contain the transfer zones (stops) that MATSim requires
    * @return created MatsimRoutedServicesWriter
    */
   public static MatsimRoutedServicesWriter create(MatsimIntermodalWriterSettings settings, Zoning referenceZoning) {
-    return create(settings.getPtServicesSettings(), settings.getNetworkSettings(), settings.getZoningSettings(), referenceZoning);
+    return create(
+        settings.getPtServicesSettings(), settings.getNetworkSettings(), settings.getZoningSettings(), referenceZoning);
   }
 
-  /** Create a PLANitMatsimRoutedServicesWriter (pt output) with defaults. It is expected the user sets the appropriate properties
-   * afterwards as required for this particular type of writer
+  /** Create a PLANitMatsimRoutedServicesWriter (pt output) with defaults. It is expected the user sets the
+   * appropriate properties afterwards as required for this particular type of writer
    *
    * @param networkWriterSettings to use
    * @param zoningWriterSettings to use
@@ -79,7 +86,8 @@ public class MatsimPublicTransportServicesWriterFactory {
       MatsimNetworkWriterSettings networkWriterSettings,
       MatsimZoningWriterSettings zoningWriterSettings,
       Zoning referenceZoning) {
-    return new MatsimRoutedServicesWriter(routedServicesSettings, networkWriterSettings, zoningWriterSettings, referenceZoning);
+    return new MatsimRoutedServicesWriter(
+        routedServicesSettings, networkWriterSettings, zoningWriterSettings, referenceZoning);
   }
 
   

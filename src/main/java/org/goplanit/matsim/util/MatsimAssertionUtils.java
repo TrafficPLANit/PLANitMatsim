@@ -15,15 +15,19 @@ import java.nio.file.Path;
 public class MatsimAssertionUtils {
 
   private static Path pathOfNetworkFile(String theDir){
-    return Path.of(theDir.toString(), MatsimNetworkWriterSettings.DEFAULT_NETWORK_FILE_NAME + ".xml").toAbsolutePath();
+    return Path.of(
+        theDir, MatsimNetworkWriterSettings.DEFAULT_NETWORK_FILE_NAME + ".xml").toAbsolutePath();
   }
 
   private static Path pathOfTransitScheduleFile(String theDir){
-    return Path.of(theDir.toString(), MatsimNetworkWriterSettings.DEFAULT_TRANSIT_SCHEDULE_FILE_NAME + ".xml").toAbsolutePath();
+    return Path.of(
+        theDir, MatsimNetworkWriterSettings.DEFAULT_TRANSIT_SCHEDULE_FILE_NAME + ".xml").toAbsolutePath();
   }
 
   private static Path pathOfNetworkGeometryFile(String theDir){
-    return Path.of(theDir, MatsimNetworkWriter.DEFAULT_NETWORK_GEOMETRY_FILE_NAME + MatsimNetworkWriter.DEFAULT_NETWORK_GEOMETRY_FILE_NAME_EXTENSION).toAbsolutePath();
+    return Path.of(theDir,
+        MatsimNetworkWriter.DEFAULT_NETWORK_GEOMETRY_FILE_NAME +
+            MatsimNetworkWriter.DEFAULT_NETWORK_GEOMETRY_FILE_NAME_EXTENSION).toAbsolutePath();
   }
 
   private static void assertXmlFileContentSimilar(String file1, String file2) throws IOException {
@@ -41,7 +45,8 @@ public class MatsimAssertionUtils {
   }
 
   public static boolean isNetworkGeometryFilesSimilar(Path resultDir, Path referenceDir) throws IOException {
-    return isNetworkGeometryFilesSimilar(resultDir.toAbsolutePath().toString(), referenceDir.toAbsolutePath().toString());
+    return isNetworkGeometryFilesSimilar(
+        resultDir.toAbsolutePath().toString(), referenceDir.toAbsolutePath().toString());
   }
 
   public static void assertNetworkFilesSimilar(String resultDir, String referenceDir) throws IOException {

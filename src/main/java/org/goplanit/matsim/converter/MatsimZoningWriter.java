@@ -13,8 +13,8 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 /**
  * A class that takes a PLANit zoning and extracts and writes the MATSIM public transport information to disk. Since
- * a PLANit zoning only contains information about stops, a MATsim zoning writer is rather limited in outs outputs. It can only
- * support MATSim stops and a matrix based assignment on the MATSim side.
+ * a PLANit zoning only contains information about stops, a MATsim zoning writer is rather limited in outs outputs.
+ * It can only support MATSim stops and a matrix based assignment on the MATSim side.
  * 
  * @author markr
  *
@@ -37,7 +37,8 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter{
     if(getSettings().getOutputDirectory() == null || getSettings().getOutputDirectory().isBlank()) {
       getSettings().setOutputDirectory(networkWriterSettings.getOutputDirectory());
       if(networkWriterSettings.getOutputDirectory()!=null && !networkWriterSettings.getOutputDirectory().isBlank()) {
-        LOGGER.info(String.format("MATSim zoning output directory not set, adopting network output directory %s instead", getSettings().getOutputDirectory()));
+        LOGGER.info(String.format("MATSim zoning output directory not set, adopting network output directory %s " +
+            "instead", getSettings().getOutputDirectory()));
       }
     }
   }    
@@ -48,7 +49,8 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter{
    * @param zoningWriterSettings to use
    * @param networkWriterSettings the network was configured by when persisting
    */
-  protected MatsimZoningWriter(MatsimZoningWriterSettings zoningWriterSettings, MatsimNetworkWriterSettings networkWriterSettings) {
+  protected MatsimZoningWriter(
+      MatsimZoningWriterSettings zoningWriterSettings, MatsimNetworkWriterSettings networkWriterSettings) {
     super(IdMapperType.ID);
     this.networkWriterSettings = networkWriterSettings;
     this.zoningWriterSettings = zoningWriterSettings;
@@ -66,14 +68,15 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter{
 
 
   /**
-   * extract public transport information from PLANit zoning and use it to persist as much  of the MATSim public transport
-   * xml's as possible
+   * extract public transport information from PLANit zoning and use it to persist as much  of the MATSim
+   * public transport xml's as possible
    * 
    * @param zoning to use for MATSim pt persistence
    */  
   @Override
   public void write(Zoning zoning) throws PlanItException {
-    PlanItRunTimeException.throwIfNull(zoning,"Unable to persist MATSim transit schedule file when PLANit zoning object is null");
+    PlanItRunTimeException.throwIfNull(zoning,"Unable to persist MATSim transit schedule file when PLANit " +
+        "zoning object is null");
     
     boolean networkValid = validateNetwork(getSettings().getReferenceNetwork());
     if(!networkValid) {
@@ -85,7 +88,9 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter{
     getSettings().logSettings();    
     
     /* CRS */
-    prepareCoordinateReferenceSystem(getSettings().getReferenceNetwork().getCoordinateReferenceSystem(), getSettings().getDestinationCoordinateReferenceSystem(), getSettings().getCountry());
+    prepareCoordinateReferenceSystem(
+        getSettings().getReferenceNetwork().getCoordinateReferenceSystem(),
+        getSettings().getDestinationCoordinateReferenceSystem(), getSettings().getCountry());
 
     /* results in writing stops only*/
     new MatsimPtXmlWriter(this).writeXmlTransitScheduleFile(
