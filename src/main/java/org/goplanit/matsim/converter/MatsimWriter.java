@@ -5,8 +5,6 @@ import java.util.logging.Logger;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 
-import org.geotools.geometry.jts.JTS;
-import org.goplanit.converter.BaseWriterImpl;
 import org.goplanit.converter.CrsWriterImpl;
 import org.goplanit.utils.id.IdMapperType;
 import org.goplanit.matsim.util.PlanitMatsimWriterSettings;
@@ -14,14 +12,9 @@ import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.network.LayeredNetwork;
 import org.goplanit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
 import org.goplanit.utils.exceptions.PlanItException;
-import org.goplanit.utils.geo.PlanitJtsUtils;
 import org.goplanit.utils.xml.PlanitXmlWriterUtils;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Point;
-import org.opengis.geometry.MismatchedDimensionException;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.operation.MathTransform;
-import org.opengis.referencing.operation.TransformException;
 
 /**
  * Base class from which all MATSIM writers derive

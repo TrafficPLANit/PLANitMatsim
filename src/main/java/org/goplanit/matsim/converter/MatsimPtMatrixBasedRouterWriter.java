@@ -5,11 +5,10 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.logging.Logger;
 
+import org.geotools.api.geometry.MismatchedDimensionException;
 import org.goplanit.matsim.xml.MatsimTransitAttributes;
 import org.goplanit.utils.misc.CharacterUtils;
 import org.goplanit.zoning.Zoning;
-import org.opengis.geometry.MismatchedDimensionException;
-import org.opengis.referencing.operation.TransformException;
 
 /**
  * Class that takes on the responsibility of writing all PT MAtrix based routing files for a given PLANit Zoning writer.

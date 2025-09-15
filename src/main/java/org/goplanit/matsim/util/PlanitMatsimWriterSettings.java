@@ -4,7 +4,7 @@ import org.goplanit.converter.ConverterWriterSettings;
 import org.goplanit.converter.FileBasedConverterWriterSettings;
 import org.goplanit.converter.SingleFileBasedConverterWriterSettings;
 import org.goplanit.utils.math.Precision;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 
 import java.text.DecimalFormat;
 
