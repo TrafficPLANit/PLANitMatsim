@@ -4,7 +4,7 @@ import org.goplanit.converter.ConverterWriterSettings;
 import org.goplanit.matsim.util.PlanitMatsimWriterSettings;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.utils.misc.Pair;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 
 import java.text.DecimalFormat;
 

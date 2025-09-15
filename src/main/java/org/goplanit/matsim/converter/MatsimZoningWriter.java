@@ -9,7 +9,7 @@ import org.goplanit.converter.zoning.ZoningWriter;
 import org.goplanit.utils.exceptions.PlanItException;
 import org.goplanit.utils.exceptions.PlanItRunTimeException;
 import org.goplanit.zoning.Zoning;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 
 /**
  * A class that takes a PLANit zoning and extracts and writes the MATSIM public transport information to disk. Since
