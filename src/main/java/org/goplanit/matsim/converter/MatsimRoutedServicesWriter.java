@@ -101,7 +101,7 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
    * @param routedServices to use for MATSim pt persistence
    */  
   @Override
-  public void write(RoutedServices routedServices) throws PlanItException {
+  public void write(RoutedServices routedServices){
     if(!validateServiceNetwork(routedServices.getParentNetwork()) ||
         !validateNetwork(routedServices.getParentNetwork().getParentNetwork())) {
       return;

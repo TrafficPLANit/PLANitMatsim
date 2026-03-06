@@ -74,7 +74,7 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter{
    * @param zoning to use for MATSim pt persistence
    */  
   @Override
-  public void write(Zoning zoning) throws PlanItException {
+  public void write(Zoning zoning){
     PlanItRunTimeException.throwIfNull(zoning,"Unable to persist MATSim transit schedule file when PLANit " +
         "zoning object is null");
     

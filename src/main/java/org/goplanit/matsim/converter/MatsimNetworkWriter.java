@@ -383,9 +383,8 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
    * write the xml MATSIM network
    * 
    * @param networkLayer to draw from
-   * @throws PlanItException thrown if error
    */
-  protected void writeXmlNetworkFile(MacroscopicNetworkLayerImpl networkLayer) throws PlanItException { 
+  protected void writeXmlNetworkFile(MacroscopicNetworkLayerImpl networkLayer){
     Path matsimNetworkPath =
         Paths.get(getSettings().getOutputDirectory(), getSettings().getFileName().concat(DEFAULT_FILE_NAME_EXTENSION));
     Pair<XMLStreamWriter,Writer> xmlFileWriterPair = PlanitXmlWriterUtils.createXMLWriter(matsimNetworkPath);
@@ -401,7 +400,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
       PlanitXmlWriterUtils.endXmlDocument(xmlFileWriterPair);
     }catch (Exception e) {
       LOGGER.severe(e.getMessage());
-      throw new PlanItException(String.format("error while persisting MATSIM network to %s", matsimNetworkPath));
+      throw new PlanItRunTimeException(String.format("error while persisting MATSIM network to %s", matsimNetworkPath));
     }
   }  
   
@@ -409,9 +408,8 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
    * Create detailed geometry file compatible with VIA viewer
    * 
    * @param networkLayer to draw from
-   * @throws PlanItException thrown if error
    */
-  protected void writeDetailedGeometryFile(MacroscopicNetworkLayerImpl networkLayer) throws PlanItException {
+  protected void writeDetailedGeometryFile(MacroscopicNetworkLayerImpl networkLayer){
     Path matsimNetworkGeometryPath =
         Paths.get(getSettings().getOutputDirectory(),
             DEFAULT_NETWORK_GEOMETRY_FILE_NAME.concat(DEFAULT_NETWORK_GEOMETRY_FILE_NAME_EXTENSION)).toAbsolutePath();
@@ -465,7 +463,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
       csvPrinter.close();
     } catch (IOException | TransformException e) {
       LOGGER.severe(e.getMessage());
-      throw new PlanItException("unable to write detailed gemoetry file %d an error occured during writing", e);
+      throw new PlanItRunTimeException("Unable to write detailed gemoetry file %d an error occured during writing", e);
     }
   }  
 
