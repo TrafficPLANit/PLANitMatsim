@@ -8,6 +8,7 @@ import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.network.ServiceNetwork;
 import org.goplanit.service.routed.RoutedServices;
 import org.goplanit.utils.exceptions.PlanItException;
+import org.goplanit.utils.exceptions.PlanItRunTimeException;
 import org.goplanit.utils.id.IdMapperType;
 import org.goplanit.zoning.Zoning;
 
@@ -41,7 +42,7 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
    * @param infrastructureNetwork to persist as MATSIM network
    * @return the used network writer
    */
-  private MatsimNetworkWriter writeMatsimNetwork(MacroscopicNetwork infrastructureNetwork) throws PlanItException {
+  private MatsimNetworkWriter writeMatsimNetwork(MacroscopicNetwork infrastructureNetwork){
     MatsimNetworkWriter networkWriter =
         MatsimNetworkWriterFactory.create(getSettings().getNetworkSettings());
 
@@ -114,16 +115,16 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
    * 
    */
   @Override
-  public void write(final MacroscopicNetwork infrastructureNetwork, final Zoning zoning) throws PlanItException {
-    PlanItException.throwIfNull(infrastructureNetwork,
+  public void write(final MacroscopicNetwork infrastructureNetwork, final Zoning zoning) {
+    PlanItRunTimeException.throwIfNull(infrastructureNetwork,
         "network is null when persisting MATSim intermodal network");
-    PlanItException.throwIfNull(zoning,
+    PlanItRunTimeException.throwIfNull(zoning,
         "zoning is null when persisting MATSim intermodal network");
-    PlanItException.throwIf(!(infrastructureNetwork instanceof MacroscopicNetwork),
+    PlanItRunTimeException.throwIf(!(infrastructureNetwork instanceof MacroscopicNetwork),
         "MATSim intermodal writer only supports macroscopic networks");
 
     /* make sure destination country is consistent for both outputs */
-    PlanItException.throwIf(
+    PlanItRunTimeException.throwIf(
         !getSettings().getNetworkSettings().getCountry().equals(getSettings().getZoningSettings().getCountry()),
         String.format(
             "Destination country for intermodal writer should be identical for both network and zoning writer, " +

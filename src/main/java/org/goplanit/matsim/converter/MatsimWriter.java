@@ -37,11 +37,10 @@ public abstract class MatsimWriter<T> extends CrsWriterImpl<T> {
    * 
    * @param referenceNetwork to use for persisting
    * @return true when valid, false otherwise
-   * @throws PlanItException thrown if invalid
    */
-  protected boolean validateNetwork(LayeredNetwork<?,?> referenceNetwork) throws PlanItException {
+  protected boolean validateNetwork(LayeredNetwork<?,?> referenceNetwork){
     if(referenceNetwork == null) {
-      LOGGER.severe("MATSim macroscopic planit network to extract from is null");
+      LOGGER.severe("MATSim macroscopic PLANit network to extract from is null");
       return false;
     }
         
@@ -61,8 +60,8 @@ public abstract class MatsimWriter<T> extends CrsWriterImpl<T> {
       return false;
     }   
     if(!(referenceNetwork.getTransportLayers().getFirst() instanceof MacroscopicNetworkLayerImpl)) {
-      LOGGER.severe(String.format("MATSim only supports macroscopic physical network layers, the " +
-          "provided network is of a different type"));
+      LOGGER.severe("MATSim only supports macroscopic physical network layers, the " +
+          "provided network is of a different type");
       return false;
     }
     
