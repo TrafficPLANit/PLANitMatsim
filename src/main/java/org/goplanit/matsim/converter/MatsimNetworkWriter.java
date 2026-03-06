@@ -503,8 +503,8 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
    * {@inheritDoc}
    */
   @Override
-  public void write(LayeredNetwork<?,?> network) throws PlanItException {
-    PlanItException.throwIfNull(network, "network is null, cannot write undefined network to MATSIM format");
+  public void write(LayeredNetwork<?,?> network) {
+    PlanItRunTimeException.throwIfNull(network, "network is null, cannot write undefined network to MATSIM format");
     
     boolean networkValid = validateNetwork(network);
     if(!networkValid) {
