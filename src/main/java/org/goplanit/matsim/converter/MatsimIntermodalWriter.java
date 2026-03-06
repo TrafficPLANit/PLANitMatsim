@@ -60,8 +60,7 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
    * @param infrastructureNetwork to persist as MATSIM network
    */
   private void writeMatsimPartialPtSchedule(
-      NetworkIdMapper parentNetworkIdMapper, Zoning zoning, MacroscopicNetwork infrastructureNetwork)
-      throws PlanItException {
+      NetworkIdMapper parentNetworkIdMapper, Zoning zoning, MacroscopicNetwork infrastructureNetwork) {
 
     /* zoning writer */
     MatsimZoningWriter zoningWriter =
