@@ -72,7 +72,8 @@ public class SydneyPlanit2MatsimTest {
 
       var planitReader = PlanitIntermodalReaderFactory.create(SYDNEYCBD_PLANIT.toAbsolutePath().toString());
 
-      var matsimWriter = MatsimIntermodalWriterFactory.create(MATSIM_OUTPUT_DIR.toAbsolutePath().toString(), CountryNames.AUSTRALIA);
+      var matsimWriter = MatsimIntermodalWriterFactory.create(
+              MATSIM_OUTPUT_DIR.toAbsolutePath().toString(), CountryNames.AUSTRALIA);
       matsimWriter.getSettings().getNetworkSettings().setGenerateDetailedLinkGeometryFile(true);
 
       /* perform the conversion*/
