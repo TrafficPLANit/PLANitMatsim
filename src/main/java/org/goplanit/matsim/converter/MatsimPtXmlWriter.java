@@ -606,11 +606,11 @@ class MatsimPtXmlWriter {
          * The only option is to use combination of link segment + physical node location
          */
         xmlWriter.writeAttribute(MatsimTransitAttributes.ID,
-            String.valueOf(getStopFacilityId(accessLinkSegment, transferConnectoid.isNodeAccessDownstream())));
+            String.valueOf(getStopFacilityId(accessLinkSegment, transferConnectoid.isAccessNodeAlwaysDownstream())));
 
         /* We use the indicated vertex of the access link segment as the stop location */
         var stopFacilityPhysicalReferenceNode =
-            transferConnectoid.isNodeAccessDownstream() ?
+            transferConnectoid.isAccessNodeAlwaysDownstream() ?
                 transferConnectoid.getAccessLinkSegment().getDownstreamNode() :
                 transferConnectoid.getAccessLinkSegment().getUpstreamNode();
         Point stopFacilityLocation = stopFacilityPhysicalReferenceNode.getPosition();
