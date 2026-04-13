@@ -59,7 +59,7 @@ class MatsimPtMatrixBasedRouterWriter {
       for(var transferConnectoid : zoning.getTransferConnectoids()) {
         sb.delete(0, Integer.MAX_VALUE);
         var coord = zoningWriter.extractDestinationCrsCompatibleCoordinate(
-            transferConnectoid.getAccessNode().getPosition());
+            transferConnectoid.getAccessVertex().getPosition());
         sb.append(transferConnectoid.getXmlId()).append(CharacterUtils.COMMA).append(
             dm.format(coord.x)).append(CharacterUtils.COMMA).append(dm.format(coord.y));
         csvContent.add(sb.toString());
@@ -79,7 +79,7 @@ class MatsimPtMatrixBasedRouterWriter {
     var ptStopsFilePath = Path.of(zoningWriter.getSettings().getOutputDirectory(),PT_STOPS_FILE_NAME);
     LOGGER.info(String.format("Persisting MATSIM %s to: %s",PT_STOPS_FILE_NAME, ptStopsFilePath));
     try (PrintWriter pw = new PrintWriter(ptStopsFilePath.toFile())) {
-      csvContent.stream().forEach(pw::println);
+      csvContent.forEach(pw::println);
     }catch(Exception e) {
       LOGGER.severe(e.getMessage());
       LOGGER.severe(String.format("Unable to persist %s file in output dir %s, aborting",

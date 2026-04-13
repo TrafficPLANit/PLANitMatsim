@@ -66,13 +66,13 @@ class MatsimPtXmlWriter {
   private final LongAdder matsimTransitLineCounter = new LongAdder();
 
   /** track transit routes persisted by mapped MAtsim mode */
-  private Map<String, LongAdder> transitRouteCountersByMode = new HashMap<>();
+  private final Map<String, LongAdder> transitRouteCountersByMode = new HashMap<>();
 
   /** track all id mappings by type of PLANit entity */
-  private PlanitComponentIdMappers componentIdMappers = new PlanitComponentIdMappers();
+  private final PlanitComponentIdMappers componentIdMappers = new PlanitComponentIdMappers();
 
   /** track stop facility ids via this map */
-  private Map<Integer, Integer> stopFacilityIdTracking = new HashMap<>();
+  private final Map<Integer, Integer> stopFacilityIdTracking = new HashMap<>();
 
   /* internal flag to avoid unnecessary repeat of warnings */
   private boolean loggedFrequencyTripWarning;
@@ -589,10 +589,9 @@ class MatsimPtXmlWriter {
             
       /* attributes  of element*/
       {
-        MacroscopicLinkSegment accessLinkSegment = (MacroscopicLinkSegment) transferConnectoid.getAccessLinkSegment();
-        if(accessLinkSegment == null) {
+        if(!transferConnectoid.hasAccessZoneEntries()) {
           LOGGER.severe(String.format("DISCARD: stop facility represented by directed connectoid (%d) has " +
-              "no access link segment available",transferConnectoid.getId()));
+              "no access entries available",transferConnectoid.getId()));
           return;
         }
 
@@ -605,6 +604,8 @@ class MatsimPtXmlWriter {
          * to a non-unique mapping to the underlying physical network which is required in a MATSim context.
          * The only option is to use combination of link segment + physical node location
          */
+        // todo: fix --> change to node id + transfer zone id --> only us pt_stop_types because traveller access is not
+        //  helpful
         xmlWriter.writeAttribute(MatsimTransitAttributes.ID,
             String.valueOf(getStopFacilityId(accessLinkSegment, transferConnectoid.isAccessNodeAlwaysDownstream())));
 
