@@ -32,8 +32,9 @@ import org.goplanit.utils.network.layer.physical.LinkSegment;
 import org.goplanit.utils.service.routed.*;
 import org.goplanit.utils.time.ExtendedLocalTime;
 import org.goplanit.utils.xml.PlanitXmlWriterUtils;
-import org.goplanit.utils.zoning.DirectedConnectoid;
-import org.goplanit.utils.zoning.DirectedConnectoids;
+import org.goplanit.utils.zoning.TransferConnectoid;
+import org.goplanit.utils.zoning.OdConnectoids;
+import org.goplanit.utils.zoning.TransferConnectoids;
 import org.goplanit.utils.zoning.Zone;
 import org.goplanit.zoning.Zoning;
 import org.locationtech.jts.geom.Coordinate;
@@ -561,10 +562,10 @@ class MatsimPtXmlWriter {
    */
   private void writeMatsimStopFacilities(
       XMLStreamWriter xmlWriter,
-      DirectedConnectoids transferConnectoids,
+      TransferConnectoids transferConnectoids,
       MatsimZoningWriterSettings zoningWriterSettings){
 
-    transferConnectoids.streamSortedBy(DirectedConnectoid::getId).forEach( transferConnectoid -> {
+    transferConnectoids.streamSortedBy(TransferConnectoid::getId).forEach( transferConnectoid -> {
       writeMatsimStopFacility(xmlWriter, transferConnectoid, zoningWriterSettings);
       matsimStopFacilityCounter.increment();
     });
@@ -580,7 +581,7 @@ class MatsimPtXmlWriter {
    */
   private void writeMatsimStopFacility(
       XMLStreamWriter xmlWriter,
-      DirectedConnectoid transferConnectoid,
+      TransferConnectoid transferConnectoid,
       MatsimZoningWriterSettings zoningWriterSettings) {
 
     try {
@@ -607,11 +608,11 @@ class MatsimPtXmlWriter {
         // todo: fix --> change to node id + transfer zone id --> only us pt_stop_types because traveller access is not
         //  helpful
         xmlWriter.writeAttribute(MatsimTransitAttributes.ID,
-            String.valueOf(getStopFacilityId(accessLinkSegment, transferConnectoid.isAccessNodeAlwaysDownstream())));
+            String.valueOf(getStopFacilityId(accessLinkSegment, transferConnectoid.isAccessNodeDownstreamOfSegments())));
 
         /* We use the indicated vertex of the access link segment as the stop location */
         var stopFacilityPhysicalReferenceNode =
-            transferConnectoid.isAccessNodeAlwaysDownstream() ?
+            transferConnectoid.isAccessNodeDownstreamOfSegments() ?
                 transferConnectoid.getAccessLinkSegment().getDownstreamNode() :
                 transferConnectoid.getAccessLinkSegment().getUpstreamNode();
         Point stopFacilityLocation = stopFacilityPhysicalReferenceNode.getPosition();
