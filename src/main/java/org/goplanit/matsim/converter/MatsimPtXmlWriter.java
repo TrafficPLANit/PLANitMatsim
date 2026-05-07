@@ -6,7 +6,6 @@ import java.nio.file.Paths;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Function;
 import java.util.logging.Logger;
@@ -15,8 +14,6 @@ import java.util.stream.Collectors;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 
-import org.apache.commons.collections4.keyvalue.MultiKey;
-import org.apache.commons.collections4.map.MultiKeyMap;
 import org.goplanit.converter.idmapping.PlanitComponentIdMappers;
 import org.goplanit.matsim.util.MatsimStopFacilityIdHelper;
 import org.goplanit.matsim.xml.MatsimTransitAttributes;
@@ -25,7 +22,6 @@ import org.goplanit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
 import org.goplanit.service.routed.RoutedServices;
 import org.goplanit.utils.containers.ListUtils;
 import org.goplanit.utils.exceptions.PlanItRunTimeException;
-import org.goplanit.utils.graph.directed.DirectedVertex;
 import org.goplanit.utils.graph.directed.EdgeSegment;
 import org.goplanit.utils.misc.IterableUtils;
 import org.goplanit.utils.misc.Pair;
@@ -36,7 +32,10 @@ import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
 import org.goplanit.utils.service.routed.*;
 import org.goplanit.utils.time.ExtendedLocalTime;
 import org.goplanit.utils.xml.PlanitXmlWriterUtils;
-import org.goplanit.utils.zoning.*;
+import org.goplanit.utils.zoning.connectoid.DirectedConnectoidAccessZoneEntry;
+import org.goplanit.utils.zoning.connectoid.TransferConnectoid;
+import org.goplanit.utils.zoning.connectoid.TransferConnectoids;
+import org.goplanit.utils.zoning.connectoid.ZoneConnectoidType;
 import org.goplanit.zoning.Zoning;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Point;
@@ -544,7 +543,7 @@ class MatsimPtXmlWriter {
       MatsimZoningWriterSettings zoningWriterSettings){
 
     transferConnectoids.streamSortedBy(TransferConnectoid::getId).forEach( transferConnectoid -> {
-      transferConnectoid.getAccessZoneEntriesStream(ZoneConnectoidType.PT_VEHICLE_STOP).forEach( ae -> {
+      transferConnectoid.getAccessZoneEntriesStream(ZoneConnectoidType.PT_VEHICLE_STOP).forEach(ae -> {
         writeMatsimStopFacilitiesForAccessZoneEntry(
             xmlWriter, transferConnectoid, (DirectedConnectoidAccessZoneEntry) ae, zoningWriterSettings);
         matsimStopFacilityCounter.increment();
