@@ -2,16 +2,14 @@ package org.goplanit.matsim.util;
 
 import org.apache.commons.collections4.keyvalue.MultiKey;
 import org.apache.commons.collections4.map.MultiKeyMap;
-import org.goplanit.matsim.converter.MatsimZoningWriterSettings;
 import org.goplanit.utils.graph.directed.DirectedVertex;
 import org.goplanit.utils.graph.directed.EdgeSegment;
 import org.goplanit.utils.mode.Mode;
-import org.goplanit.utils.zoning.DirectedConnectoidAccessZoneEntry;
-import org.goplanit.utils.zoning.TransferConnectoid;
-import org.goplanit.utils.zoning.TransferConnectoids;
-import org.goplanit.utils.zoning.ZoneConnectoidType;
+import org.goplanit.utils.zoning.connectoid.DirectedConnectoidAccessZoneEntry;
+import org.goplanit.utils.zoning.connectoid.TransferConnectoid;
+import org.goplanit.utils.zoning.connectoid.TransferConnectoids;
+import org.goplanit.utils.zoning.connectoid.ZoneConnectoidType;
 
-import javax.xml.stream.XMLStreamWriter;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Logger;
 
