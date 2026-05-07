@@ -57,9 +57,11 @@ public class SydneyPlanit2MatsimTest {
   
 
   /**
-   * Test case which parses a PLANit network with services, loads it into PLANit memory model and persists it as a MATSim network with pt services
+   * Test case which parses a PLANit network with services, loads it into PLANit memory model and persists it as a
+   * MATSim network with pt services
    * <p>
-   * Source: PLANit inputs of the network are sourced from the results of running SydneyOsmGtfs2PlanitTest.testGtfs2PlanitBasicIntermodalWithServices
+   * Source: PLANit inputs of the network are sourced from the results of running
+   * SydneyOsmGtfs2PlanitTest.testGtfs2PlanitBasicIntermodalWithServices
    * </p>
    */
   @Test

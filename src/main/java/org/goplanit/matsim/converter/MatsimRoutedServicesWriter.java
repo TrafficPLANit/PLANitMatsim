@@ -1,5 +1,6 @@
 package org.goplanit.matsim.converter;
 
+import org.goplanit.matsim.util.MatsimStopFacilityIdHelper;
 import org.goplanit.utils.id.IdMapperType;
 import org.goplanit.converter.idmapping.PlanitComponentIdMapper;
 import org.goplanit.converter.idmapping.RoutedServicesIdMapper;
@@ -119,8 +120,11 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
         getSettings().getDestinationCoordinateReferenceSystem(),
         getSettings().getCountry());
 
+    // builds a mapping from PLANit to MATSim stop facility ids to use
+    var stopFacilityIdMapper = new MatsimStopFacilityIdHelper(referenceZoning.getTransferConnectoids());
+
     /* write stops */    
-    new MatsimPtXmlWriter(this).writeXmlTransitScheduleFile(
+    new MatsimPtXmlWriter(this, stopFacilityIdMapper).writeXmlTransitScheduleFile(
         referenceZoning, zoningSettings, routedServices, getSettings(), networkSettings);
 
   }

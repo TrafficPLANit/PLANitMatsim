@@ -2,6 +2,7 @@ package org.goplanit.matsim.converter;
 
 import java.util.logging.Logger;
 
+import org.goplanit.matsim.util.MatsimStopFacilityIdHelper;
 import org.goplanit.utils.id.IdMapperType;
 import org.goplanit.converter.idmapping.PlanitComponentIdMapper;
 import org.goplanit.converter.idmapping.ZoningIdMapper;
@@ -92,12 +93,15 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter{
         getSettings().getReferenceNetwork().getCoordinateReferenceSystem(),
         getSettings().getDestinationCoordinateReferenceSystem(), getSettings().getCountry());
 
+    // builds a mapping from PLANit to MATSim stop facility ids to use
+    var stopFacilityIdMapper = new MatsimStopFacilityIdHelper(zoning.getTransferConnectoids());
+
     /* results in writing stops only*/
-    new MatsimPtXmlWriter(this).writeXmlTransitScheduleFile(
+    new MatsimPtXmlWriter(this, stopFacilityIdMapper).writeXmlTransitScheduleFile(
         zoning, getZoningWriterSettings(), null, null, null);
     
     if(getSettings().isGenerateMatrixBasedPtRouterFiles()) {
-      new MatsimPtMatrixBasedRouterWriter(this).write(zoning);
+      new MatsimPtMatrixBasedRouterWriter(this, stopFacilityIdMapper).write(zoning);
     }
     
     
