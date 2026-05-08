@@ -609,7 +609,7 @@ class MatsimPtXmlWriter {
             /* NAME - based on the transfer zone names if any */
             String stopFacilityName = null;
             if(stopLocationEntry.getAccessZone().hasName()) {
-              stopFacilityName = stopFacilityName.concat(stopLocationEntry.getAccessZone().getName());
+              stopFacilityName = stopLocationEntry.getAccessZone().getName();
             }
             if(stopFacilityName != null) {
               xmlWriter.writeAttribute(MatsimTransitAttributes.NAME, stopFacilityName);
