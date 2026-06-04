@@ -673,7 +673,8 @@ class MatsimPtXmlWriter {
     Path matsimNetworkPath =
         Paths.get(matsimWriter.getSettings().getOutputDirectory(),
             matsimWriter.getSettings().getFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
-    Pair<XMLStreamWriter,Writer> xmlFileWriterPair = PlanitXmlWriterUtils.createXMLWriter(matsimNetworkPath);
+    Pair<XMLStreamWriter,Writer> xmlFileWriterPair = PlanitXmlWriterUtils.createXMLWriter(
+        matsimNetworkPath, networkSettings.isWriteAsGZip());
 
     try {
       /* start */

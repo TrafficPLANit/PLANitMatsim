@@ -127,7 +127,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
       
       /* attributes  of element*/
       {
-        /** GEOGRAPHY **/
+        /* GEOGRAPHY **/
         {
           var networkIdMappers = getComponentIdMappers().getNetworkIdMappers();
           /* ID */
@@ -139,11 +139,13 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
     
           /* FROM node */
           xmlWriter.writeAttribute(
-              MatsimNetworkAttributes.FROM, networkIdMappers.getVertexIdMapper().apply(linkSegment.getUpstreamVertex()));
+              MatsimNetworkAttributes.FROM,
+              networkIdMappers.getVertexIdMapper().apply(linkSegment.getUpstreamVertex()));
           
           /* TO node */
           xmlWriter.writeAttribute(
-              MatsimNetworkAttributes.TO, networkIdMappers.getVertexIdMapper().apply(linkSegment.getDownstreamVertex()));
+              MatsimNetworkAttributes.TO,
+              networkIdMappers.getVertexIdMapper().apply(linkSegment.getDownstreamVertex()));
           
           /* LENGTH */
           xmlWriter.writeAttribute(MatsimNetworkAttributes.LENGTH,
@@ -155,7 +157,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
               "MATSim requires link segment type to be available on link segment (id:%d)",linkSegment.getId()));
         }
                 
-        /** MODELLING PARAMETERS **/
+        /* MODELLING PARAMETERS **/
         {
           /* SPEED */
           double linkSpeedLimit = linkSegment.getPhysicalSpeedLimitKmH();
@@ -182,11 +184,11 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
               matsimModes.add(planitModeToMatsimModeMapping.get(planitMode));
             }
           }
-          String allowedModes = matsimModes.stream().collect(Collectors.joining(","));
+          String allowedModes = String.join(",", matsimModes);
           xmlWriter.writeAttribute(MatsimNetworkAttributes.MODES,allowedModes);
         }
         
-        /** OTHER **/
+        /* OTHER **/
         {
           /* VOLUME not yet supported */
           
@@ -197,7 +199,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
             xmlWriter.writeAttribute(MatsimNetworkAttributes.ORIGID, String.valueOf(originalExternalId));
           }
           
-          /** USER DEFINED **/
+          /* USER DEFINED **/
           
           /* NT_CATEGORY */
           if(settings.linkNtCategoryfunction != null) {
@@ -383,11 +385,13 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
    * write the xml MATSIM network
    * 
    * @param networkLayer to draw from
+   * @param asGZip flag indicating whther to write out as gzipped XML or not
    */
-  protected void writeXmlNetworkFile(MacroscopicNetworkLayerImpl networkLayer){
+  protected void writeXmlNetworkFile(MacroscopicNetworkLayerImpl networkLayer, boolean asGZip){
     Path matsimNetworkPath =
         Paths.get(getSettings().getOutputDirectory(), getSettings().getFileName().concat(DEFAULT_FILE_NAME_EXTENSION));
-    Pair<XMLStreamWriter,Writer> xmlFileWriterPair = PlanitXmlWriterUtils.createXMLWriter(matsimNetworkPath);
+    Pair<XMLStreamWriter,Writer> xmlFileWriterPair =
+        PlanitXmlWriterUtils.createXMLWriter(matsimNetworkPath, asGZip);
     
     try {
       /* start */
@@ -502,7 +506,8 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
    */
   @Override
   public void write(LayeredNetwork<?,?> network) {
-    PlanItRunTimeException.throwIfNull(network, "network is null, cannot write undefined network to MATSIM format");
+    PlanItRunTimeException.throwIfNull(network,
+        "network is null, cannot write undefined network to MATSIM format");
     
     boolean networkValid = validateNetwork(network);
     if(!networkValid) {
@@ -531,7 +536,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
     final MacroscopicNetworkLayerImpl macroscopicPhysicalNetworkLayer =
         (MacroscopicNetworkLayerImpl)macroscopicNetwork.getTransportLayers().getFirst();
     
-    writeXmlNetworkFile(macroscopicPhysicalNetworkLayer);
+    writeXmlNetworkFile(macroscopicPhysicalNetworkLayer, getSettings().isWriteAsGZip());
     if(settings.isGenerateDetailedLinkGeometryFile()) {
       writeDetailedGeometryFile(macroscopicPhysicalNetworkLayer);
     }
