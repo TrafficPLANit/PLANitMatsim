@@ -84,6 +84,7 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterModeMappingSe
     LOGGER.info(String.format("Persisting MATSim network to: %s", matsimNetworkPath));
     
     LOGGER.info(String.format("Decimal fidelity set to %s", decimalFormat.getMaximumFractionDigits()));
+    LOGGER.info(String.format("Persisting XML as GZip: %s", this.writeAsGZip));
     if(getDestinationCoordinateReferenceSystem() != null) {
       LOGGER.info(String.format("Destination Coordinate Reference System set to: %s",
           getDestinationCoordinateReferenceSystem().getName()));

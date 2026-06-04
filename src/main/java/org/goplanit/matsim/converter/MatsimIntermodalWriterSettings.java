@@ -106,17 +106,18 @@ public class MatsimIntermodalWriterSettings extends PlanitMatsimWriterSettings i
   }
 
 
-  /** set the output directory to use on both network and zoning settings
-   * @param outputDirectory to use
+  /**
+   * {@inheritDoc}
    */
+  @Override
   public void setOutputDirectory(String outputDirectory) {
     getNetworkSettings().setOutputDirectory(outputDirectory);
     getZoningSettings().setOutputDirectory(outputDirectory);
     getPtServicesSettings().setOutputDirectory(outputDirectory);
   }
-  
-  /** set the country to use on both network and zoning settings
-   * @param countryName to use
+
+  /**
+   * {@inheritDoc}
    */
   @Override
   public void setCountry(String countryName) {
@@ -125,24 +126,34 @@ public class MatsimIntermodalWriterSettings extends PlanitMatsimWriterSettings i
       getPtServicesSettings().setCountry(countryName);
   }
 
-  
-  /** Explicitly set a particular crs for writing geometries for both zoning and network
-   * @param destinationCoordinateReferenceSystem to use
+
+  /**
+   * {@inheritDoc}
    */
+  @Override
   public void setDestinationCoordinateReferenceSystem(CoordinateReferenceSystem destinationCoordinateReferenceSystem) {
     getNetworkSettings().setDestinationCoordinateReferenceSystem(destinationCoordinateReferenceSystem);
     getZoningSettings().setDestinationCoordinateReferenceSystem(destinationCoordinateReferenceSystem);
     getPtServicesSettings().setDestinationCoordinateReferenceSystem(destinationCoordinateReferenceSystem);
   }
 
-  /** Set number of decimals used in writing coordinates
-   *
-   * @param decimalFormat format to use
+  /**
+   * {@inheritDoc}
    */
+  @Override
   public void setDecimalFormat(DecimalFormat decimalFormat) {
     getNetworkSettings().setDecimalFormat(decimalFormat);
     getZoningSettings().setDecimalFormat(decimalFormat);
     getPtServicesSettings().setDecimalFormat(decimalFormat);
   }
 
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void setWriteAsGZip(boolean flag) {
+    getNetworkSettings().setWriteAsGZip(flag);
+    getZoningSettings().setWriteAsGZip(flag);
+    getPtServicesSettings().setWriteAsGZip(flag);
+  }
 }
