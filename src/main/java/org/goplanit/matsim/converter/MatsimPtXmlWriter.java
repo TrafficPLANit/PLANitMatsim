@@ -644,7 +644,20 @@ class MatsimPtXmlWriter {
       LOGGER.info(String.format(
           "[STATS] created %d transit routes for mode: %s", entry.getValue().longValue(), entry.getKey()));
     }
-  }   
+  }
+
+  /**
+   * Write transit schedule file, but only with the stops for reference
+   *
+   * @param zoning to collect stops from
+   * @param zoningWriterSettings to use
+   */
+  protected void writeXmlTransitScheduleFileStopsOnly(
+      Zoning zoning,
+      MatsimZoningWriterSettings zoningWriterSettings) {
+    writeXmlTransitScheduleFile(
+        zoning, zoningWriterSettings, null, null, null);
+  }
 
   /** Starting point for persisting the MATSim transit schedule file (infrastructure, e.g., stops and stations, only)
    *
@@ -653,7 +666,7 @@ class MatsimPtXmlWriter {
    * @param routedServices to extract information to persist from (if not null)
    * @param routedServicesSettings to use
    * @param networkSettings to use, containing for example the mode mapping information required when writing
-   *                        schedules (may be null if no routed services are provided)
+   *                        schedules
    */
   protected void writeXmlTransitScheduleFile(
       Zoning zoning,
@@ -674,7 +687,7 @@ class MatsimPtXmlWriter {
         Paths.get(matsimWriter.getSettings().getOutputDirectory(),
             matsimWriter.getSettings().getFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
     Pair<XMLStreamWriter,Writer> xmlFileWriterPair = PlanitXmlWriterUtils.createXMLWriter(
-        matsimNetworkPath, networkSettings.isWriteAsGZip());
+        matsimNetworkPath, zoningWriterSettings.isWriteAsGZip());
 
     try {
       /* start */

@@ -54,21 +54,59 @@ public class SydneyPlanit2MatsimTest {
   public static void tearDown() {
     Logging.closeLogger(LOGGER);
   }
-  
+
+
+  /**
+   * Test case which parses a PLANit network without services, loads it into PLANit memory model and persists it as a
+   * MATSim network without pt services
+   * <p>
+   * Source: PLANit inputs of the network are sourced from the results of running
+   * GtfsToPlanitSydneyTest.testGtfsIntermodalReaderWithPreExistingPlanitTransferZones
+   * </p>
+   */
+  @Test
+  public void testPlanit2MatsimNoServicesDefault() {
+
+    final Path MATSIM_OUTPUT_DIR = Path.of(RESOURCE_PATH.toString(),"testcases", "sydney", "without_services");
+    final Path MATSIM_REF_DIR =  Path.of(RESOURCE_PATH.toString(),"matsim","sydney", "without_services");
+
+    try {
+
+      var planitReader = PlanitIntermodalReaderFactory.create(SYDNEYCBD_PLANIT.toAbsolutePath().toString());
+
+      var matsimWriter = MatsimIntermodalWriterFactory.create(
+          MATSIM_OUTPUT_DIR.toAbsolutePath().toString(), CountryNames.AUSTRALIA);
+      matsimWriter.getSettings().getNetworkSettings().setGenerateDetailedLinkGeometryFile(true);
+      matsimWriter.getSettings().setWriteAsGZip(false);
+
+      /* perform the conversion*/
+      IntermodalConverterFactory.create(planitReader, matsimWriter).convert();
+
+      MatsimAssertionUtils.assertNetworkFilesSimilar(MATSIM_OUTPUT_DIR, MATSIM_REF_DIR);
+      assertTrue(MatsimAssertionUtils.isNetworkGeometryFilesSimilar(MATSIM_OUTPUT_DIR,MATSIM_REF_DIR));
+      assertTrue(MatsimAssertionUtils.isPtStopsFilesSimilar(MATSIM_OUTPUT_DIR,MATSIM_REF_DIR));
+      MatsimAssertionUtils.assertTransitScheduleFilesSimilar(MATSIM_OUTPUT_DIR, MATSIM_REF_DIR);
+
+    } catch (final Exception e) {
+      e.printStackTrace();
+      LOGGER.severe( e.getMessage());
+      fail(e.getMessage());
+    }
+  }
 
   /**
    * Test case which parses a PLANit network with services, loads it into PLANit memory model and persists it as a
    * MATSim network with pt services
    * <p>
    * Source: PLANit inputs of the network are sourced from the results of running
-   * SydneyOsmGtfs2PlanitTest.testGtfs2PlanitBasicIntermodalWithServices
+   * GtfsToPlanitSydneyTest.testGtfsIntermodalReaderWithPreExistingPlanitTransferZones
    * </p>
    */
   @Test
   public void testPlanit2MatsimWithServicesDefault() {
     
-    final Path MATSIM_OUTPUT_DIR = Path.of(RESOURCE_PATH.toString(),"testcases", "sydney");
-    final Path MATSIM_REF_DIR =  Path.of(RESOURCE_PATH.toString(),"matsim","sydney");
+    final Path MATSIM_OUTPUT_DIR = Path.of(RESOURCE_PATH.toString(),"testcases", "sydney", "with_services");
+    final Path MATSIM_REF_DIR =  Path.of(RESOURCE_PATH.toString(),"matsim","sydney", "with_services");
 
     try {
 
