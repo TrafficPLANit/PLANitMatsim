@@ -64,7 +64,8 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
 
     /* zoning writer */
     MatsimZoningWriter zoningWriter =
-        MatsimZoningWriterFactory.create(getSettings().getNetworkSettings(), infrastructureNetwork);
+        MatsimZoningWriterFactory.create(
+            getSettings().getZoningSettings(), getSettings().getNetworkSettings(), infrastructureNetwork);
 
     /* prep */
     zoningWriter.setIdMapperType(idMapper);
@@ -83,7 +84,7 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
    *
    */
   private void writeMatsimFullPtSchedule(
-      NetworkIdMapper parentNetworkIdMapper, RoutedServices routedServices, Zoning zoning) throws PlanItException {
+      NetworkIdMapper parentNetworkIdMapper, RoutedServices routedServices, Zoning zoning) {
 
     /* routed services writer */
     var routedServicesWriter =
@@ -146,7 +147,12 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
    *
    */
   @Override
-  public void writeWithServices(MacroscopicNetwork infrastructureNetwork, Zoning zoning, ServiceNetwork serviceNetwork, RoutedServices routedServices) throws PlanItException {
+  public void writeWithServices(
+      MacroscopicNetwork infrastructureNetwork,
+      Zoning zoning,
+      ServiceNetwork serviceNetwork,
+      RoutedServices routedServices) throws PlanItException {
+
     PlanItException.throwIfNull(serviceNetwork,
         "Service network is null when persisting MATSim intermodal network");
     PlanItException.throwIfNull(routedServices,

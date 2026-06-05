@@ -97,8 +97,8 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter{
     var stopFacilityIdMapper = new MatsimStopFacilityIdHelper(zoning.getTransferConnectoids());
 
     /* results in writing stops only*/
-    new MatsimPtXmlWriter(this, stopFacilityIdMapper).writeXmlTransitScheduleFile(
-        zoning, getZoningWriterSettings(), null, null, null);
+    new MatsimPtXmlWriter(this, stopFacilityIdMapper).writeXmlTransitScheduleFileStopsOnly(
+        zoning, getZoningWriterSettings());
     
     if(getSettings().isGenerateMatrixBasedPtRouterFiles()) {
       new MatsimPtMatrixBasedRouterWriter(this, stopFacilityIdMapper).write(zoning);

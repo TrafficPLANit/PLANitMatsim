@@ -11,9 +11,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
@@ -23,9 +23,9 @@ import org.apache.commons.csv.CSVPrinter;
 import org.geotools.api.referencing.operation.TransformException;
 import org.geotools.geometry.jts.JTS;
 import org.goplanit.converter.idmapping.IdMapperFunctionFactory;
+import org.goplanit.matsim.util.MatsimNetworkWriterUtils;
 import org.goplanit.utils.id.IdMapperType;
 import org.goplanit.converter.idmapping.NetworkIdMapper;
-import org.goplanit.converter.idmapping.PlanitComponentIdMapper;
 import org.goplanit.converter.network.NetworkWriter;
 import org.goplanit.matsim.xml.MatsimNetworkAttributes;
 import org.goplanit.matsim.xml.MatsimNetworkElements;
@@ -34,11 +34,11 @@ import org.goplanit.network.LayeredNetwork;
 import org.goplanit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
 import org.goplanit.utils.exceptions.PlanItException;
 import org.goplanit.utils.exceptions.PlanItRunTimeException;
-import org.goplanit.utils.graph.Vertex;
 import org.goplanit.utils.misc.Pair;
 import org.goplanit.utils.misc.StringUtils;
 import org.goplanit.utils.mode.Mode;
 import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
+import org.goplanit.utils.network.layer.physical.BannedMovement;
 import org.goplanit.utils.network.layer.physical.Link;
 import org.goplanit.utils.network.layer.physical.Node;
 import org.goplanit.utils.unit.Unit;
@@ -58,13 +58,16 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
   
   /** when external ids are used for mapping, they need not be unique, in Matsim ids must be unique, we use this
    * map to track for duplicates, if found, we append unique identifier */
-  private Map<String,LongAdder> usedExternalMatsimLinkIds = new HashMap<String,LongAdder>();
+  private Map<String,LongAdder> usedExternalMatsimLinkIds = new HashMap<>();
   
   /** track number of MATSim nodes persisted */
   private final LongAdder matsimNodeCounter = new LongAdder();
   
   /** track number of MATSim links persisted */
   private final LongAdder matsimLinkCounter = new LongAdder();
+
+  /** track number of MATSim turn restrictions persisted */
+  private final LongAdder matsimTurnRestrictionCounter = new LongAdder();
                 
   /**
    * validate the settings making sure minimal output information is available
@@ -82,29 +85,6 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
     return true;
   }  
 
-  /** Make sure that if external id is used that is is unique even if it is not originally
-   * @param linkSegment to check for
-   * @param matsimId to verify
-   * @param usedExternalMatsimIds that are used already
-   * @return unique externalId (if not external id then copy of original is returned
-   */
-  private String setUniqueExternalIdIfNeeded(
-      MacroscopicLinkSegment linkSegment, final String matsimId, final Map<String, LongAdder> usedExternalMatsimIds) {
-
-    String uniqueExternalId = matsimId;
-    if(getIdMapperType() == IdMapperType.EXTERNAL_ID) {
-      if(usedExternalMatsimIds.containsKey(matsimId)) {
-        LongAdder duplicateCount = usedExternalMatsimLinkIds.get(matsimId);
-        uniqueExternalId = matsimId.concat(duplicateCount.toString());
-        linkSegment.setExternalId(uniqueExternalId);
-        duplicateCount.increment();
-      }else {
-        usedExternalMatsimIds.put(matsimId, new LongAdder());
-      }
-    } 
-    return uniqueExternalId;
-  }
-  
   /** write a MATSIM link for given PLANit link segment
    * @param xmlWriter to use
    * @param linkSegment link segment to write
@@ -114,8 +94,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
       XMLStreamWriter xmlWriter, 
       MacroscopicLinkSegment linkSegment, 
       Map<Mode, String> planitModeToMatsimModeMapping){
-        
-    
+
     if(Collections.disjoint(planitModeToMatsimModeMapping.keySet(), linkSegment.getAllowedModes())) {
       /* link segment has no modes that are activated on the MATSIM network -> ignore */
       return;
@@ -131,9 +110,8 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
         {
           var networkIdMappers = getComponentIdMappers().getNetworkIdMappers();
           /* ID */
-          String matsimLinkId = setUniqueExternalIdIfNeeded(
-                  linkSegment, networkIdMappers.getMacroscopicLinkSegmentIdMapper().apply(linkSegment),
-                  usedExternalMatsimLinkIds);
+          String matsimLinkId = MatsimNetworkWriterUtils.produceMappedMatsimLinkId(
+              linkSegment, getIdMapperType(), networkIdMappers, usedExternalMatsimLinkIds);
 
           xmlWriter.writeAttribute(MatsimNetworkAttributes.ID, matsimLinkId);
     
@@ -259,11 +237,10 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
    * 
    * @param xmlWriter to use
    * @param networkLayer to extract from
-   * @throws PlanItException thrown if error
    */
   private void writeMatsimLinks(
       XMLStreamWriter xmlWriter, 
-      MacroscopicNetworkLayerImpl networkLayer) throws PlanItException {
+      MacroscopicNetworkLayerImpl networkLayer) {
     try {
       writeStartElementNewLine(xmlWriter,MatsimNetworkElements.LINKS, true /* ++indent */);
       
@@ -278,11 +255,93 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
       writeEndElementNewLine(xmlWriter, true /*-- indent */); // LINKS
     } catch (XMLStreamException e) {
       LOGGER.severe(e.getMessage());
-      throw new PlanItException("error while writing MATSim link XML element");
+      throw new PlanItRunTimeException("error while writing MATSim link XML element");
     }    
   }
-   
-  
+
+  /**
+   * Write a single MATSim turn restriction
+   *
+   * @param xmlWriter to use
+   * @param bannedMovement the banned turn
+   * @param usedExternalMatsimLinkIds id mapping info
+   */
+  private void writeMatsimTurnRestriction(
+      XMLStreamWriter xmlWriter, BannedMovement bannedMovement, Map<String, LongAdder> usedExternalMatsimLinkIds) {
+    try {
+      Consumer<XMLStreamWriter> writeFromLinkAttributeId = theXmlWriter -> {
+        try {
+          theXmlWriter.writeAttribute(MatsimNetworkAttributes.ID,
+              MatsimNetworkWriterUtils.getMappedMatsimLinkId(
+                  (MacroscopicLinkSegment) bannedMovement.getSegmentFrom(),
+                  getIdMapperType(),
+                  getPrimaryIdMapper(),
+                  usedExternalMatsimLinkIds));
+        }catch (XMLStreamException e){
+          throw new PlanItRunTimeException("MATSim turn restriction from link id attribute could not be written");
+        }
+      };
+
+      Consumer<XMLStreamWriter> writeToLinkAttributeId = theXmlWriter -> {
+        try {
+          theXmlWriter.writeAttribute(MatsimNetworkAttributes.ID,
+              MatsimNetworkWriterUtils.getMappedMatsimLinkId(
+                  (MacroscopicLinkSegment) bannedMovement.getSegmentTo(),
+                  getIdMapperType(),
+                  getPrimaryIdMapper(),
+                  usedExternalMatsimLinkIds));
+        }catch (XMLStreamException e){
+          throw new PlanItRunTimeException("MATSim turn restriction to link id attribute could not be written");
+        }
+      };
+
+      // link (from)
+      writeStartElementNewLine(
+          xmlWriter, MatsimNetworkElements.LINK, true, writeFromLinkAttributeId);
+      {
+        // nextLink (to)
+        writeStartElementNewLine(
+            xmlWriter, MatsimNetworkElements.NEXT_LINK, false, writeToLinkAttributeId);
+        writeEndElementNewLine(xmlWriter, true /* --indent */);
+      }
+      writeEndElementNewLine(xmlWriter, false);
+      matsimTurnRestrictionCounter.increment();
+    } catch (XMLStreamException e) {
+      LOGGER.severe(e.getMessage());
+      throw new PlanItRunTimeException(
+          String.format("error while writing MATSim banned turn XML element (PLANit banned moevement (%s))",
+              bannedMovement.getIdsAsString()));
+    }
+  }
+
+  /**
+   * Write the turn restrictions in MATSim format
+   *
+   * @param xmlWriter to use
+   * @param networkLayer to obtain restrictions from
+   * @param usedExternalMatsimLinkIds mapping to use if external ids were used to determine the
+   *                                  PLANit to MATSim mapping
+   */
+  private void writeMatsimTurnRestrictions(
+      XMLStreamWriter xmlWriter,
+      MacroscopicNetworkLayerImpl networkLayer,
+      Map<String, LongAdder> usedExternalMatsimLinkIds) {
+    try {
+      writeStartElementNewLine(xmlWriter, MatsimNetworkElements.DISALLOWED_NEXT_LINKS, true /* ++indent */);
+
+      /* write banned movements one by one */
+      for(var bannedMovement: networkLayer.getBannedMovements()) {
+        writeMatsimTurnRestriction(xmlWriter, bannedMovement, usedExternalMatsimLinkIds);
+      }
+
+      writeEndElementNewLine(xmlWriter, true /*-- indent */); // banned turn
+    } catch (XMLStreamException e) {
+      LOGGER.severe(e.getMessage());
+      throw new PlanItRunTimeException("Error while writing MATSim disallowed next links XML element");
+    }
+  }
+
+
   /** Write a PLANit node as MATSIM node 
    * @param xmlWriter to use
    * @param node to write
@@ -360,20 +419,26 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
       
       /* links */
       writeMatsimLinks(xmlWriter, networkLayer);
-      
+
+      /* turn restrictions */
+      if(networkLayer.hasBannedMovements()) {
+        writeMatsimTurnRestrictions(xmlWriter, networkLayer, usedExternalMatsimLinkIds);
+      }
+
       writeEndElementNewLine(xmlWriter, true /* undo indentation */ ); // NETWORK
     } catch (XMLStreamException e) {
       LOGGER.severe(e.getMessage());
       throw new PlanItException("error while writing MATSim network XML element");
     }
-  }     
-            
+  }
+
   /**
    * Log some aggregate stats on the MATSim writer regarding the number of elements persisted
    */
   private void logWriterStats() {
     LOGGER.info(String.format("[STATS] created %d nodes",matsimNodeCounter.longValue()));
     LOGGER.info(String.format("[STATS] created %d links",matsimLinkCounter.longValue()));
+    LOGGER.info(String.format("[STATS] created %d turn restrictions",matsimTurnRestrictionCounter.longValue()));
   }
 
   /**
@@ -480,7 +545,11 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
    * default names used for MATSIM network file that is being generated
    */
   public static final String DEFAULT_NETWORK_GEOMETRY_FILE_NAME = "network_geometry";
-  
+
+  public static final String DEFAULT_PT_STOPS_FILE_NAME = "ptStops";
+
+  public static final String DEFAULT_PT_STOPS_FILE_NAME_EXTENSION = ".csv";
+
   /**
    * Default constructor. Initialisng with default output directory and country name on the settings
    */
@@ -552,6 +621,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
   public void reset() {
     matsimNodeCounter.reset();
     matsimLinkCounter.reset();
+    matsimTurnRestrictionCounter.reset();
   }
 
   /**

@@ -30,6 +30,12 @@ public class MatsimAssertionUtils {
             MatsimNetworkWriter.DEFAULT_NETWORK_GEOMETRY_FILE_NAME_EXTENSION).toAbsolutePath();
   }
 
+  private static Path pathOfPtStopsFile(String theDir){
+    return Path.of(theDir,
+        MatsimNetworkWriter.DEFAULT_PT_STOPS_FILE_NAME +
+            MatsimNetworkWriter.DEFAULT_PT_STOPS_FILE_NAME_EXTENSION).toAbsolutePath();
+  }
+
   private static void assertXmlFileContentSimilar(String file1, String file2) throws IOException {
     org.hamcrest.MatcherAssert.assertThat(
         /* xml unit functionality comparing the two files */
@@ -44,8 +50,20 @@ public class MatsimAssertionUtils {
     return PlanItTestHelper.compareFilesExact(resultFile, referenceFile, true);
   }
 
+  public static boolean isPtStopsFilesSimilar(String resultDir, String referenceDir) throws IOException {
+    String resultFile = pathOfPtStopsFile(resultDir).toString();
+    String referenceFile = pathOfPtStopsFile(referenceDir).toString();
+
+    return PlanItTestHelper.compareFilesExact(resultFile, referenceFile, true);
+  }
+
   public static boolean isNetworkGeometryFilesSimilar(Path resultDir, Path referenceDir) throws IOException {
     return isNetworkGeometryFilesSimilar(
+        resultDir.toAbsolutePath().toString(), referenceDir.toAbsolutePath().toString());
+  }
+
+  public static boolean isPtStopsFilesSimilar(Path resultDir, Path referenceDir) throws IOException {
+    return isPtStopsFilesSimilar(
         resultDir.toAbsolutePath().toString(), referenceDir.toAbsolutePath().toString());
   }
 
@@ -71,4 +89,5 @@ public class MatsimAssertionUtils {
   public static void assertTransitScheduleFilesSimilar(Path resultDir, Path referenceDir) throws IOException {
     assertTransitScheduleFilesSimilar(resultDir.toAbsolutePath().toString(), referenceDir.toAbsolutePath().toString());
   }
+
 }

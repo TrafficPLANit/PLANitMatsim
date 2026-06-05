@@ -1,5 +1,6 @@
 package org.goplanit.matsim.converter;
 
+import java.util.function.Consumer;
 import java.util.logging.Logger;
 
 import javax.xml.stream.XMLStreamException;
@@ -132,6 +133,28 @@ public abstract class MatsimWriter<T> extends CrsWriterImpl<T> {
   protected void writeStartElementNewLine(
       XMLStreamWriter xmlWriter, String xmlElementName, boolean increaseIndentation) throws XMLStreamException {
     PlanitXmlWriterUtils.writeStartElementNewLine(xmlWriter, xmlElementName, indentLevel);
+    if(increaseIndentation) {
+      increaseIndentation();
+    }
+  }
+
+  /**
+   * write a start element, apply callback then add newline afterwards
+   *
+   * @param xmlWriter to use
+   * @param xmlElementName element to start tag, e.g. {@code <xmlElementName>}
+   * @param increaseIndentation when true, increase indentation after this element has been written
+   * @param callbackBeforeNewLine to apply before new lin is called
+   * @throws XMLStreamException thrown if error
+   */
+  protected void writeStartElementNewLine(
+      XMLStreamWriter xmlWriter,
+      String xmlElementName,
+      boolean increaseIndentation,
+      Consumer<XMLStreamWriter> callbackBeforeNewLine) throws XMLStreamException {
+    PlanitXmlWriterUtils.writeStartElement(xmlWriter, xmlElementName, indentLevel);
+    callbackBeforeNewLine.accept(xmlWriter);
+    PlanitXmlWriterUtils.writeNewLine(xmlWriter);
     if(increaseIndentation) {
       increaseIndentation();
     }
