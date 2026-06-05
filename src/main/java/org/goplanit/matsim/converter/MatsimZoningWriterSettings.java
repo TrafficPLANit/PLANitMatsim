@@ -146,6 +146,7 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
   }
 
   /**
+   * flag whether pt is blocking at the stop facility
    *
    * @return is pt blocking flag
    */
