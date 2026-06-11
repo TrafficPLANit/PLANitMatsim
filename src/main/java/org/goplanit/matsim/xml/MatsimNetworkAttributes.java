@@ -41,5 +41,9 @@ public class MatsimNetworkAttributes {
   public static final String PERMLANES = "permlanes";
 
   public static final String MODES = "modes";
+
+  public static final String DISALLOWED_NEXT_LINKS = "disallowedNextLinks";
+  public static final String DISALLOWED_NEXT_LINKS_CLASS_VALUE =
+      "org.matsim.core.network.turnRestrictions.DisallowedNextLinks";
   
 }
