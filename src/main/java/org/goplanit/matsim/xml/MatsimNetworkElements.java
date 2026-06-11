@@ -18,6 +18,7 @@ public class MatsimNetworkElements {
   
   public static final String NODE = "node";
 
-  public static final String DISALLOWED_NEXT_LINKS = "disallowedNextLinks";
-  public static final String NEXT_LINK = "nextLink";
+  public static final String ATTRIBUTES = "attributes";
+
+  public static final String ATTRIBUTE = "attribute";
 }
