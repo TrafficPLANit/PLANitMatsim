@@ -1,7 +1,7 @@
 package org.goplanit.matsim.util;
 
-import org.goplanit.matsim.converter.MatsimNetworkWriter;
-import org.goplanit.matsim.converter.MatsimNetworkWriterSettings;
+import org.goplanit.matsim.converter.network.MatsimNetworkWriter;
+import org.goplanit.matsim.converter.network.MatsimNetworkWriterSettings;
 import org.goplanit.test.PlanItTestHelper;
 import org.goplanit.utils.misc.FileUtils;
 import org.xmlunit.matchers.CompareMatcher;

@@ -4,6 +4,8 @@ import java.util.logging.Logger;
 
 import org.goplanit.converter.idmapping.NetworkIdMapper;
 import org.goplanit.converter.intermodal.IntermodalWriter;
+import org.goplanit.matsim.converter.network.MatsimNetworkWriter;
+import org.goplanit.matsim.converter.network.MatsimNetworkWriterFactory;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.network.ServiceNetwork;
 import org.goplanit.service.routed.RoutedServices;

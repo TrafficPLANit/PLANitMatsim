@@ -1,4 +1,4 @@
-package org.goplanit.matsim.converter;
+package org.goplanit.matsim.converter.network;
 
 import org.goplanit.utils.locale.CountryNames;
 

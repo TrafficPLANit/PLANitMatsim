@@ -15,6 +15,7 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 
 import org.goplanit.converter.idmapping.PlanitComponentIdMappers;
+import org.goplanit.matsim.converter.network.MatsimNetworkWriterSettings;
 import org.goplanit.matsim.util.MatsimStopFacilityIdHelper;
 import org.goplanit.matsim.xml.MatsimTransitAttributes;
 import org.goplanit.matsim.xml.MatsimTransitElements;

@@ -1,6 +1,6 @@
 package org.goplanit.matsim.converter;
 
-import org.goplanit.matsim.util.PlanitMatsimWriterSettings;
+import org.goplanit.matsim.converter.network.MatsimNetworkWriterSettings;
 import org.goplanit.utils.locale.CountryNames;
 import org.goplanit.zoning.Zoning;
 

@@ -12,7 +12,6 @@ import org.goplanit.matsim.util.PlanitMatsimWriterSettings;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.network.LayeredNetwork;
 import org.goplanit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
-import org.goplanit.utils.exceptions.PlanItException;
 import org.goplanit.utils.xml.PlanitXmlWriterUtils;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Point;
@@ -44,22 +43,22 @@ public abstract class MatsimWriter<T> extends CrsWriterImpl<T> {
       LOGGER.severe("MATSim macroscopic PLANit network to extract from is null");
       return false;
     }
-        
+
     if (!(referenceNetwork instanceof MacroscopicNetwork)) {
       LOGGER.severe("MATSim writer currently only supports writing macroscopic networks");
       return false;
     }
-    
+
     if(referenceNetwork.getTransportLayers().isEachLayerEmpty()) {
       LOGGER.severe("PLANit Network to persist is empty");
       return false;
-    }        
+    }
 
     if(referenceNetwork.getTransportLayers().size()!=1) {
       LOGGER.severe(String.format("MATSim writer currently only supports networks with a single layer, " +
           "the provided network has %d",referenceNetwork.getTransportLayers().size()));
       return false;
-    }   
+    }
     if(!(referenceNetwork.getTransportLayers().getFirst() instanceof MacroscopicNetworkLayerImpl)) {
       LOGGER.severe("MATSim only supports macroscopic physical network layers, the " +
           "provided network is of a different type");
@@ -186,7 +185,11 @@ public abstract class MatsimWriter<T> extends CrsWriterImpl<T> {
   }
 
 
-  int getIndentLevel() {
+  /**
+   * Current indent level
+   * @return indent level
+   */
+  protected int getIndentLevel() {
     return indentLevel;
   }
 

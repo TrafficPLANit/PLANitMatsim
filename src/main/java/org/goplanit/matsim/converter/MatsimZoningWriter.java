@@ -2,15 +2,13 @@ package org.goplanit.matsim.converter;
 
 import java.util.logging.Logger;
 
+import org.goplanit.matsim.converter.network.MatsimNetworkWriterSettings;
 import org.goplanit.matsim.util.MatsimStopFacilityIdHelper;
 import org.goplanit.utils.id.IdMapperType;
-import org.goplanit.converter.idmapping.PlanitComponentIdMapper;
 import org.goplanit.converter.idmapping.ZoningIdMapper;
 import org.goplanit.converter.zoning.ZoningWriter;
-import org.goplanit.utils.exceptions.PlanItException;
 import org.goplanit.utils.exceptions.PlanItRunTimeException;
 import org.goplanit.zoning.Zoning;
-import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 
 /**
  * A class that takes a PLANit zoning and extracts and writes the MATSIM public transport information to disk. Since
