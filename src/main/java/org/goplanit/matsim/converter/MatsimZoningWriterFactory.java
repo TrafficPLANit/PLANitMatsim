@@ -1,5 +1,6 @@
 package org.goplanit.matsim.converter;
 
+import org.goplanit.matsim.converter.network.MatsimNetworkWriterSettings;
 import org.goplanit.network.MacroscopicNetwork;
 
 /**

@@ -1,4 +1,4 @@
-package org.goplanit.matsim.converter;
+package org.goplanit.matsim.converter.network;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -7,7 +7,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -20,6 +19,7 @@ import org.apache.commons.csv.CSVPrinter;
 import org.geotools.api.referencing.operation.TransformException;
 import org.geotools.geometry.jts.JTS;
 import org.goplanit.converter.idmapping.IdMapperFunctionFactory;
+import org.goplanit.matsim.converter.MatsimWriter;
 import org.goplanit.matsim.util.MatsimNetworkWriterUtils;
 import org.goplanit.matsim.xml.MatsimTransitAttributes;
 import org.goplanit.utils.graph.directed.BannedMovement;

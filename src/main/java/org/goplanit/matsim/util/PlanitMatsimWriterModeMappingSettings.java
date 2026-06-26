@@ -1,23 +1,14 @@
 package org.goplanit.matsim.util;
 
 import org.goplanit.converter.ConverterWriterSettings;
-import org.goplanit.matsim.converter.MatsimNetworkWriterSettings;
-import org.goplanit.matsim.converter.MatsimWriter;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
-import org.goplanit.utils.math.Precision;
 import org.goplanit.utils.misc.StringUtils;
 import org.goplanit.utils.mode.Mode;
 import org.goplanit.utils.mode.Modes;
 import org.goplanit.utils.mode.PredefinedModeType;
-import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
-import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.text.DecimalFormat;
 import java.util.*;
-import java.util.function.Function;
 import java.util.logging.Logger;
 
 /**
@@ -33,7 +24,7 @@ public abstract class PlanitMatsimWriterModeMappingSettings
   private static final Logger LOGGER = Logger.getLogger(PlanitMatsimWriterModeMappingSettings.class.getCanonicalName());
 
   /**
-   * provides the default mapping from planit modes ((predefined) mode name)  to MATSIM mode (string)
+   * provides the default mapping from PLANit modes ((predefined) mode name)  to MATSIM mode (string)
    */
   protected static final Map<PredefinedModeType, String> DEFAULT_PLANIT2MATSIM_MODE_MAPPING;
 

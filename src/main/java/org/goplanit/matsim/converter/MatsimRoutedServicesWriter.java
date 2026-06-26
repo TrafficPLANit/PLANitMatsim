@@ -1,16 +1,14 @@
 package org.goplanit.matsim.converter;
 
+import org.goplanit.matsim.converter.network.MatsimNetworkWriterSettings;
 import org.goplanit.matsim.util.MatsimStopFacilityIdHelper;
 import org.goplanit.utils.id.IdMapperType;
-import org.goplanit.converter.idmapping.PlanitComponentIdMapper;
 import org.goplanit.converter.idmapping.RoutedServicesIdMapper;
 import org.goplanit.converter.service.RoutedServicesWriter;
 import org.goplanit.network.ServiceNetwork;
 import org.goplanit.network.layer.service.ServiceNetworkLayerImpl;
 import org.goplanit.service.routed.RoutedServices;
-import org.goplanit.utils.exceptions.PlanItException;
 import org.goplanit.zoning.Zoning;
-import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 
 import java.util.logging.Logger;
 

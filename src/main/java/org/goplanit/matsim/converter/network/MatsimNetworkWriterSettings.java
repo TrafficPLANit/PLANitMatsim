@@ -1,26 +1,14 @@
-package org.goplanit.matsim.converter;
+package org.goplanit.matsim.converter.network;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.text.DecimalFormat;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.logging.Logger;
 
 import org.goplanit.converter.ConverterWriterSettings;
+import org.goplanit.matsim.converter.MatsimWriter;
 import org.goplanit.matsim.util.PlanitMatsimWriterModeMappingSettings;
-import org.goplanit.matsim.util.PlanitMatsimWriterSettings;
 import org.goplanit.network.MacroscopicNetwork;
-import org.goplanit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
-import org.goplanit.utils.math.Precision;
-import org.goplanit.utils.misc.StringUtils;
-import org.goplanit.utils.mode.Mode;
-import org.goplanit.utils.mode.Modes;
-import org.goplanit.utils.mode.PredefinedModeType;
 import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
 
 /** Settings for the MATSIM writer

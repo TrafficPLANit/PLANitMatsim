@@ -1,9 +1,8 @@
 package org.goplanit.matsim.converter;
 
 import org.goplanit.converter.ConverterWriterSettings;
+import org.goplanit.matsim.converter.network.MatsimNetworkWriterSettings;
 import org.goplanit.matsim.util.PlanitMatsimWriterSettings;
-import org.goplanit.network.MacroscopicNetwork;
-import org.goplanit.utils.misc.Pair;
 import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 
 import java.text.DecimalFormat;
