@@ -7,8 +7,6 @@ package org.goplanit.matsim.xml;
  *
  */
 public class MatsimTransitAttributes {
-  
-  public static final String ID = "id";
 
   public static final String CLASS = "class";
   
@@ -19,8 +17,6 @@ public class MatsimTransitAttributes {
   public static final String Z = "z";
 
   public static final String LINK_REF_ID = "linkRefId";
-
-  public static final String NAME = "name";
 
   public static final String REF_ID = "refId";
 

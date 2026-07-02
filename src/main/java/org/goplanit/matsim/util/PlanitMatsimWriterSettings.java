@@ -29,14 +29,19 @@ public abstract class PlanitMatsimWriterSettings extends SingleFileBasedConverte
   protected boolean writeAsGZip = DEFAULT_WRITE_GZIP;
 
   /**
-   * default names used for MATSIM public transport schedule file that is being generated
+   * default names used for MATSIM public transport schedule file
    */
   public static final String DEFAULT_TRANSIT_SCHEDULE_FILE_NAME = "output_transitschedule";
 
   /**
-   * default names used for MATSIM network file that is being generated
+   * default names used for MATSIM network file
    */
   public static final String DEFAULT_NETWORK_FILE_NAME = "output_network";
+
+  /**
+   * default names used for MATSIM plans file
+   */
+  public static final String DEFAULT_PLANS_FILE_NAME = "output_plans";
 
   /**
    * Default is to write XML files as gzipped

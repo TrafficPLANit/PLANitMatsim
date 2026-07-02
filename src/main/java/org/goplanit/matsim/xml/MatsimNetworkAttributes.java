@@ -7,11 +7,7 @@ package org.goplanit.matsim.xml;
  *
  */
 public class MatsimNetworkAttributes {
-  
-  public static final String ID = "id";
-  
-  public static final String TYPE = "type";
-  
+
   public static final String ORIGID = "origid";  
   
   /* node specific */

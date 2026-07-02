@@ -122,7 +122,6 @@ public abstract class PlanitMatsimWriterModeMappingSettings
     }
   }
 
-
   /* initialise defaults */
   static {
     DEFAULT_PLANIT2MATSIM_MODE_MAPPING = createDefaultPredefinedModeMappings();

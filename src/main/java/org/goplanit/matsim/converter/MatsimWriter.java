@@ -1,5 +1,6 @@
 package org.goplanit.matsim.converter;
 
+import java.time.format.DateTimeFormatter;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 
@@ -28,7 +29,8 @@ public abstract class MatsimWriter<T> extends CrsWriterImpl<T> {
    * The logger of this class
    */
   private static final Logger LOGGER = Logger.getLogger(MatsimWriter.class.getCanonicalName());
-      
+  public static final DateTimeFormatter HHmmssFormat = DateTimeFormatter.ofPattern("HH:mm:ss");
+
   /** track indentation level */
   private int indentLevel = 0;
 
@@ -105,7 +107,7 @@ public abstract class MatsimWriter<T> extends CrsWriterImpl<T> {
   }
 
   /**
-   * write a start element and add newline afterwards
+   * write a start element
    *
    * @param xmlWriter to use
    * @param xmlElementName element to start tag, e.g. {@code <xmlElementName>}
@@ -175,6 +177,16 @@ public abstract class MatsimWriter<T> extends CrsWriterImpl<T> {
     PlanitXmlWriterUtils.writeEndElementNewLine(xmlWriter, indentLevel);
   }
 
+  /**
+   * PAss through to write a new line
+   *
+   * @param xmlWriter to use
+   * @throws XMLStreamException thrown if error
+   */
+  protected void writeNewLine(XMLStreamWriter xmlWriter) throws XMLStreamException {
+    PlanitXmlWriterUtils.writeNewLine(xmlWriter);
+  }
+
 
   /** Constructor
    * 
@@ -206,6 +218,10 @@ public abstract class MatsimWriter<T> extends CrsWriterImpl<T> {
   /** the doc type of MATSIM public transport schedule. */
   public static final String NETWORK_DOCTYPE =
       "<!DOCTYPE network SYSTEM \"https://www.matsim.org/files/dtd/network_v2.dtd\">";
+
+  /** the doc type of MATSim population/plans. */
+  public static final String PLANS_DOCTYPE =
+      "<!DOCTYPE population SYSTEM \"https://www.matsim.org/files/dtd/plans_v5.dtd\">";
 
   /**
    * default extension for xml files generated

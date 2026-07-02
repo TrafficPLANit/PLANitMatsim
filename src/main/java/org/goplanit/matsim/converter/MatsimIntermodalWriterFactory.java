@@ -16,7 +16,7 @@ import org.goplanit.zoning.Zoning;
  */
 public class MatsimIntermodalWriterFactory {
 
-  /** Create a PLANitMatsimIntermodalWriter which persists PLANit networks and their pt infrastructure and services
+  /** Create a MatsimIntermodalWriter which persists PLANit networks and their pt infrastructure and services
    * in MATSIM network format, using all defaults,
    * requires the user to set output directory afterwards
    * 
@@ -26,7 +26,7 @@ public class MatsimIntermodalWriterFactory {
     return create(null, CountryNames.WORLD);    
   }  
   
-  /** Create a PLANitMatsimIntermodalWriter which persists PLANit networks and their pt infrastructure and services
+  /** Create a MatsimIntermodalWriter which persists PLANit networks and their pt infrastructure and services
    * in MATSim network format  with default mode mapping
    * 
    * @param outputDirectory to use
@@ -40,9 +40,8 @@ public class MatsimIntermodalWriterFactory {
    * in MATSim network format with default mode mapping
    * 
    * @param outputDirectory to use
-   * @param countryName country which the input file represents, used to determine defaults in case not specifically
-   *                    specified in OSM data, when left blank global defaults will be used
-   * based on a right hand driving approach
+   * @param countryName country which the data represents, used to determine defaults in case not specifically
+   *                    specified, when left blank global defaults will be used based on a right hand driving approach
    * @return created MATSim writer
    */
   public static MatsimIntermodalWriter create(String outputDirectory, String countryName) {
@@ -50,9 +49,8 @@ public class MatsimIntermodalWriterFactory {
     return new MatsimIntermodalWriter(settings);    
   }
 
-  /** create  a PLANitMatsimWriter which persists PLANit networks and their pt infrastructure (and possibly services)
-   * in MATSim network format
-   * using the settings provided.
+  /** create  a MatsimIntermodalWriter which persists PLANit networks and their pt infrastructure
+   * (and possibly services) in MATSim network format using the settings provided.
    *
    * @param settings to use
    * @return created MATSim writer

@@ -1,5 +1,6 @@
 package org.goplanit.matsim.util;
 
+import org.goplanit.matsim.converter.demand.MatsimDiscreteDemandsWriterSettings;
 import org.goplanit.matsim.converter.network.MatsimNetworkWriter;
 import org.goplanit.matsim.converter.network.MatsimNetworkWriterSettings;
 import org.goplanit.test.PlanItTestHelper;
@@ -34,6 +35,11 @@ public class MatsimAssertionUtils {
     return Path.of(theDir,
         MatsimNetworkWriter.DEFAULT_PT_STOPS_FILE_NAME +
             MatsimNetworkWriter.DEFAULT_PT_STOPS_FILE_NAME_EXTENSION).toAbsolutePath();
+  }
+
+  private static Path pathOfPlansFile(String theDir){
+    return Path.of(
+        theDir, MatsimDiscreteDemandsWriterSettings.DEFAULT_PLANS_FILE_NAME + ".xml").toAbsolutePath();
   }
 
   private static void assertXmlFileContentSimilar(String file1, String file2) throws IOException {
@@ -86,8 +92,18 @@ public class MatsimAssertionUtils {
     assertXmlFileContentSimilar(resultFile, referenceFile);
   }
 
+  public static void assertPlansFilesSimilar(String resultDir, String referenceDir) throws IOException {
+    String resultFile = pathOfPlansFile(resultDir).toString();
+    String referenceFile = pathOfPlansFile(referenceDir).toString();
+
+    assertXmlFileContentSimilar(resultFile, referenceFile);
+  }
+
   public static void assertTransitScheduleFilesSimilar(Path resultDir, Path referenceDir) throws IOException {
     assertTransitScheduleFilesSimilar(resultDir.toAbsolutePath().toString(), referenceDir.toAbsolutePath().toString());
   }
 
+  public static void assertPlansFilesSimilar(Path resultDir, Path referenceDir) throws IOException {
+    assertPlansFilesSimilar(resultDir.toAbsolutePath().toString(), referenceDir.toAbsolutePath().toString());
+  }
 }
