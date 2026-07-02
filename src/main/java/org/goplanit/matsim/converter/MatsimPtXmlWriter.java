@@ -4,7 +4,6 @@ import java.io.Writer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Function;
@@ -17,6 +16,7 @@ import javax.xml.stream.XMLStreamWriter;
 import org.goplanit.converter.idmapping.PlanitComponentIdMappers;
 import org.goplanit.matsim.converter.network.MatsimNetworkWriterSettings;
 import org.goplanit.matsim.util.MatsimStopFacilityIdHelper;
+import org.goplanit.matsim.xml.MatsimAttributes;
 import org.goplanit.matsim.xml.MatsimTransitAttributes;
 import org.goplanit.matsim.xml.MatsimTransitElements;
 import org.goplanit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
@@ -78,8 +78,6 @@ class MatsimPtXmlWriter {
 
   /* internal flag to avoid unnecessary repeat of warnings */
   private boolean loggedFrequencyTripWarning;
-
-  private static final DateTimeFormatter HHmmssFormat = DateTimeFormatter.ofPattern("HH:mm:ss");
 
   /**
    * persisting MATSim transit route's route profile stop
@@ -167,12 +165,12 @@ class MatsimPtXmlWriter {
     if(!upstreamStop){
       /* only relevant for NOT the very first leg (first leg we assume is the only one corresponding
       to an upstream stop)*/
-      xmlWriter.writeAttribute(MatsimTransitAttributes.ARRIVAL_OFFSET, cumulativeTravelTime.format(HHmmssFormat));
+      xmlWriter.writeAttribute(MatsimTransitAttributes.ARRIVAL_OFFSET, cumulativeTravelTime.format(MatsimWriter.HHmmssFormat));
     }
 
     /* departureOffset */
     xmlWriter.writeAttribute(MatsimTransitAttributes.DEPARTURE_OFFSET,
-        cumulativeTravelTime.plusNanos(relLegTiming.getDwellTime().toNanoOfDay()).format(HHmmssFormat));
+        cumulativeTravelTime.plusNanos(relLegTiming.getDwellTime().toNanoOfDay()).format(MatsimWriter.HHmmssFormat));
 
     /* awaitDeparture */
     xmlWriter.writeAttribute(MatsimTransitAttributes.AWAIT_DEPARTURE,
@@ -278,7 +276,7 @@ class MatsimPtXmlWriter {
     /* departure*/
     try{
       PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimTransitElements.DEPARTURE, matsimWriter.getIndentLevel());
-      xmlWriter.writeAttribute(MatsimTransitAttributes.ID, String.valueOf(departureIndex));
+      xmlWriter.writeAttribute(MatsimAttributes.ID, String.valueOf(departureIndex));
       xmlWriter.writeAttribute(MatsimTransitAttributes.DEPARTURE_TIME, departureTime.toString());
       PlanitXmlWriterUtils.writeNewLine(xmlWriter);
       //todo: vehicleRefId --> based on settings we should be able to map thiscatch
@@ -356,7 +354,7 @@ class MatsimPtXmlWriter {
       matsimWriter.writeStartElement(xmlWriter, MatsimTransitElements.TRANSIT_ROUTE, true);
 
       /*id */
-      xmlWriter.writeAttribute(MatsimTransitAttributes.ID, String.valueOf(uniqueReltimingSeqCounter)); // we can't use schedule id because a PLANit schedule might occur in multiple places due to its higher flexibility
+      xmlWriter.writeAttribute(MatsimAttributes.ID, String.valueOf(uniqueReltimingSeqCounter)); // we can't use schedule id because a PLANit schedule might occur in multiple places due to its higher flexibility
       PlanitXmlWriterUtils.writeNewLine(xmlWriter);
 
       /* transportMode */
@@ -430,13 +428,13 @@ class MatsimPtXmlWriter {
       matsimTransitLineCounter.increment();
 
       /*id */
-      xmlWriter.writeAttribute(MatsimTransitAttributes.ID,
+      xmlWriter.writeAttribute(MatsimAttributes.ID,
               componentIdMappers.getRoutedServicesIdMapper().getRoutedServiceRefIdMapper().apply(routedService));
 
       /* name */
       if(routedService.hasName() || routedService.hasNameDescription()){
         var name = routedService.hasName() ? routedService.getName() : routedService.getNameDescription();
-        xmlWriter.writeAttribute(MatsimTransitAttributes.NAME, name);
+        xmlWriter.writeAttribute(MatsimAttributes.NAME, name);
       }
 
       PlanitXmlWriterUtils.writeNewLine(xmlWriter);
@@ -585,7 +583,7 @@ class MatsimPtXmlWriter {
           /* attributes  of element*/
           {
 
-            xmlWriter.writeAttribute(MatsimTransitAttributes.ID, String.valueOf(stopFacilityId));
+            xmlWriter.writeAttribute(MatsimAttributes.ID, String.valueOf(stopFacilityId));
 
             /* We use the indicated vertex of the access link segment as the stop location */
             var stopFacilityPhysicalReferenceNode = transferConnectoid.getReferenceVertex();
@@ -613,7 +611,7 @@ class MatsimPtXmlWriter {
               stopFacilityName = stopLocationEntry.getAccessZone().getName();
             }
             if(stopFacilityName != null) {
-              xmlWriter.writeAttribute(MatsimTransitAttributes.NAME, stopFacilityName);
+              xmlWriter.writeAttribute(MatsimAttributes.NAME, stopFacilityName);
             }
 
             /* STOP_AREA_ID (v2) - not supported yet in MATSIM I believe, when it is, we can use our transfer zone

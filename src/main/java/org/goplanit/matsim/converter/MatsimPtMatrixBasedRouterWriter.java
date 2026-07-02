@@ -7,6 +7,7 @@ import java.util.logging.Logger;
 
 import org.geotools.api.geometry.MismatchedDimensionException;
 import org.goplanit.matsim.util.MatsimStopFacilityIdHelper;
+import org.goplanit.matsim.xml.MatsimAttributes;
 import org.goplanit.matsim.xml.MatsimTransitAttributes;
 import org.goplanit.utils.misc.CharacterUtils;
 import org.goplanit.utils.zoning.connectoid.DirectedConnectoidAccessZoneEntry;
@@ -64,7 +65,7 @@ class MatsimPtMatrixBasedRouterWriter {
     var csvContent = new ArrayList<String>();
     
     /* header id, x, y */
-    sb.append(MatsimTransitAttributes.ID).append(CharacterUtils.COMMA).append(
+    sb.append(MatsimAttributes.ID).append(CharacterUtils.COMMA).append(
         MatsimTransitAttributes.X).append(CharacterUtils.COMMA).append(MatsimTransitAttributes.Y);
     csvContent.add(sb.toString());
     

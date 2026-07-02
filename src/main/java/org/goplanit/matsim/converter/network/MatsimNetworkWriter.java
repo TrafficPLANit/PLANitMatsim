@@ -21,6 +21,7 @@ import org.geotools.geometry.jts.JTS;
 import org.goplanit.converter.idmapping.IdMapperFunctionFactory;
 import org.goplanit.matsim.converter.MatsimWriter;
 import org.goplanit.matsim.util.MatsimNetworkWriterUtils;
+import org.goplanit.matsim.xml.MatsimAttributes;
 import org.goplanit.matsim.xml.MatsimTransitAttributes;
 import org.goplanit.utils.graph.directed.BannedMovement;
 import org.goplanit.utils.graph.directed.EdgeSegment;
@@ -162,7 +163,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
           String matsimLinkId = MatsimNetworkWriterUtils.produceMappedMatsimLinkId(
               linkSegment, getIdMapperType(), networkIdMappers, usedExternalMatsimLinkIds);
 
-          xmlWriter.writeAttribute(MatsimNetworkAttributes.ID, matsimLinkId);
+          xmlWriter.writeAttribute(MatsimAttributes.ID, matsimLinkId);
     
           /* FROM node */
           xmlWriter.writeAttribute(
@@ -260,7 +261,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
         if(bannedMovementsOfFromSegment != null && !bannedMovementsOfFromSegment.isEmpty()){
           writeStartElement(xmlWriter, MatsimNetworkElements.ATTRIBUTE, true /*++indent*/);
           xmlWriter.writeAttribute(
-              MatsimTransitAttributes.NAME, MatsimNetworkAttributes.DISALLOWED_NEXT_LINKS);
+              MatsimAttributes.NAME, MatsimNetworkAttributes.DISALLOWED_NEXT_LINKS);
           xmlWriter.writeAttribute(
               MatsimTransitAttributes.CLASS, MatsimNetworkAttributes.DISALLOWED_NEXT_LINKS_CLASS_VALUE);
           //PlanitXmlWriterUtils.writeNewLine(xmlWriter);
@@ -366,7 +367,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
       {
         /* ID */
         xmlWriter.writeAttribute(
-            MatsimNetworkAttributes.ID, getComponentIdMappers().getNetworkIdMappers().getVertexIdMapper().apply(node));
+            MatsimAttributes.ID, getComponentIdMappers().getNetworkIdMappers().getVertexIdMapper().apply(node));
         
         /* geometry of the node (optional) */
         Coordinate nodeCoordinate = extractDestinationCrsCompatibleCoordinate(node.getPosition());
