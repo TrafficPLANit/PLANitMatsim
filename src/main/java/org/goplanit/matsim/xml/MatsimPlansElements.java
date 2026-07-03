@@ -13,4 +13,5 @@ public class MatsimPlansElements {
   public static final String ATTRIBUTES = "attributes";
   public static final String PLAN = "plan";
   public static final String ACTIVITY = "act";
+  public static final String LEG = "leg";
 }
