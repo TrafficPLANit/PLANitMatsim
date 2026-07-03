@@ -16,6 +16,11 @@ import org.goplanit.zoning.Zoning;
  */
 public class MatsimIntermodalWriterFactory {
 
+  /**
+   * Constructor
+   */
+  public MatsimIntermodalWriterFactory(){}
+
   /** Create a MatsimIntermodalWriter which persists PLANit networks and their pt infrastructure and services
    * in MATSIM network format, using all defaults,
    * requires the user to set output directory afterwards
