@@ -19,7 +19,6 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
-import java.time.temporal.TemporalUnit;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -88,6 +87,7 @@ public class MatsimSimpleDiscreteDemandWriterTest {
       var busMode = network.getModes().getFactory().registerNew(PredefinedModeType.BUS);
       var trainMode = network.getModes().getFactory().registerNew(PredefinedModeType.TRAIN);
       var walkMode = network.getModes().getFactory().registerNew(PredefinedModeType.PEDESTRIAN);
+      network.getTransportLayers().getFactory().registerNew(network.getModes());
 
       var zoning = new Zoning(network.getIdGroupingToken(), network.getNetworkGroupingTokenId());
       var zone0 = zoning.getOdZones().getFactory().registerNew();
@@ -98,7 +98,43 @@ public class MatsimSimpleDiscreteDemandWriterTest {
 
       var discreteDemands = new DiscreteDemands(network.getIdGroupingToken());
 
-      var allDayTimePeriod = discreteDemands.getTimePeriods().getFactory().registerNew(
+      // P0: (as a worked example)
+      //      HOME (zone0)
+      //          |
+      //          +-- Trip OUTBOUND [car] 08:00
+      //          |
+      //          +-- TOUR: WORK
+      //          |    zone0 -> zone1
+      //          |    08:00 - 17:30
+      //          |
+      // |    WORK activity @ zone1
+      // |    |
+      // |    +-- Trip OUTBOUND [walk] 12:30
+      //          |    |
+      // |    +-- SUBTOUR: GYM
+      //          |    |    zone1 -> zone2 -> zone1
+      //          |    |    12:30 - 13:30
+      //          |    |
+      // |    +-- Trip INBOUND [walk] 13:10
+      //          |    |
+      // |    +-- Resume WORK activity @ zone1
+      // |
+      //      +-- Trip INBOUND [car] 17:00
+      //          |
+      //          HOME (zone0)
+      //          |
+      //          +-- Trip OUTBOUND [walk] 18:00
+      //          |
+      //          +-- TOUR: SHOPPING
+      //          |    zone1 -> zone3
+      //          |    18:00 - 20:30
+      //          |
+      //          +-- Trip INBOUND [walk] 20:20
+      //          |
+      //          END
+
+      // time period
+      discreteDemands.getTimePeriods().getFactory().registerNew(
           "all day", 0, 24 * 3600);
 
       // 2 households
@@ -110,6 +146,7 @@ public class MatsimSimpleDiscreteDemandWriterTest {
       var person1 = discreteDemands.getPersons().getFactory().registerNew(household0);
       var person2 = discreteDemands.getPersons().getFactory().registerNew(household1);
       var person3 = discreteDemands.getPersons().getFactory().registerNew(household1);
+      discreteDemands.getPersons().forEach(p -> p.setInitialPurpose("home"));
 
       // each person has a schedule with one or more (sequential) tours which in turn may contain nested tours
       // each tour origin == tour id, destination == tour id + 1
@@ -159,26 +196,26 @@ public class MatsimSimpleDiscreteDemandWriterTest {
         var tour0_subtour0_inbound = discreteDemands.getTrips().getFactory().registerNew(
             tour0_subtour0_p0, DirectionBound.INBOUND, addToSchedule);
         tour0_subtour0_inbound.setMode(walkMode);
-        tour0_subtour0_inbound.syncStartTimeToTourStartTime();
+        tour0_subtour0_inbound.syncStartTimeToTourEndWithNegativeOffset(Duration.of(20, ChronoUnit.MINUTES));
       }
 
       // inbound trips of main tour - back to origin
       var tour0_inboundTrip = discreteDemands.getTrips().getFactory().registerNew(
           tour0_p0, DirectionBound.INBOUND, addToSchedule);
       tour0_inboundTrip.setMode(carMode);
-      tour0_inboundTrip.syncStartTimeToTourWithNegativeOffset(Duration.of(30, ChronoUnit.MINUTES));
+      tour0_inboundTrip.syncStartTimeToTourEndWithNegativeOffset(Duration.of(30, ChronoUnit.MINUTES));
       var tour1_inboundTrip = discreteDemands.getTrips().getFactory().registerNew(
           tour1_p1, DirectionBound.INBOUND, addToSchedule);
       tour1_inboundTrip.setMode(trainMode);
-      tour1_inboundTrip.syncStartTimeToTourWithNegativeOffset(Duration.of(45, ChronoUnit.MINUTES));
+      tour1_inboundTrip.syncStartTimeToTourEndWithNegativeOffset(Duration.of(45, ChronoUnit.MINUTES));
       var tour2_inboundTrip = discreteDemands.getTrips().getFactory().registerNew(
           tour2_p2, DirectionBound.INBOUND, addToSchedule);
       tour2_inboundTrip.setMode(walkMode); // walk back, even though we took bus to the destination
-      tour2_inboundTrip.syncStartTimeToTourWithNegativeOffset(Duration.of(20, ChronoUnit.MINUTES));
+      tour2_inboundTrip.syncStartTimeToTourEndWithNegativeOffset(Duration.of(20, ChronoUnit.MINUTES));
       var tour3_inboundTrip = discreteDemands.getTrips().getFactory().registerNew(
           tour3_p3, DirectionBound.INBOUND, addToSchedule);
       tour3_inboundTrip.setMode(walkMode);
-      tour3_inboundTrip.syncStartTimeToTourWithNegativeOffset(Duration.of(20, ChronoUnit.MINUTES));
+      tour3_inboundTrip.syncStartTimeToTourEndWithNegativeOffset(Duration.of(20, ChronoUnit.MINUTES));
 
       // for tour0: add another sequential tour (so placed AFTER returning at origin from original tour)
       var tour_after_tour0_p0 = discreteDemands.getTours().getFactory().registerNew(
@@ -194,14 +231,25 @@ public class MatsimSimpleDiscreteDemandWriterTest {
         var tour_after_tour0_inbound = discreteDemands.getTrips().getFactory().registerNew(
             tour_after_tour0_p0, DirectionBound.INBOUND, addToSchedule);
         tour_after_tour0_inbound.setMode(walkMode);
-        tour_after_tour0_inbound.syncStartTimeToTourWithNegativeOffset(Duration.of(10, ChronoUnit.MINUTES));
+        tour_after_tour0_inbound.syncStartTimeToTourEndWithNegativeOffset(Duration.of(10, ChronoUnit.MINUTES));
       }
 
-
-      /* perform the conversion*/
       var matsimPlansWriter =
           MatsimDiscreteDemandsWriterFactory.create(MATSIM_OUTPUT_DIR.toAbsolutePath().toString(), network, zoning);
+      // settings/config
       matsimPlansWriter.getSettings().setWriteAsGZip(false);
+      // explicitly activate mode mapping
+      matsimPlansWriter.getSettings().activatePredefinedMode(PredefinedModeType.CAR);
+      matsimPlansWriter.getSettings().activatePredefinedMode(PredefinedModeType.BUS);
+      matsimPlansWriter.getSettings().activatePredefinedMode(PredefinedModeType.TRAIN);
+      matsimPlansWriter.getSettings().activatePredefinedMode(PredefinedModeType.PEDESTRIAN);
+      // explicitly map to MATSim modes as preferred
+      matsimPlansWriter.getSettings().updatePredefinedModeMapping(PredefinedModeType.CAR, "private_car");
+      matsimPlansWriter.getSettings().updatePredefinedModeMapping(PredefinedModeType.BUS, "pt");
+      matsimPlansWriter.getSettings().updatePredefinedModeMapping(PredefinedModeType.TRAIN, "pt");
+      matsimPlansWriter.getSettings().updatePredefinedModeMapping(PredefinedModeType.PEDESTRIAN, "walk");
+
+      // convert
       matsimPlansWriter.write(discreteDemands);
 
       MatsimAssertionUtils.assertPlansFilesSimilar(MATSIM_OUTPUT_DIR, MATSIM_REF_DIR);

@@ -7,6 +7,7 @@ import org.goplanit.utils.misc.StringUtils;
 import org.goplanit.utils.mode.Mode;
 import org.goplanit.utils.mode.Modes;
 import org.goplanit.utils.mode.PredefinedModeType;
+import org.goplanit.utils.network.layer.MacroscopicNetworkLayer;
 
 import java.util.*;
 import java.util.logging.Logger;
@@ -264,8 +265,8 @@ public abstract class PlanitMatsimWriterModeMappingSettings
    * @param networkLayer the networkLayer
    * @return the mapped PLANit mode instances to MATSIM modes (string)
    */
-  public Map<Mode, String> collectActivatedPlanitModeToMatsimModeMapping(MacroscopicNetworkLayerImpl networkLayer) {
-    Map<Mode, String> modeToMatsimMapping = new HashMap<Mode, String>();
+  public Map<Mode, String> collectActivatedPlanitModeToMatsimModeMapping(MacroscopicNetworkLayer networkLayer) {
+    var modeToMatsimMapping = new HashMap<Mode, String>();
     for (Mode mode : networkLayer.getSupportedModes()) {
       if (!mode.isPredefinedModeType()) {
         LOGGER.info(String.format("[IGNORED] MATSim writer is only compatible with predefined PLANit modes, " +

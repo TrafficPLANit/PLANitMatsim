@@ -7,6 +7,7 @@ import org.goplanit.demands.discrete.person.Person;
 import org.goplanit.demands.discrete.tour.ScheduleElement;
 import org.goplanit.demands.discrete.tour.Tour;
 import org.goplanit.demands.discrete.trip.Trip;
+import org.goplanit.demands.discrete.util.DirectionBound;
 import org.goplanit.matsim.converter.MatsimWriter;
 import org.goplanit.matsim.xml.MatsimAttributes;
 import org.goplanit.matsim.xml.MatsimPlansAttributes;
@@ -16,6 +17,7 @@ import org.goplanit.utils.exceptions.PlanItRunTimeException;
 import org.goplanit.utils.id.IdMapperType;
 import org.goplanit.utils.misc.Pair;
 import org.goplanit.utils.misc.StringUtils;
+import org.goplanit.utils.mode.Mode;
 import org.goplanit.utils.xml.PlanitXmlWriterUtils;
 import org.goplanit.zoning.Zoning;
 
@@ -25,6 +27,7 @@ import java.io.Writer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalTime;
+import java.util.Map;
 import java.util.logging.Logger;
 
 /**
@@ -42,6 +45,9 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
 
   /** ref zoning */
   private final Zoning referenceZoning;
+
+  /** track stats */
+  private MatsimPlansWriterStats writerStats = new MatsimPlansWriterStats();
 
   /**
    * validate the settings making sure minimal output information is available
@@ -73,11 +79,81 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   protected final MatsimDiscreteDemandsWriterSettings settings;
 
   /**
+   * Check for activity to intersperse travel legs:
+   * <ul>
+   *   <li>activity in between end of outbound trips and before first inbound trip</li>
+   *   <li>activity in between start of subtour but after arrival of parent tour at destination </li>
+   *   <li>activity in between start of next tour but after arrival of previous tour back at origin </li>
+   * </ul>
+   * @param xmlWriter to use
+   * @param currentElement  to use
+   * @param precedingElement to use
+   * @param person to use
+   * @throws XMLStreamException if error
+   */
+  private void checkForActivityElementBetweenScheduleElements(
+      XMLStreamWriter xmlWriter,
+      ScheduleElement currentElement,
+      ScheduleElement precedingElement,
+      Person person)
+      throws XMLStreamException {
+
+    // Case 1: outbound trip followed by inbound trip --> activity occurs in between the two trips now
+    //         NOTE: we check this in this way to allow for chained outbound trips
+    //         this exhausts the use of the trip's tour purpose in one go - no further nesting
+    if((currentElement instanceof Trip) && (precedingElement instanceof Trip) &&
+        ((Trip)precedingElement).getDirection() == DirectionBound.OUTBOUND &&
+        ((Trip)currentElement).getDirection() == DirectionBound.INBOUND){
+      var upcomingTrip = ((Trip)currentElement);
+      writeActivityElement(xmlWriter, person, upcomingTrip.getTour().getPurpose(), upcomingTrip.getStartTime());
+      writeIndentation(xmlWriter);
+    }
+
+    // Case 2: sub tour: activity from preceding tour occurs in between arrival from inbound trip and
+    //                   start of this tour. Arrival at this location is based on
+    //                   parent tour (this is interspersed), the location resides at the parent tour's
+    //                   destination so use that purpose
+    if((currentElement instanceof Tour) && (precedingElement instanceof Trip) &&
+        ((Trip)precedingElement).getDirection() == DirectionBound.OUTBOUND){
+      var currTour = ((Tour)currentElement);
+      // purpose from parent, if no parent, we have to assume this is the op level tour, so locale is person's initial
+      // purpose instead
+      var thePurpose = currTour.hasParentTour() ? currTour.getParentTour().getPurpose() : person.getInitialPurpose();
+      writeActivityElement(xmlWriter, person, thePurpose, currentElement.getStartTime());
+      writeIndentation(xmlWriter);
+    }
+
+    // Case 3: returning back to origin from destination location AFTER just coming back to destination location from
+    //         subtour --> purpose is inbound trip's tour purpose, and end time of activity at tour's destination is
+    //         the trip's start time
+    if((currentElement instanceof Trip) && ((Trip)currentElement).getDirection() == DirectionBound.INBOUND
+        && (precedingElement instanceof Tour)){
+      var inboundTripItsTour = ((Trip) currentElement).getTour();
+      // purpose from inbound trip its tour
+      writeActivityElement(xmlWriter, person, inboundTripItsTour.getPurpose(), currentElement.getStartTime());
+      writeIndentation(xmlWriter);
+    }
+
+    // Case 4: starting a new tour after a preceding tour has finished fully and we have spent time waiting
+    //         in between. In that case, the purpose is that of the parent, and the end time of the activity is the
+    //         start time of the outbound trip
+    if((currentElement instanceof Tour) && (precedingElement instanceof Tour)){
+      var currTour = ((Tour)currentElement);
+      var thePurpose = currTour.hasParentTour() ?
+          currTour.getParentTour().getPurpose() : person.getInitialPurpose();
+      writeActivityElement(xmlWriter, person, thePurpose, currTour.getStartTime());
+      writeIndentation(xmlWriter);
+    }
+
+  }
+
+  /**
    * Process a schedule element
    *
    * @param xmlWriter              to use
    * @param scheduleElement        to process
    * @param person                 for this element
+   * @param modeMapping            to use
    * @param periodStartTimeSeconds period start time
    * @param periodEndTimeSeconds   period end time
    */
@@ -85,6 +161,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       XMLStreamWriter xmlWriter,
       ScheduleElement scheduleElement,
       Person person,
+      Map<Mode, String> modeMapping,
       long periodStartTimeSeconds,
       long periodEndTimeSeconds) {
     var startTimeSeconds = scheduleElement.getStartTime().toSecondOfDay();
@@ -96,20 +173,57 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     try{
 
       if(scheduleElement instanceof Trip){
-        // leaf
-        var tripElement = (Trip) scheduleElement;
         // trips are always a travel leg, the activities come from the tours
+        writeLegElement(xmlWriter, (Trip) scheduleElement, modeMapping);
+        writeIndentation(xmlWriter);
 
       }else if(scheduleElement instanceof Tour){
         // nest
-        var tourElement = (Tour) scheduleElement;
+        var currTour = (Tour) scheduleElement;
 
-        if(tourElement.hasSchedule()){
-          processScheduleElement(xmlWriter, tourElement, person, periodStartTimeSeconds, periodEndTimeSeconds);
+        if(!currTour.hasSchedule()){
+          LOGGER.warning(String.format("Found tour (%s) without a schedule (trips, or sub-tours), should not happen",
+              currTour.getIdsAsString()));
+          return;
+        }else{
+
+          ScheduleElement prevTourScheduleElement = null;
+          for(var tourScheduleElement : currTour.getSchedule()){
+
+            checkForActivityElementBetweenScheduleElements(xmlWriter, tourScheduleElement, prevTourScheduleElement, person);
+
+            // delegate one level deeper
+            processScheduleElement(
+                xmlWriter, tourScheduleElement, person, modeMapping, periodStartTimeSeconds, periodEndTimeSeconds);
+
+            prevTourScheduleElement = tourScheduleElement;
+
+          }
+
+//          // purpose from parent, if no parent, we have to assume this is the op level tour,
+//          // so locale is person's initial purpose instead
+//          boolean isTopLevel = !currTour.hasParentTour();
+//          var thePurpose = isTopLevel? person.getInitialPurpose(): currTour.getParentTour().getPurpose();
+//          // end time is (i) period end time when top level and this is last tour of person, (ii) tour end time
+//          // otherwise
+//          var theEndTime = currTour.getEndTime();
+//          if(isTopLevel){
+//            if(person.getSchedule().getLast(false).equals(currTour)) {
+//              theEndTime = LocalTime.ofSecondOfDay(periodEndTimeSeconds - 1);
+//            }else{
+//
+//            }
+//          }
+//          writeActivityElement(
+//              xmlWriter,
+//              person,
+//              thePurpose,
+//              theEndTime);
+//          if(!isTopLevel){
+//            writeIndentation(xmlWriter);
+//          }
+
         }
-
-        writeActivityElement(xmlWriter, person, tourElement.getPurpose(), tourElement.getEndTime());
-
 
       }else{
         LOGGER.severe(String.format("Unsupported person schedule element type, skip, " +
@@ -122,6 +236,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
           person.getIdsAsString());
     }
   }
+
 
   /**
    * Write an activity element
@@ -145,21 +260,53 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     // end time of activity
     xmlWriter.writeAttribute(
         MatsimPlansAttributes.END_TIME, endTime.format(MatsimWriter.HHmmssFormat));
+
+    writeNewLine(xmlWriter);
+
+    writerStats.incrementActivitiesWritten();
+  }
+
+  /**
+   * Write a leg element which corresponds one to one with a PLANit trip
+   *
+   * @param xmlWriter   to use
+   * @param trip        trip containing leg info
+   * @param modeMapping to use
+   */
+  private void writeLegElement(
+      XMLStreamWriter xmlWriter, Trip trip, Map<Mode, String> modeMapping) throws XMLStreamException {
+
+    // leg
+    xmlWriter.writeEmptyElement(MatsimPlansElements.LEG);
+
+    String matsimMode = modeMapping.get(trip.getMode());
+    if(StringUtils.isNullOrBlank(matsimMode)){
+      throw new PlanItRunTimeException(
+          "PLANit trip (%s) with PLANit mode (%s) has no mapped MATSim mode available, update mode mapping!",
+          trip.getIdsAsString(), trip.getMode());
+    }
+    // mode=
+    xmlWriter.writeAttribute(MatsimPlansAttributes.MODE, matsimMode);
+
+    writeNewLine(xmlWriter);
+
+    writerStats.incrementLegsWritten();
   }
 
   /**
    * Write the plan element (selected=yes) and content for a given person. We currently only write out a single
    * assumed selected plan per person
    *
-   * @param xmlWriter to use
-   * @param person to write the selected plan for
+   * @param xmlWriter       to use
+   * @param person          to write the selected plan for
+   * @param modeMapping     to use
    * @param discreteDemands to use
    */
-  private void writePersonPlan(XMLStreamWriter xmlWriter, Person person, DiscreteDemands discreteDemands) {
+  private void writePersonPlan(
+      XMLStreamWriter xmlWriter, Person person, Map<Mode, String> modeMapping, DiscreteDemands discreteDemands) {
     var timePeriod = discreteDemands.getTimePeriods().getFirst();
     long periodStartTimeSeconds = timePeriod.getStartTimeSeconds();
     long periodEndTimeSeconds = periodStartTimeSeconds + timePeriod.getDurationSeconds();
-    var homeZone = person.getHousehold().getZone();
 
     try{
       // plan
@@ -167,29 +314,32 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       // selected=yes
       xmlWriter.writeAttribute(MatsimPlansAttributes.SELECTED, "yes");
       writeNewLine(xmlWriter);
+      writeIndentation(xmlWriter);
 
-      // track the schedule of the person to extract acitivities and travel leg information in MATSim format
-      ScheduleElement previousScheduleElement = null;
-      Long previousScheduleElementEndTimeSeconds = null;
-      for(var scheduleElement : person.getSchedule()){
+      var initialActivity = person.getSchedule().getFirst();
+      writeActivityElement(
+          xmlWriter,
+          person,
+          person.getInitialPurpose(),
+          initialActivity.getStartTime() /* end time of idle activity */);
+      writeIndentation(xmlWriter);
 
-        // bootstrap initial activity, this should start with a tour
-        if(scheduleElement instanceof Trip){
-          LOGGER.severe(String.format("Each initial schedule element of a person (%s) should be a tour " +
-              "found trip, skip, should not happen", person.getIdsAsString()));
-          return;
-        }
-        // MATSim initial activity end time is start time of the tour (runs from start of simulation to start of tour
-        // the purpose of this cannot be obtained from this initial tour's purpose, instead we use the inbound
-        // trip purpose
-        var initialTour = (Tour)scheduleElement;
-        Trip finalInboundTrip = (Trip) initialTour.getSchedule().getLast(true /*flattened*/);
-        continue here, make sure trips also have a purpose, e.g. the activity following arrival
-        writeActivityElement(xmlWriter, person, finalInboundTrip.getPurpose(), initialTour.getStartTime());
+      // track the schedule of the person to extract activities and travel leg information in MATSim format
+      ScheduleElement prevElement = null;
+      for(int index=0;index< person.getSchedule().size(); index++){
+        var scheduleElement = person.getSchedule().get(index);
 
-        processScheduleElement(xmlWriter, scheduleElement, person, periodStartTimeSeconds, periodEndTimeSeconds);
+        checkForActivityElementBetweenScheduleElements(xmlWriter, scheduleElement, prevElement, person);
 
+        /* now we proceed with each travel involved activity */
+        processScheduleElement(
+            xmlWriter, scheduleElement, person, modeMapping, periodStartTimeSeconds, periodEndTimeSeconds);
+
+        prevElement = scheduleElement;
       }
+
+      writeActivityElement(
+            xmlWriter, person, person.getInitialPurpose(), LocalTime.ofSecondOfDay(periodEndTimeSeconds - 1));
 
       writeEndElementNewLine(xmlWriter, true /*decrease indent */);
     } catch (XMLStreamException e) {
@@ -206,13 +356,23 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    * @param discreteDemands to use
    */
   protected void writeMatsimPersons(XMLStreamWriter xmlWriter, DiscreteDemands discreteDemands) {
+    var modeMapping = getSettings().collectActivatedPlanitModeToMatsimModeMapping(
+        getReferenceNetwork().getTransportLayers().getFirst());
+
     try{
 
       for(var person : discreteDemands.getPersons()){
+        writerStats.incrementPersonsProcessed();
+
         if(person.getHousehold() == null){
           LOGGER.warning(String.format(
               "Currently MATSim plan writer requires person (%s) to have a household, missing, skip",
               person.getIdsAsString()));
+        }
+        var initialActivity = person.getSchedule().getFirst();
+        if(initialActivity == null){
+          writerStats.incrementPersonsSkippedNoTours();
+          continue;
         }
 
         // person
@@ -229,9 +389,11 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
         }
 
         // plan
-        writePersonPlan(xmlWriter, person, discreteDemands);
+        writePersonPlan(xmlWriter, person, modeMapping, discreteDemands);
 
         writeEndElementNewLine(xmlWriter, true /* undo indentation */ );
+
+        writerStats.incrementPersonsWritten();
       }
     } catch (XMLStreamException e) {
       LOGGER.severe(e.getMessage());
@@ -297,6 +459,11 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   private boolean validateDemands(DiscreteDemands demands) {
     if(getReferenceNetwork() == null){
       LOGGER.severe("Matsim plans require a reference PLANit network, not available,  unable to persist demands");
+      return false;
+    }
+    if(getReferenceNetwork().getTransportLayers().size() != 1){
+      LOGGER.severe(String.format("Matsim plans require a PLANit network with a single layer, but found (%d), " +
+          "unable to persist demands", getReferenceNetwork().getTransportLayers().size()));
       return false;
     }
 

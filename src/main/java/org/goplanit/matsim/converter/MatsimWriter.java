@@ -221,7 +221,7 @@ public abstract class MatsimWriter<T> extends CrsWriterImpl<T> {
 
   /** the doc type of MATSim population/plans. */
   public static final String PLANS_DOCTYPE =
-      "<!DOCTYPE population SYSTEM \"https://www.matsim.org/files/dtd/plans_v5.dtd\">";
+      "<!DOCTYPE population SYSTEM \"https://www.matsim.org/files/dtd/population_v5.dtd\">";
 
   /**
    * default extension for xml files generated
