@@ -503,6 +503,8 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    * Constructor
    *
    * @param settings to use
+   * @param network network
+   * @param zoning zoning
    */
   protected MatsimDiscreteDemandsWriter(
       MatsimDiscreteDemandsWriterSettings settings, final MacroscopicNetwork network, final Zoning zoning) {

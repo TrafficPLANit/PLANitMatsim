@@ -20,8 +20,8 @@ import org.locationtech.jts.geom.Point;
 /**
  * Base class from which all MATSIM writers derive
  * 
+ * @param <T> type of converter
  * @author markr
- *
  */
 public abstract class MatsimWriter<T> extends CrsWriterImpl<T> {
 

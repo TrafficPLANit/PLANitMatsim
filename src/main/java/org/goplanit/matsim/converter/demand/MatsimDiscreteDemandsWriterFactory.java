@@ -19,6 +19,11 @@ import org.goplanit.zoning.Zoning;
  */
 public class MatsimDiscreteDemandsWriterFactory {
 
+  /**
+   * Constructor
+   */
+  public MatsimDiscreteDemandsWriterFactory(){}
+
   /** Create a MatsimDiscreteDemandsWriter which persists PLANit discrete demands in MATSim plans format
    *
    * @param network to extract references from (if any)
@@ -46,6 +51,8 @@ public class MatsimDiscreteDemandsWriterFactory {
   /** create  a MatsimDiscreteDemandsWriter  which persists PLANit discrete demands in MATSim plans format
    *
    * @param settings to use
+   * @param network network
+   * @param zoning zoning
    * @return created MATSim writer
    */
   public static MatsimDiscreteDemandsWriter create(
