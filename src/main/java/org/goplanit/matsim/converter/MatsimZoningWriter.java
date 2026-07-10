@@ -87,9 +87,16 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter{
     getSettings().logSettings();    
     
     /* CRS */
+    if(zoning.getCoordinateReferenceSystem() == null){
+      LOGGER.warning(String.format(
+          "Zoning has no coordinate reference system set, assuming source is same as Network CRS (%s)",
+          getSettings().getReferenceNetwork().getCoordinateReferenceSystem().getName()));
+      zoning.setCoordinateReferenceSystem(getSettings().getReferenceNetwork().getCoordinateReferenceSystem());
+    }
     prepareCoordinateReferenceSystem(
-        getSettings().getReferenceNetwork().getCoordinateReferenceSystem(),
-        getSettings().getDestinationCoordinateReferenceSystem(), getSettings().getCountry());
+        zoning.getCoordinateReferenceSystem(),
+        getSettings().getDestinationCoordinateReferenceSystem(),
+        getSettings().getCountry());
 
     // builds a mapping from PLANit to MATSim stop facility ids to use
     var stopFacilityIdMapper = new MatsimStopFacilityIdHelper(zoning.getTransferConnectoids());

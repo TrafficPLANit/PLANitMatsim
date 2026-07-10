@@ -13,12 +13,6 @@ public class MatsimNetworkAttributes {
   
   /* node specific */
 
-  /** x */
-  public static final String X = "x";
-
-  /** y */
-  public static final String Y = "y";
-
   /** z */
   public static final String Z = "z";
     

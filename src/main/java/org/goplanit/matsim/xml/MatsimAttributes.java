@@ -17,4 +17,10 @@ public class MatsimAttributes {
   /** type */
   public static final String TYPE = "type";
 
+  /** x */
+  public static final String X = "x";
+  /** y */
+  public static final String Y = "y";
+  /** link */
+  public static final String LINK = "link";
 }

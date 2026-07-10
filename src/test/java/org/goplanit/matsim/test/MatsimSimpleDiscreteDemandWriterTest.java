@@ -6,6 +6,9 @@ import org.goplanit.logging.Logging;
 import org.goplanit.matsim.converter.demand.MatsimDiscreteDemandsWriterFactory;
 import org.goplanit.matsim.util.MatsimAssertionUtils;
 import org.goplanit.network.MacroscopicNetwork;
+import org.goplanit.utils.geo.PlanitCrsUtils;
+import org.goplanit.utils.geo.PlanitJtsCrsUtils;
+import org.goplanit.utils.geo.PlanitJtsUtils;
 import org.goplanit.utils.id.IdGenerator;
 import org.goplanit.utils.id.IdGroupingToken;
 import org.goplanit.utils.mode.PredefinedModeType;
@@ -14,11 +17,14 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Point;
 
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -83,6 +89,8 @@ public class MatsimSimpleDiscreteDemandWriterTest {
     try {
 
       var network = new MacroscopicNetwork(IdGroupingToken.collectGlobalToken());
+      network.setCoordinateReferenceSystem(PlanitJtsCrsUtils.CARTESIANCRS);
+
       var carMode = network.getModes().getFactory().registerNew(PredefinedModeType.CAR);
       var busMode = network.getModes().getFactory().registerNew(PredefinedModeType.BUS);
       var trainMode = network.getModes().getFactory().registerNew(PredefinedModeType.TRAIN);
@@ -95,6 +103,12 @@ public class MatsimSimpleDiscreteDemandWriterTest {
       var zone2 = zoning.getOdZones().getFactory().registerNew();
       var zone3 = zoning.getOdZones().getFactory().registerNew();
       var zone4 = zoning.getOdZones().getFactory().registerNew();
+      LongAdder counter = new LongAdder();
+      zoning.getOdZones().forEach(z -> {
+            z.getCentroid().setPosition(PlanitJtsUtils.createPoint(counter.doubleValue(),counter.doubleValue()));
+            counter.increment();
+          });
+
 
       var discreteDemands = new DiscreteDemands(network.getIdGroupingToken());
 
@@ -126,7 +140,7 @@ public class MatsimSimpleDiscreteDemandWriterTest {
       //          +-- Trip OUTBOUND [walk] 18:00
       //          |
       //          +-- TOUR: SHOPPING
-      //          |    zone1 -> zone3
+      //          |    zone0 -> zone3
       //          |    18:00 - 20:30
       //          |
       //          +-- Trip INBOUND [walk] 20:20
@@ -139,7 +153,9 @@ public class MatsimSimpleDiscreteDemandWriterTest {
 
       // 2 households
       var household0 = discreteDemands.getHouseholds().getFactory().registerNew();
+      household0.setZone(zone0);
       var household1 = discreteDemands.getHouseholds().getFactory().registerNew();
+      household1.setZone(zone2);
 
       // 4 people, 2:2 split across households
       var person0 = discreteDemands.getPersons().getFactory().registerNew(household0);
@@ -155,13 +171,13 @@ public class MatsimSimpleDiscreteDemandWriterTest {
           person0, zone0, zone1, LocalTime.of(8, 0), LocalTime.of(17, 30), addToSchedule);
       tour0_p0.setPurpose(PURPOSE_WORK);
       var tour1_p1 = discreteDemands.getTours().getFactory().registerNew(
-          person1, zone1, zone2, LocalTime.of(8, 0), LocalTime.of(17, 30), addToSchedule);
+          person1, zone0, zone2, LocalTime.of(8, 0), LocalTime.of(17, 30), addToSchedule);
       tour1_p1.setPurpose(PURPOSE_WORK);
       var tour2_p2 = discreteDemands.getTours().getFactory().registerNew(
           person2, zone2, zone3, LocalTime.of(10, 0), LocalTime.of(13, 0), addToSchedule);
       tour2_p2.setPurpose(PURPOSE_SHOPPING);
       var tour3_p3 = discreteDemands.getTours().getFactory().registerNew(
-          person3, zone3, zone4, LocalTime.of(15, 0), LocalTime.of(16, 0), addToSchedule);
+          person3, zone2, zone4, LocalTime.of(15, 0), LocalTime.of(16, 0), addToSchedule);
       tour3_p3.setPurpose(PURPOSE_GYM);
 
       // outbound trips of main tour - always starting point
@@ -219,7 +235,7 @@ public class MatsimSimpleDiscreteDemandWriterTest {
 
       // for tour0: add another sequential tour (so placed AFTER returning at origin from original tour)
       var tour_after_tour0_p0 = discreteDemands.getTours().getFactory().registerNew(
-          person0, tour0_p0.getDestination(), zone3,
+          person0, tour0_p0.getOrigin(), zone3,
           LocalTime.of(18, 0), LocalTime.of(20, 30), addToSchedule);
       tour_after_tour0_p0.setPurpose(PURPOSE_SHOPPING);
       //  with inbound + outbound trip for this next tour
@@ -237,6 +253,7 @@ public class MatsimSimpleDiscreteDemandWriterTest {
       var matsimPlansWriter =
           MatsimDiscreteDemandsWriterFactory.create(MATSIM_OUTPUT_DIR.toAbsolutePath().toString(), network, zoning);
       // settings/config
+      matsimPlansWriter.getSettings().setDestinationCoordinateReferenceSystem(network.getCoordinateReferenceSystem());
       matsimPlansWriter.getSettings().setWriteAsGZip(false);
       // explicitly activate mode mapping
       matsimPlansWriter.getSettings().activatePredefinedMode(PredefinedModeType.CAR);

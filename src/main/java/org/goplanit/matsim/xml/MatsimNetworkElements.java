@@ -11,9 +11,6 @@ public class MatsimNetworkElements {
   /** links */
   public static final String LINKS = "links";
 
-  /** link */
-  public static final String LINK = "link";  
-
   /** network */
   public static final String NETWORK = "network";
 

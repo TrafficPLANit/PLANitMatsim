@@ -23,6 +23,14 @@ public class MatsimDiscreteDemandsWriterSettings extends PlanitMatsimWriterModeM
 
   private static final Logger LOGGER = Logger.getLogger(MatsimDiscreteDemandsWriterSettings.class.getCanonicalName());
 
+  /** The chosen activity location generation strategy */
+  private LocationGeneratorType locationGeneratorType = DEFAULT_LOCATION_GENERATOR_TYPE;
+
+
+  /** default we use */
+  public static LocationGeneratorType DEFAULT_LOCATION_GENERATOR_TYPE =
+      LocationGeneratorType.ZONE_LINKS_DISTANCE_WEIGHTED;
+
   /**
    * Convenience method to log all the current settings
    *
@@ -33,10 +41,12 @@ public class MatsimDiscreteDemandsWriterSettings extends PlanitMatsimWriterModeM
 
     Path matsimPath =  Paths.get(getOutputDirectory(),
         getFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
-    LOGGER.info(String.format("Persisting MATSim plans to: %s", matsimPath));
+    LOGGER.info(String.format("---------- MATSim Discrete Demands Writer Settings ----------------"));
+    LOGGER.info(String.format("Persisting MATSim plans to                       : %s", matsimPath));
 
-    LOGGER.info(String.format("Decimal fidelity set to %s", decimalFormat.getMaximumFractionDigits()));
-    LOGGER.info(String.format("Persisting XML as GZip: %s", this.writeAsGZip));
+    LOGGER.info(String.format("Decimal fidelity set to                          : %s", decimalFormat.getMaximumFractionDigits()));
+    LOGGER.info(String.format("Persisting XML as GZip                           : %s", this.writeAsGZip));
+    LOGGER.info(String.format("Activity location generator strategy             : %s", this.locationGeneratorType));
 
     super.logSettings(referenceNetwork);
   }
@@ -67,11 +77,31 @@ public class MatsimDiscreteDemandsWriterSettings extends PlanitMatsimWriterModeM
   // getters-setters
 
   /**
+   * Get the active strategy used to generate MATSim activity spatial references
+   * @return active location generator type
+   */
+  public LocationGeneratorType getLocationGeneratorType() {
+    return locationGeneratorType;
+  }
+
+  /**
+   * Set the strategy used to generate MATSim activity spatial references
+   * @param locationGeneratorType to apply
+   */
+  public void setLocationGeneratorType(LocationGeneratorType locationGeneratorType) {
+    if (locationGeneratorType == null) {
+      throw new IllegalArgumentException("Location generator type cannot be null");
+    }
+    this.locationGeneratorType = locationGeneratorType;
+  }
+
+  /**
    * {@inheritDoc}
    */
   @Override
   public void reset() {
     super.reset();
+    this.locationGeneratorType = DEFAULT_LOCATION_GENERATOR_TYPE;
   }  
-  
+
 }

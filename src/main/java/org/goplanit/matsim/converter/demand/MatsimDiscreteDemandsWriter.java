@@ -14,12 +14,15 @@ import org.goplanit.matsim.xml.MatsimPlansAttributes;
 import org.goplanit.matsim.xml.MatsimPlansElements;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.utils.exceptions.PlanItRunTimeException;
+import org.goplanit.utils.geo.PlanitJtsCrsUtils;
 import org.goplanit.utils.id.IdMapperType;
 import org.goplanit.utils.misc.Pair;
 import org.goplanit.utils.misc.StringUtils;
 import org.goplanit.utils.mode.Mode;
 import org.goplanit.utils.xml.PlanitXmlWriterUtils;
+import org.goplanit.utils.zoning.OdZone;
 import org.goplanit.zoning.Zoning;
+import org.locationtech.jts.geom.Coordinate;
 
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
@@ -28,6 +31,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalTime;
 import java.util.Map;
+import java.util.SplittableRandom;
 import java.util.logging.Logger;
 
 /**
@@ -41,13 +45,24 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   private static final Logger LOGGER = Logger.getLogger(MatsimDiscreteDemandsWriter.class.getCanonicalName());
 
   /** ref network */
-  private final MacroscopicNetwork referenceNetwork;
+  private MacroscopicNetwork referenceNetwork;
 
   /** ref zoning */
-  private final Zoning referenceZoning;
+  private Zoning referenceZoning;
 
   /** track stats */
   private MatsimPlansWriterStats writerStats = new MatsimPlansWriterStats();
+
+  /** Default simulation seed for reproducible allocations */
+  private static final long DEFAULT_SIMULATION_SEED = 42L;
+
+  /** LocationGenerator:ZONE_LINKS_DISTANCE_WEIGHTED requires
+   * Pre-indexed mapping of zone weights for sampling (if we use lik weighted sampling within zone) */
+  private Map<Long, LocationGeneratorUtils.ZoneLinkWeights> zoneLinkWeightsIndex;
+
+  /** LocationGenerator:ZONE_LINKS_DISTANCE_WEIGHTED requires
+   * Reproducible random generation stream */
+  private SplittableRandom randomEngine;
 
   /**
    * validate the settings making sure minimal output information is available
@@ -98,6 +113,8 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       Person person)
       throws XMLStreamException {
 
+    OdZone homeZone = person.getHousehold().getZone();
+
     // Case 1: outbound trip followed by inbound trip --> activity occurs in between the two trips now
     //         NOTE: we check this in this way to allow for chained outbound trips
     //         this exhausts the use of the trip's tour purpose in one go - no further nesting
@@ -105,7 +122,10 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
         ((Trip)precedingElement).getDirection() == DirectionBound.OUTBOUND &&
         ((Trip)currentElement).getDirection() == DirectionBound.INBOUND){
       var upcomingTrip = ((Trip)currentElement);
-      writeActivityElement(xmlWriter, person, upcomingTrip.getTour().getPurpose(), upcomingTrip.getStartTime());
+      var thePurpose = upcomingTrip.getTour().getPurpose();
+      writeActivityElement(
+          xmlWriter, person, thePurpose, upcomingTrip.getStartTime(),
+          ((Trip) precedingElement).getTour().getDestination()); // activity @ tour destination
       writeIndentation(xmlWriter);
     }
 
@@ -118,19 +138,24 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       var currTour = ((Tour)currentElement);
       // purpose from parent, if no parent, we have to assume this is the op level tour, so locale is person's initial
       // purpose instead
-      var thePurpose = currTour.hasParentTour() ? currTour.getParentTour().getPurpose() : person.getInitialPurpose();
-      writeActivityElement(xmlWriter, person, thePurpose, currentElement.getStartTime());
+      boolean hasParent = currTour.hasParentTour();
+      var thePurpose = hasParent ? currTour.getParentTour().getPurpose() : person.getInitialPurpose();
+      writeActivityElement(xmlWriter, person, thePurpose, currentElement.getStartTime(),
+          hasParent ? currTour.getParentTour().getDestination() : homeZone);
       writeIndentation(xmlWriter);
     }
 
     // Case 3: returning back to origin from destination location AFTER just coming back to destination location from
     //         subtour --> purpose is inbound trip's tour purpose, and end time of activity at tour's destination is
-    //         the trip's start time
+    //         the trip's start time, location is the destination location of the trip it's tour (or its preceding
+    //         tour's origin)
     if((currentElement instanceof Trip) && ((Trip)currentElement).getDirection() == DirectionBound.INBOUND
         && (precedingElement instanceof Tour)){
       var inboundTripItsTour = ((Trip) currentElement).getTour();
+      var thePurpose = inboundTripItsTour.getPurpose();
       // purpose from inbound trip its tour
-      writeActivityElement(xmlWriter, person, inboundTripItsTour.getPurpose(), currentElement.getStartTime());
+      writeActivityElement(xmlWriter, person, thePurpose, currentElement.getStartTime(),
+          inboundTripItsTour.getDestination()); // zone @ trip tour's origin
       writeIndentation(xmlWriter);
     }
 
@@ -141,7 +166,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       var currTour = ((Tour)currentElement);
       var thePurpose = currTour.hasParentTour() ?
           currTour.getParentTour().getPurpose() : person.getInitialPurpose();
-      writeActivityElement(xmlWriter, person, thePurpose, currTour.getStartTime());
+      writeActivityElement(xmlWriter, person, thePurpose, currTour.getStartTime(), currTour.getOrigin());
       writeIndentation(xmlWriter);
     }
 
@@ -200,29 +225,6 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
 
           }
 
-//          // purpose from parent, if no parent, we have to assume this is the op level tour,
-//          // so locale is person's initial purpose instead
-//          boolean isTopLevel = !currTour.hasParentTour();
-//          var thePurpose = isTopLevel? person.getInitialPurpose(): currTour.getParentTour().getPurpose();
-//          // end time is (i) period end time when top level and this is last tour of person, (ii) tour end time
-//          // otherwise
-//          var theEndTime = currTour.getEndTime();
-//          if(isTopLevel){
-//            if(person.getSchedule().getLast(false).equals(currTour)) {
-//              theEndTime = LocalTime.ofSecondOfDay(periodEndTimeSeconds - 1);
-//            }else{
-//
-//            }
-//          }
-//          writeActivityElement(
-//              xmlWriter,
-//              person,
-//              thePurpose,
-//              theEndTime);
-//          if(!isTopLevel){
-//            writeIndentation(xmlWriter);
-//          }
-
         }
 
       }else{
@@ -244,19 +246,65 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    * @param person the person doing the activity
    * @param activityDescription description of activity
    * @param endTime end time of activity
+   * @param activeZone the zone the activity relates to
    * @throws XMLStreamException if error
    */
   private void writeActivityElement(
-      XMLStreamWriter xmlWriter, Person person, String activityDescription, LocalTime endTime)
+      XMLStreamWriter xmlWriter, Person person, String activityDescription, LocalTime endTime, OdZone activeZone)
       throws XMLStreamException {
     if(activityDescription == null || activityDescription.isBlank()){
       LOGGER.warning(String.format("Description for activity has no content (for person (%s))",
           person.getIdsAsString()));
     }
+
+    // Default coordinates sourced directly from centroid definitions
+    boolean zoneHasPos = activeZone.hasCentroid() && activeZone.getCentroid().hasPosition();
+    double finalX = zoneHasPos ? activeZone.getCentroid().getPosition().getX() : Double.NaN;
+    double finalY = zoneHasPos ? activeZone.getCentroid().getPosition().getY() : Double.NaN;
+    String matchedLinkSegmentId = null;
+
+    // Apply distance-weighted link sampling strategy if active
+    if (getSettings().getLocationGeneratorType() == LocationGeneratorType.ZONE_LINKS_DISTANCE_WEIGHTED
+        && this.zoneLinkWeightsIndex != null) {
+
+      LocationGeneratorUtils.ZoneLinkWeights weights = this.zoneLinkWeightsIndex.get(activeZone.getId());
+      if (weights != null) {
+        var selectedSegment = weights.drawRandomSegment(this.randomEngine);
+        if (selectedSegment== null || selectedSegment.getUpstreamVertex() == null ||
+            selectedSegment.getUpstreamVertex().getPosition() == null) {
+          LOGGER.severe(String.format("Drawn link segment (%s) has no upstream vertex, ignore",
+              selectedSegment.getIdsAsString()));
+        }else {
+          matchedLinkSegmentId =
+              getComponentIdMappers().getNetworkIdMappers().getMacroscopicLinkSegmentIdMapper().apply(selectedSegment);
+          Coordinate startPoint = selectedSegment.getUpstreamVertex().getPosition().getCoordinate();
+          finalX = startPoint.x;
+          finalY = startPoint.y;
+        }
+      } else {
+        LOGGER.fine(String.format("No physical links intersected Zone (%s) boundary context. " +
+            "Zone centroid coordinates applied instead.", activeZone.getIdsAsString()));
+      }
+    }
+
+    if(Double.isNaN(finalX) || Double.isNaN(finalY)){
+      LOGGER.severe(String.format(
+          "Zone has no location to fall back on, unable to provide spatial reference for activity %s of person (%s)",
+          activityDescription, person.getIdsAsString()));
+    }
+
     // activity end point
     xmlWriter.writeEmptyElement(MatsimPlansElements.ACTIVITY);
     // purpose -> activity type
     xmlWriter.writeAttribute(MatsimAttributes.TYPE, activityDescription);
+    // location
+    xmlWriter.writeAttribute(MatsimAttributes.X, String.valueOf(finalX));
+    xmlWriter.writeAttribute(MatsimAttributes.Y, String.valueOf(finalY));
+
+    if (matchedLinkSegmentId != null) {
+      xmlWriter.writeAttribute(MatsimAttributes.LINK, matchedLinkSegmentId);
+    }
+
     // end time of activity
     xmlWriter.writeAttribute(
         MatsimPlansAttributes.END_TIME, endTime.format(MatsimWriter.HHmmssFormat));
@@ -308,6 +356,19 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     long periodStartTimeSeconds = timePeriod.getStartTimeSeconds();
     long periodEndTimeSeconds = periodStartTimeSeconds + timePeriod.getDurationSeconds();
 
+    if(person.getHousehold() == null){
+      LOGGER.severe(String.format("Expecting each person to have a household, skipping person (%s)",
+          person.getHousehold()));
+      return;
+    }
+    OdZone homeZone = person.getHousehold().getZone();
+    if(homeZone == null){
+      LOGGER.severe(String.format("Expecting household (%s) to have a home zone, " +
+              "unable to complete person (%s) schedule, skip",
+          person.getHousehold().getIdsAsString(), person.getIdsAsString()));
+      return;
+    }
+
     try{
       // plan
       writeStartElement(xmlWriter, MatsimPlansElements.PLAN, true /* add indentation*/);
@@ -321,7 +382,8 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
           xmlWriter,
           person,
           person.getInitialPurpose(),
-          initialActivity.getStartTime() /* end time of idle activity */);
+          initialActivity.getStartTime() /* end time of idle activity */,
+          homeZone);
       writeIndentation(xmlWriter);
 
       // track the schedule of the person to extract activities and travel leg information in MATSim format
@@ -338,8 +400,9 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
         prevElement = scheduleElement;
       }
 
+      var thePurpose = person.getInitialPurpose();
       writeActivityElement(
-            xmlWriter, person, person.getInitialPurpose(), LocalTime.ofSecondOfDay(periodEndTimeSeconds - 1));
+            xmlWriter, person, thePurpose, LocalTime.ofSecondOfDay(periodEndTimeSeconds - 1), homeZone);
 
       writeEndElementNewLine(xmlWriter, true /*decrease indent */);
     } catch (XMLStreamException e) {
@@ -381,7 +444,9 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
         // id
         xmlWriter.writeAttribute(MatsimAttributes.ID, getPrimaryIdMapper().getPersonClassIdMapper().apply(person));
         writeNewLine(xmlWriter);
-        {
+
+        boolean supportAttributes = false; // todo
+        if(supportAttributes){
           // attributes
           writeStartElementNewLine(xmlWriter, MatsimPlansElements.ATTRIBUTES, true /* add indentation*/);
           //todo: support custom attributes that we can pass through but have no functional meaning in PLANit
@@ -456,7 +521,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    * @param demands to validate
    * @return true when ok, false otherwise
    */
-  private boolean validateDemands(DiscreteDemands demands) {
+  private boolean validate(DiscreteDemands demands) {
     if(getReferenceNetwork() == null){
       LOGGER.severe("Matsim plans require a reference PLANit network, not available,  unable to persist demands");
       return false;
@@ -500,6 +565,36 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   }
 
   /**
+   * Initialise before writing, prep the CRS and prep the strategy on how to map activities spatially and temporally
+   */
+  private void initialise() {
+
+    /* CRS - we allow for conversion but this requires source crs of both zoning and network to be known and set*/
+    LOGGER.info(String.format("Network CRS set to     : %s",referenceNetwork.getCoordinateReferenceSystem().getName()));
+    if(referenceZoning.getCoordinateReferenceSystem() == null){
+      LOGGER.warning(String.format(
+          "Zoning has no coordinate reference system set, assuming source is same as Network CRS (%s)",
+          referenceNetwork.getCoordinateReferenceSystem().getName()));
+      referenceZoning.setCoordinateReferenceSystem(referenceNetwork.getCoordinateReferenceSystem());
+    }
+    LOGGER.info(String.format("Zoning CRS set to     : %s", referenceZoning.getCoordinateReferenceSystem().getName()));
+    prepareCoordinateReferenceSystem(
+        referenceZoning.getCoordinateReferenceSystem(),
+        getSettings().getDestinationCoordinateReferenceSystem(),
+        getSettings().getCountry());
+
+    // Pre-populate length weights tracking if distance weighting is chosen
+    if (getSettings().getLocationGeneratorType() == LocationGeneratorType.ZONE_LINKS_DISTANCE_WEIGHTED) {
+      LOGGER.info("Pre-indexing structural metric zone-to-link length arrays for random allocations...");
+      this.randomEngine = new SplittableRandom(DEFAULT_SIMULATION_SEED);
+      this.zoneLinkWeightsIndex = LocationGeneratorUtils.populateZoneLinkWeightsIndex(
+          referenceNetwork, referenceZoning.getOdZones(), getGeoUtils()
+      );
+    }
+
+  }
+
+  /**
    * Constructor
    *
    * @param settings to use
@@ -522,7 +617,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    */
   @Override
   public void write(DiscreteDemands demands) {
-    boolean valid = validateDemands(demands);
+    boolean valid = validate(demands);
     if(!valid) {
       return;
     }
@@ -534,9 +629,12 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     /* id mapping */
     getComponentIdMappers().populateMissingIdMappers(getIdMapperType());
 
-    /* log settings */
+    /* log configuration */
     settings.logSettings(getReferenceNetwork());
-    
+
+    /* prep */
+    initialise();
+
     /* write */
     writeXmlPlansFile(demands, getSettings().isWriteAsGZip());
 
@@ -582,7 +680,23 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    * {@inheritDoc}
    */
   @Override
+  public void setReferenceNetwork(MacroscopicNetwork referenceNetwork) {
+    this.referenceNetwork = referenceNetwork;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
   public MacroscopicNetwork getReferenceNetwork() {
     return referenceNetwork;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void setReferenceZoning(Zoning referenceZoning) {
+    this.referenceZoning = referenceZoning;
   }
 }

@@ -148,9 +148,9 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
     
     try {
       if(hasInteralAttributeElements){
-        writeStartElement(xmlWriter, MatsimNetworkElements.LINK, true /* ++index */);
+        writeStartElement(xmlWriter, MatsimAttributes.LINK, true /* ++index */);
       }else {
-        PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimNetworkElements.LINK, getIndentLevel());
+        PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimAttributes.LINK, getIndentLevel());
       }
       matsimLinkCounter.increment();
       
@@ -373,9 +373,9 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
         Coordinate nodeCoordinate = extractDestinationCrsCompatibleCoordinate(node.getPosition());
         if(nodeCoordinate != null) {        
           /* X */
-          xmlWriter.writeAttribute(MatsimNetworkAttributes.X, settings.getDecimalFormat().format(nodeCoordinate.x));
+          xmlWriter.writeAttribute(MatsimAttributes.X, settings.getDecimalFormat().format(nodeCoordinate.x));
           /* Y */
-          xmlWriter.writeAttribute(MatsimNetworkAttributes.Y, settings.getDecimalFormat().format(nodeCoordinate.y));
+          xmlWriter.writeAttribute(MatsimAttributes.Y, settings.getDecimalFormat().format(nodeCoordinate.y));
           /* Z coordinate not yet supported */
         }
         
