@@ -4,6 +4,7 @@ import java.util.logging.Logger;
 
 import org.goplanit.matsim.converter.network.MatsimNetworkWriterSettings;
 import org.goplanit.matsim.util.MatsimStopFacilityIdHelper;
+import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.utils.id.IdMapperType;
 import org.goplanit.converter.idmapping.ZoningIdMapper;
 import org.goplanit.converter.zoning.ZoningWriter;
@@ -22,45 +23,44 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter{
   
   /** Logger to use */
   private static final Logger LOGGER = Logger.getLogger(MatsimZoningWriter.class.getCanonicalName());
-  
-  /** the network writer settings used for the MATSim reference network */
-  private final MatsimNetworkWriterSettings networkWriterSettings;
+
+  /** reference network to use */
+  private MacroscopicNetwork referenceNetwork;
   
   /** the zoning writer settings used for the MATSim pt component*/
   private final MatsimZoningWriterSettings zoningWriterSettings;  
     
   /**
    * validate if settings are complete and if not try to salve by adopting settings from the network where possible
+   *
+   * @return valid flag
    */
-  private void validateSettings() {
+  private boolean validateSettings() {
     if(getSettings().getOutputDirectory() == null || getSettings().getOutputDirectory().isBlank()) {
-      getSettings().setOutputDirectory(networkWriterSettings.getOutputDirectory());
-      if(networkWriterSettings.getOutputDirectory()!=null && !networkWriterSettings.getOutputDirectory().isBlank()) {
-        LOGGER.info(String.format("MATSim zoning output directory not set, adopting network output directory %s " +
-            "instead", getSettings().getOutputDirectory()));
-      }
+      LOGGER.severe("MATSim zoning output directory not set, abort");
+      return false;
     }
+    return true;
   }    
     
 
   /** constructor 
    * 
    * @param zoningWriterSettings to use
-   * @param networkWriterSettings the network was configured by when persisting
+   * @param referenceNetwork mandatory reference network
    */
   protected MatsimZoningWriter(
-      MatsimZoningWriterSettings zoningWriterSettings, MatsimNetworkWriterSettings networkWriterSettings) {
+      final MatsimZoningWriterSettings zoningWriterSettings,
+      final MacroscopicNetwork referenceNetwork) {
     super(IdMapperType.ID);
-    this.networkWriterSettings = networkWriterSettings;
+    this.referenceNetwork = referenceNetwork;
     this.zoningWriterSettings = zoningWriterSettings;
-  }  
-
-  
-  MatsimNetworkWriterSettings getNetworkWriterSettings() {
-    return networkWriterSettings;
   }
 
-
+  /**
+   * Access to zoning writer settings
+   * @return settings
+   */
   MatsimZoningWriterSettings getZoningWriterSettings() {
     return zoningWriterSettings;
   }
@@ -77,19 +77,23 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter{
     PlanItRunTimeException.throwIfNull(zoning,"Unable to persist MATSim transit schedule file when PLANit " +
         "zoning object is null");
     
-    boolean networkValid = validateNetwork(getSettings().getReferenceNetwork());
+    boolean networkValid = validateNetwork(getReferenceNetwork());
     if(!networkValid) {
       return;
     }
-    validateSettings();
+    boolean settingsValid = validateSettings();
+    if(!settingsValid){
+      return;
+    }
     
     /* log settings */
     getSettings().logSettings();    
     
     /* CRS */
     prepareCoordinateReferenceSystem(
-        getSettings().getReferenceNetwork().getCoordinateReferenceSystem(),
-        getSettings().getDestinationCoordinateReferenceSystem(), getSettings().getCountry());
+        getReferenceNetwork().getCoordinateReferenceSystem(),
+        getSettings().getDestinationCoordinateReferenceSystem(),
+        getSettings().getCountry());
 
     // builds a mapping from PLANit to MATSim stop facility ids to use
     var stopFacilityIdMapper = new MatsimStopFacilityIdHelper(zoning.getTransferConnectoids());
@@ -119,6 +123,21 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter{
    */
   public MatsimZoningWriterSettings getSettings() {
     return zoningWriterSettings;
+  }
+
+  /** Collect the reference network used
+   *
+   * @return reference network
+   */
+  protected MacroscopicNetwork getReferenceNetwork() {
+    return referenceNetwork;
+  }
+
+  /** Set the reference network compatible with the zoning
+   * @param referenceNetwork to use
+   */
+  public void setReferenceNetwork(MacroscopicNetwork referenceNetwork) {
+    this.referenceNetwork = referenceNetwork;
   }
 
   /**

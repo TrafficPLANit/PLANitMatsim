@@ -51,7 +51,11 @@ public class MatsimIntermodalWriterSettings extends PlanitMatsimWriterSettings i
    * @param countryName to use
    */
   public MatsimIntermodalWriterSettings(final String outputDirectory, final String countryName) {
-    this(outputDirectory, countryName, MatsimNetworkWriterSettings.DEFAULT_NETWORK_FILE_NAME, PlanitMatsimWriterSettings.DEFAULT_TRANSIT_SCHEDULE_FILE_NAME);
+    this(
+        outputDirectory,
+        countryName,
+        MatsimNetworkWriterSettings.DEFAULT_NETWORK_FILE_NAME,
+        PlanitMatsimWriterSettings.DEFAULT_TRANSIT_SCHEDULE_FILE_NAME);
   }  
   
   /**

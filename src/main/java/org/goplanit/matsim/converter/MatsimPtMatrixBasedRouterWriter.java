@@ -59,7 +59,7 @@ class MatsimPtMatrixBasedRouterWriter {
    */
   private void writeSimplifiedMatrixBasedPtRouterContribStopsCsvFile(Zoning zoning) {
     var sb = new StringBuilder();
-    var dm = zoningWriter.getNetworkWriterSettings().getDecimalFormat();
+    var dm = zoningWriter.getSettings().getDecimalFormat();
     
     /* content */
     var csvContent = new ArrayList<String>();
@@ -104,7 +104,7 @@ class MatsimPtMatrixBasedRouterWriter {
     
     /* write */
     var ptStopsFilePath = Path.of(zoningWriter.getSettings().getOutputDirectory(),PT_STOPS_FILE_NAME);
-    LOGGER.info(String.format("Persisting MATSIM %s to: %s",PT_STOPS_FILE_NAME, ptStopsFilePath));
+    LOGGER.info(String.format("Persisting MATSim %s to: %s",PT_STOPS_FILE_NAME, ptStopsFilePath));
     try (PrintWriter pw = new PrintWriter(ptStopsFilePath.toFile())) {
       csvContent.forEach(pw::println);
     }catch(Exception e) {
