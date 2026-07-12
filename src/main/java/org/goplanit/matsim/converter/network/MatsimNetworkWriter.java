@@ -603,7 +603,8 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
     prepareCoordinateReferenceSystem(
         macroscopicNetwork.getCoordinateReferenceSystem(),
         getSettings().getDestinationCoordinateReferenceSystem(),
-        getSettings().getCountry());
+        getSettings().getCountry(),
+        true);
 
     /* log settings */
     settings.logSettings(macroscopicNetwork);

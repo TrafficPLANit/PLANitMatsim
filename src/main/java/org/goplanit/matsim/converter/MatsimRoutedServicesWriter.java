@@ -116,7 +116,8 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
     prepareCoordinateReferenceSystem(
         routedServices.getParentNetwork().getParentNetwork().getCoordinateReferenceSystem(),
         getSettings().getDestinationCoordinateReferenceSystem(),
-        getSettings().getCountry());
+        getSettings().getCountry(),
+        true);
 
     // builds a mapping from PLANit to MATSim stop facility ids to use
     var stopFacilityIdMapper = new MatsimStopFacilityIdHelper(referenceZoning.getTransferConnectoids());

@@ -93,7 +93,8 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter{
     prepareCoordinateReferenceSystem(
         getReferenceNetwork().getCoordinateReferenceSystem(),
         getSettings().getDestinationCoordinateReferenceSystem(),
-        getSettings().getCountry());
+        getSettings().getCountry(),
+        true);
 
     // builds a mapping from PLANit to MATSim stop facility ids to use
     var stopFacilityIdMapper = new MatsimStopFacilityIdHelper(zoning.getTransferConnectoids());
