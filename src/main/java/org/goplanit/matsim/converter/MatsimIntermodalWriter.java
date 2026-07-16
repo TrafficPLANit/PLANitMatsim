@@ -19,20 +19,20 @@ import org.goplanit.zoning.Zoning;
  * Since an intermodal mapper requires transit elements to reference network elements, the only valid id mapping that
  * we allow is either PLANit internal ids (default), or PLANit XML ids. External ids cannot be used since they cannot
  * be guaranteed to be unique causing problems with references between links and stop facility link references. If
- * the user still wants to check against the original external ids in MATSim, we still write then as origids.
- * 
+ * the user still wants to check against the original external ids in MATSim, we still write then as orig ids.
+ *
  * @author markr
  *
  */
 public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, RoutedServices> {
-  
+
   /** the logger */
   @SuppressWarnings("unused")
   private static final Logger LOGGER = Logger.getLogger(MatsimIntermodalWriter.class.getCanonicalName());
-        
+
   /** Intermodal settings to use */
   protected final MatsimIntermodalWriterSettings settings;
-  
+
   /**
    * the id mapper to use
    */
@@ -66,8 +66,7 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
 
     /* zoning writer */
     MatsimZoningWriter zoningWriter =
-        MatsimZoningWriterFactory.create(
-            getSettings().getZoningSettings(), getSettings().getNetworkSettings(), infrastructureNetwork);
+        MatsimZoningWriterFactory.create(getSettings().getZoningSettings(), infrastructureNetwork);
 
     /* prep */
     zoningWriter.setIdMapperType(idMapper);
@@ -100,21 +99,21 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
     routedServicesWriter.write(routedServices);
   }
 
-  /** Constructor 
+  /** Constructor
    *
    * @param settings to use
    */
-  protected MatsimIntermodalWriter(MatsimIntermodalWriterSettings settings) {  
+  protected MatsimIntermodalWriter(MatsimIntermodalWriterSettings settings) {
     setIdMapperType(IdMapperType.ID);
     this.settings = settings;
-  }  
-      
+  }
+
   /**
    * Persist the PLANit network and zoning as a MATSim network to disk
-   * 
+   *
    * @param infrastructureNetwork to persist as MATSim network
    * @param zoning to extract public transport infrastructure from (poles, platforms, stations)
-   * 
+   *
    */
   @Override
   public void write(final MacroscopicNetwork infrastructureNetwork, final Zoning zoning) {
@@ -190,15 +189,15 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
 
   /**
    * {@inheritDoc}
-   */  
+   */
   @Override
   public void reset() {
-    // do not reset settings as reset is meant to cleanup memory if possible on writer, not the settings
+    // do not reset settings as reset is meant to clean up memory if possible on writer, not the settings
   }
 
   /**
    * {@inheritDoc}
-   */    
+   */
   @Override
   public MatsimIntermodalWriterSettings getSettings() {
     return settings;

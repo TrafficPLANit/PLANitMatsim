@@ -42,16 +42,16 @@ import org.goplanit.zoning.Zoning;
  *
  */
 class MatsimPtMatrixBasedRouterWriter {
-  
+
   /** Logger to use */
   private static final Logger LOGGER = Logger.getLogger(MatsimPtMatrixBasedRouterWriter.class.getCanonicalName());
-  
+
   /** the zoning writer used for the MATSim pt component*/
   private final MatsimZoningWriter zoningWriter;
 
   /** mapping between PLANit and MATSim stop facility ids */
   MatsimStopFacilityIdHelper stopFacilityIdHelper;
-  
+
   /**
    * The stops CSV file contains the stop id and its coordinates, based on example
    * in <a href="https://github.com/matsim-org/matsim-libs/blob/master/contribs/matrixbasedptrouter/src/main/resources/example/ptStops.csv">ptstops.csv</a>
@@ -59,16 +59,16 @@ class MatsimPtMatrixBasedRouterWriter {
    */
   private void writeSimplifiedMatrixBasedPtRouterContribStopsCsvFile(Zoning zoning) {
     var sb = new StringBuilder();
-    var dm = zoningWriter.getNetworkWriterSettings().getDecimalFormat();
-    
+    var dm = zoningWriter.getSettings().getDecimalFormat();
+
     /* content */
     var csvContent = new ArrayList<String>();
-    
+
     /* header id, x, y */
     sb.append(MatsimAttributes.ID).append(CharacterUtils.COMMA).append(
         MatsimTransitAttributes.X).append(CharacterUtils.COMMA).append(MatsimTransitAttributes.Y);
     csvContent.add(sb.toString());
-    
+
     try {
       for(var transferConnectoid : zoning.getTransferConnectoids()) {
         transferConnectoid.getAccessZoneEntriesStream(ZoneConnectoidType.PT_VEHICLE_STOP).forEach( entry ->
@@ -96,15 +96,15 @@ class MatsimPtMatrixBasedRouterWriter {
       LOGGER.severe("Unable to transform pt stop locations to desired coordinate format for MATSim aborting");
       return;
     }
-    
+
     if(csvContent.isEmpty()) {
       LOGGER.warning("No stops to persist, verify this is intended behaviour");
       return;
     }
-    
+
     /* write */
     var ptStopsFilePath = Path.of(zoningWriter.getSettings().getOutputDirectory(),PT_STOPS_FILE_NAME);
-    LOGGER.info(String.format("Persisting MATSIM %s to: %s",PT_STOPS_FILE_NAME, ptStopsFilePath));
+    LOGGER.info(String.format("Persisting MATSim %s to: %s",PT_STOPS_FILE_NAME, ptStopsFilePath));
     try (PrintWriter pw = new PrintWriter(ptStopsFilePath.toFile())) {
       csvContent.forEach(pw::println);
     }catch(Exception e) {
@@ -113,13 +113,13 @@ class MatsimPtMatrixBasedRouterWriter {
           PT_STOPS_FILE_NAME, zoningWriter.getSettings().getOutputDirectory()));
     }
   }
-  
+
   /** file name for the stops CSV */
   public static String PT_STOPS_FILE_NAME = "ptStops.csv";
 
   /**
-   * Constructor 
-   * 
+   * Constructor
+   *
    * @param zoningWriter to use
    */
   public MatsimPtMatrixBasedRouterWriter(
@@ -130,7 +130,7 @@ class MatsimPtMatrixBasedRouterWriter {
 
   /**
    * Write the files to support Matrix based pt routing
-   * 
+   *
    * @param zoning to use
    */
   public void write(final Zoning zoning) {
@@ -138,5 +138,5 @@ class MatsimPtMatrixBasedRouterWriter {
     /* For now, we only generate a stops file. From the MATSim code it appears, the stop-stop travel time
     matrix can be created on the fly within MATSim */
     writeSimplifiedMatrixBasedPtRouterContribStopsCsvFile(zoning);
-  }  
+  }
 }

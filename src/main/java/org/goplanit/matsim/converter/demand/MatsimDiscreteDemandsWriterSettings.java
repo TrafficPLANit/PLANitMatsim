@@ -41,12 +41,10 @@ public class MatsimDiscreteDemandsWriterSettings extends PlanitMatsimWriterModeM
 
     Path matsimPath =  Paths.get(getOutputDirectory(),
         getFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
-    LOGGER.info(String.format("---------- MATSim Discrete Demands Writer Settings ----------------"));
-    LOGGER.info(String.format("Persisting MATSim plans to                       : %s", matsimPath));
+    LOGGER.info(String.format("Persisting MATSim plans to: %s", matsimPath));
 
-    LOGGER.info(String.format("Decimal fidelity set to                          : %s", decimalFormat.getMaximumFractionDigits()));
-    LOGGER.info(String.format("Persisting XML as GZip                           : %s", this.writeAsGZip));
-    LOGGER.info(String.format("Activity location generator strategy             : %s", this.locationGeneratorType));
+    LOGGER.info(String.format("Decimal fidelity set to %s", decimalFormat.getMaximumFractionDigits()));
+    LOGGER.info(String.format("Persisting XML as GZip: %s", this.writeAsGZip));
 
     super.logSettings(referenceNetwork);
   }
@@ -103,5 +101,5 @@ public class MatsimDiscreteDemandsWriterSettings extends PlanitMatsimWriterModeM
     super.reset();
     this.locationGeneratorType = DEFAULT_LOCATION_GENERATOR_TYPE;
   }  
-
+  
 }

@@ -102,28 +102,25 @@ public abstract class PlanitMatsimWriterModeMappingSettings
    */
   protected void logSettings(MacroscopicNetwork macroscopicNetwork) {
 
-    LOGGER.info(String.format("Mode Mapping:"));
     Modes planitModes = macroscopicNetwork.getModes();
     for (Mode planitMode : planitModes) {
       if (!planitMode.isPredefinedModeType()) {
-        LOGGER.warning(String.format("      [IGNORED] MATSim writer is only compatible with predefined PLANit modes, " +
+        LOGGER.warning(String.format("[IGNORED] MATSim writer is only compatible with predefined PLANit modes, " +
             "found custom mode with name %s, ignored", planitMode.getName()));
         continue;
       }
 
       if (!activatedPlanitModes.contains(planitMode.getPredefinedModeType())) {
-        LOGGER.info(String.format("     [DEACTIVATED] PLANit mode:%s", planitMode.getPredefinedModeType().value()));
+        LOGGER.info(String.format("[DEACTIVATED] PLANit mode:%s", planitMode.getPredefinedModeType().value()));
       } else {
         String mappedMatsimMode = planit2MatsimModeMapping.get(planitMode.getPredefinedModeType());
         if (!StringUtils.isNullOrBlank(mappedMatsimMode)) {
-          LOGGER.info(String.format("     [ACTIVATED] PLANit mode:%s -> MATSIM mode:%s",
+          LOGGER.info(String.format("[ACTIVATED] PLANit mode:%s -> MATSIM mode:%s",
               planitMode.getPredefinedModeType().value(),
               planit2MatsimModeMapping.get(planitMode.getPredefinedModeType())));
         }
       }
     }
-
-    super.logSettings();
   }
 
   /* initialise defaults */
@@ -219,6 +216,10 @@ public abstract class PlanitMatsimWriterModeMappingSettings
    * @param matsimMode     the new MATSim mode string to use
    */
   public void updatePredefinedModeMapping(PredefinedModeType planitModeType, String matsimMode) {
+    if (planit2MatsimModeMapping.containsKey(planitModeType)) {
+      LOGGER.info(String.format("Overwriting mode mapping: PLANit mode %s mapped to MATSIM mode %s",
+          planitModeType.toString(), matsimMode));
+    }
     planit2MatsimModeMapping.put(planitModeType, matsimMode);
   }
 
@@ -230,6 +231,7 @@ public abstract class PlanitMatsimWriterModeMappingSettings
    */
   public void deactivatePredefinedMode(PredefinedModeType planitModeType) {
     if (activatedPlanitModes.contains(planitModeType)) {
+      LOGGER.info(String.format("Deactivating PLANit mode %s for MATSIM network writer", planitModeType));
       activatedPlanitModes.remove(planitModeType);
     }
   }
@@ -250,6 +252,7 @@ public abstract class PlanitMatsimWriterModeMappingSettings
    */
   public void activatePredefinedMode(PredefinedModeType planitModeType) {
     if (!activatedPlanitModes.contains(planitModeType)) {
+      LOGGER.info(String.format("Activating PLANit mode %s for MATSIM network writer", planitModeType));
       activatedPlanitModes.add(planitModeType);
       planit2MatsimModeMapping.put(planitModeType, getDefaultPredefinedModeMappings(planitModeType));
     }

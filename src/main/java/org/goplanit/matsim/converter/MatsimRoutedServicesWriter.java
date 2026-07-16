@@ -15,7 +15,7 @@ import java.util.logging.Logger;
 /**
  * A class that takes a PLANit routed services (and its reference service network, zoning and physical network)
  * to extract and writes the MATSIM public transport information to disk.
- * 
+ *
  * @author markr
  *
  */
@@ -96,9 +96,9 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
    * extract public transport information from PLANit zoning and use it to persist as much  of the MATSim public
    * transport
    * XML as possible
-   * 
+   *
    * @param routedServices to use for MATSim pt persistence
-   */  
+   */
   @Override
   public void write(RoutedServices routedServices){
     if(!validateServiceNetwork(routedServices.getParentNetwork()) ||
@@ -107,7 +107,7 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
     }
 
     //validateSettings();
-    
+
     /* log settings */
     getSettings().logSettingsWithoutModeMapping();
 
@@ -116,12 +116,13 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
     prepareCoordinateReferenceSystem(
         routedServices.getParentNetwork().getParentNetwork().getCoordinateReferenceSystem(),
         getSettings().getDestinationCoordinateReferenceSystem(),
-        getSettings().getCountry());
+        getSettings().getCountry(),
+        true);
 
     // builds a mapping from PLANit to MATSim stop facility ids to use
     var stopFacilityIdMapper = new MatsimStopFacilityIdHelper(referenceZoning.getTransferConnectoids());
 
-    /* write stops */    
+    /* write stops */
     new MatsimPtXmlWriter(this, stopFacilityIdMapper).writeXmlTransitScheduleFile(
         referenceZoning, zoningSettings, routedServices, getSettings(), networkSettings);
 
@@ -133,9 +134,9 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
   @Override
   public void reset() {
   }
-  
+
   /** Collect the settings
-   * 
+   *
    * @return settings
    */
   public MatsimPtServicesWriterSettings getSettings() {

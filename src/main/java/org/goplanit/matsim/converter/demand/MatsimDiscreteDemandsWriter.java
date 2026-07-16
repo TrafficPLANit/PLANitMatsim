@@ -14,7 +14,6 @@ import org.goplanit.matsim.xml.MatsimPlansAttributes;
 import org.goplanit.matsim.xml.MatsimPlansElements;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.utils.exceptions.PlanItRunTimeException;
-import org.goplanit.utils.geo.PlanitJtsCrsUtils;
 import org.goplanit.utils.id.IdMapperType;
 import org.goplanit.utils.misc.Pair;
 import org.goplanit.utils.misc.StringUtils;
@@ -36,9 +35,9 @@ import java.util.logging.Logger;
 
 /**
  * A class that takes a PLANit DiscreteDemands and writes it as a MATSIM plans (v5) file.
- * 
+ *
  * @author markr
-  */
+ */
 public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> implements DiscreteDemandsWriter{
 
   /** the logger to use */
@@ -581,7 +580,8 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     prepareCoordinateReferenceSystem(
         referenceZoning.getCoordinateReferenceSystem(),
         getSettings().getDestinationCoordinateReferenceSystem(),
-        getSettings().getCountry());
+        getSettings().getCountry(),
+        true);
 
     // Pre-populate length weights tracking if distance weighting is chosen
     if (getSettings().getLocationGeneratorType() == LocationGeneratorType.ZONE_LINKS_DISTANCE_WEIGHTED) {
@@ -603,13 +603,13 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    */
   protected MatsimDiscreteDemandsWriter(
       MatsimDiscreteDemandsWriterSettings settings, final MacroscopicNetwork network, final Zoning zoning) {
-    super(IdMapperType.ID);        
-    
+    super(IdMapperType.ID);
+
     /* config settings for writer are found here */
     this.settings = settings;
     this.referenceNetwork = network;
     this.referenceZoning = zoning;
-  }  
+  }
 
 
   /**
