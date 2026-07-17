@@ -149,7 +149,7 @@ public class MatsimSimpleDiscreteDemandWriterTest {
 
       // time period
       discreteDemands.getTimePeriods().getFactory().registerNew(
-          "all day", 0, 24 * 3600);
+          "all day", 0, (24 * 3600)-1);
 
       // 2 households
       var household0 = discreteDemands.getHouseholds().getFactory().registerNew();

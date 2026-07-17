@@ -2,9 +2,11 @@ package org.goplanit.matsim.test;
 
 import org.goplanit.demands.discrete.DiscreteDemands;
 import org.goplanit.demands.discrete.util.DirectionBound;
+import org.goplanit.io.converter.demands.PlanitDiscreteDemandsReaderFactory;
 import org.goplanit.io.converter.intermodal.PlanitIntermodalReaderFactory;
 import org.goplanit.logging.Logging;
 import org.goplanit.matsim.converter.MatsimIntermodalWriterFactory;
+import org.goplanit.matsim.converter.demand.LocationGeneratorType;
 import org.goplanit.matsim.converter.demand.MatsimDiscreteDemandsWriterFactory;
 import org.goplanit.matsim.util.MatsimAssertionUtils;
 import org.goplanit.network.MacroscopicNetwork;
@@ -75,7 +77,7 @@ public class MatsimLargeConversionWriterTest {
    * Sources:
    *  (i) zoning is based on the zones created in the PlanitGeoIO repo ZoningReaderTest,
    *  (ii) PLANit network is based on OSM network truncated by the boundary of the zones filtered by external id <7000,
-   *  the OSM file used is in the SydneyGMA repo (not yet public)
+   *  the OSM file used is in the SydneyGMA repo (not yet public), and fidelity is set to LOW
    *  (iii) PLANit Discrete demands are based on a converted synthetic ActivitySim sample from the
    *  PLANitActivitySim repo (not yet public)
    * </p>
@@ -88,13 +90,42 @@ public class MatsimLargeConversionWriterTest {
 
     try {
 
-      // reader
-      var planitReader = PlanitIntermodalReaderFactory.create(PLANIT_INPUT_PATH.toAbsolutePath().toString());
-      var result = planitReader.read();
+      // reader for infrastructure
+      var planitInfraReader = PlanitIntermodalReaderFactory.create(PLANIT_INPUT_PATH.toAbsolutePath().toString());
+      var result = planitInfraReader.read();
+      var planitNetwork = result.first();
+      var planitZoning = result.second();
 
-      // writer
-      var matsimWriter = MatsimIntermodalWriterFactory.create(MATSIM_OUTPUT_DIR.toAbsolutePath().toString());
-      matsimWriter.write(result.first(), result.second());
+      var carMode = planitNetwork.getModes().get(PredefinedModeType.CAR);
+      var taxiMode = planitNetwork.getModes().getFactory().registerNew(PredefinedModeType.TAXI);
+      var rideShareMode = planitNetwork.getModes().getFactory().registerNew(PredefinedModeType.RIDE_SHARE);
+      var hovMode = planitNetwork.getModes().getFactory().registerNew(PredefinedModeType.CAR_HIGH_OCCUPANCY);
+      planitNetwork.getTransportLayers().stream().flatMap( l ->
+          l.getLinkSegmentTypes().stream()).forEach(lt -> {
+            if(lt.isModeAllowed(carMode)) {
+              var ag = lt.getAccessProperties(carMode);
+              lt.registerModeOnAccessGroup(taxiMode, ag);
+              lt.registerModeOnAccessGroup(rideShareMode, ag);
+              lt.registerModeOnAccessGroup(hovMode, ag);
+            }
+      });
+
+      // writer for infrastructure
+      var matsimInfraWriter = MatsimIntermodalWriterFactory.create(MATSIM_OUTPUT_DIR.toAbsolutePath().toString());
+      matsimInfraWriter.write(planitNetwork, planitZoning);
+
+
+      // reader for demand
+      var planitDemandReader = PlanitDiscreteDemandsReaderFactory.create(
+          PLANIT_INPUT_PATH.toAbsolutePath().toString(), planitNetwork, planitZoning);
+      var planitDiscreteDemands = planitDemandReader.read();
+
+      // writer for demand - utilising network and zoning for reference
+      var plansWriter =
+          MatsimDiscreteDemandsWriterFactory.create(planitNetwork, planitZoning);
+      // map plans to physical locations based on distance weighted random draws within the zone of the activity
+      plansWriter.getSettings().setLocationGeneratorType(LocationGeneratorType.ZONE_LINKS_DISTANCE_WEIGHTED);
+      plansWriter.write(planitDiscreteDemands);
 
     } catch (final Exception e) {
       e.printStackTrace();

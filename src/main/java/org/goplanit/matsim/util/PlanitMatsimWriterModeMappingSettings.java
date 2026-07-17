@@ -1,6 +1,8 @@
 package org.goplanit.matsim.util;
 
 import org.goplanit.converter.ConverterWriterSettings;
+import org.goplanit.converter.utils.ExternalToPlanitModeMapping;
+import org.goplanit.converter.utils.PlanitToExternalModeMapping;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
 import org.goplanit.utils.misc.StringUtils;
@@ -25,40 +27,23 @@ public abstract class PlanitMatsimWriterModeMappingSettings
   private static final Logger LOGGER = Logger.getLogger(PlanitMatsimWriterModeMappingSettings.class.getCanonicalName());
 
   /**
-   * provides the default mapping from PLANit modes ((predefined) mode name)  to MATSIM mode (string)
-   */
-  protected static final Map<PredefinedModeType, String> DEFAULT_PLANIT2MATSIM_MODE_MAPPING;
-
-  /**
-   * track the PLANit modes that we include in the network to write
-   */
-  protected static final Set<PredefinedModeType> DEFAULT_ACTIVATED_MODES;
-
-  /**
-   * provides the mapping from PLANit modes ((predefined) mode name)  to MATSIM mode (string)
-   */
-  protected final Map<PredefinedModeType, String> planit2MatsimModeMapping;
-
-  /**
-   * track the PLANit modes that we include in the network to write
-   */
-  protected final Set<PredefinedModeType> activatedPlanitModes;
-
-  /**
-   * Initialise the predefined PLANit modes to MATSIM mode mapping, based on the (predefined) mode names. MATSIM
-   * seems not to have any predefined modes, so any name can be given to them. We therefore apply
-   * the PLANit's name attribute as the id for the mapping to MATSIM mode
+   * Initializes a default mapping delegate populated with standard modes.
    *
-   * @return default mode mapping based on predefined modes
+   * @return Populated mapping instance
    */
-  protected static Map<PredefinedModeType, String> createDefaultPredefinedModeMappings() {
-    Map<PredefinedModeType, String> thePlanit2MatsimModeMapping = new HashMap<>();
-    EnumSet<PredefinedModeType> predefinedModes = PredefinedModeType.getPredefinedModeTypesWithout(
-        PredefinedModeType.CUSTOM, PredefinedModeType.BICYCLE, PredefinedModeType.PEDESTRIAN  /* exclude */);
+  protected static PlanitToExternalModeMapping createInitialDefaultMapping() {
+    PlanitToExternalModeMapping mapping = new PlanitToExternalModeMapping();
+    EnumSet<PredefinedModeType> predefinedModes =
+        PredefinedModeType.getPredefinedModeTypesWithout(
+          PredefinedModeType.CUSTOM,
+          PredefinedModeType.BICYCLE,
+          PredefinedModeType.PEDESTRIAN);
+
     for (PredefinedModeType modeType : predefinedModes) {
-      thePlanit2MatsimModeMapping.put(modeType, getDefaultPredefinedModeMappings(modeType));
+      mapping.addDefaultMapping(modeType, getDefaultPredefinedModeMappings(modeType));
     }
-    return thePlanit2MatsimModeMapping;
+    mapping.activateAllDefaults();
+    return mapping;
   }
 
   /**
@@ -66,6 +51,12 @@ public abstract class PlanitMatsimWriterModeMappingSettings
    *
    * @param modeType to get MATSim default mapping for
    * @return default mapping found
+   */
+  /**
+   * Resolves the default MATSim mapping string for a given PLANit mode.
+   *
+   * @param modeType PLANit mode type
+   * @return Mapped default MATSim mode string
    */
   protected static String getDefaultPredefinedModeMappings(PredefinedModeType modeType) {
     switch (modeType) {
@@ -76,24 +67,13 @@ public abstract class PlanitMatsimWriterModeMappingSettings
       case LIGHTRAIL:
       case FERRY:
         return DEFAULT_PUBLIC_TRANSPORT_MODE;
-      /* all other modes are mapped to car for convenience*/
       default:
         return DEFAULT_PRIVATE_TRANSPORT_MODE;
     }
   }
 
-  /**
-   * Create the default activate PLANit modes that the MATSIM write will include when writing the network (if
-   * they are available). By default, all predefined PLANit modes that could be reasonably mapped to motorised private
-   * mode car (car) or public transport (pt) are activated.
-   *
-   * @return default activate PLANit modes (by name)
-   */
-  protected static Set<PredefinedModeType> createDefaultActivatedPlanitModes() {
-    return PredefinedModeType.getPredefinedModeTypesWithout(
-        PredefinedModeType.CUSTOM, PredefinedModeType.BICYCLE, PredefinedModeType.PEDESTRIAN /* exclude */);
-  }
-
+  /** Delegate handling the internal PLANit to MATSim mappings. */
+  protected final PlanitToExternalModeMapping modeMapping;
 
   /**
    * Convenience method to log all the current settings
@@ -110,25 +90,15 @@ public abstract class PlanitMatsimWriterModeMappingSettings
         continue;
       }
 
-      if (!activatedPlanitModes.contains(planitMode.getPredefinedModeType())) {
-        LOGGER.info(String.format("[DEACTIVATED] PLANit mode:%s", planitMode.getPredefinedModeType().value()));
+      PredefinedModeType type = planitMode.getPredefinedModeType();
+      if (!modeMapping.isMapped(type)) {
+        LOGGER.info(String.format("[DEACTIVATED] PLANit mode:%s", type.value()));
       } else {
-        String mappedMatsimMode = planit2MatsimModeMapping.get(planitMode.getPredefinedModeType());
-        if (!StringUtils.isNullOrBlank(mappedMatsimMode)) {
-          LOGGER.info(String.format("[ACTIVATED] PLANit mode:%s -> MATSIM mode:%s",
-              planitMode.getPredefinedModeType().value(),
-              planit2MatsimModeMapping.get(planitMode.getPredefinedModeType())));
-        }
+        LOGGER.info(String.format("[ACTIVATED] PLANit mode:%s -> MATSIM mode:%s",
+            type.value(), modeMapping.getMappedMode(type)));
       }
     }
   }
-
-  /* initialise defaults */
-  static {
-    DEFAULT_PLANIT2MATSIM_MODE_MAPPING = createDefaultPredefinedModeMappings();
-    DEFAULT_ACTIVATED_MODES = createDefaultActivatedPlanitModes();
-  }
-
 
   /**
    * Default setting for restricting a link's max speed by its supported mode max speeds if more restricting
@@ -152,8 +122,8 @@ public abstract class PlanitMatsimWriterModeMappingSettings
    * @param other to create shallow copy (with respect to mode mappings)
    */
   protected PlanitMatsimWriterModeMappingSettings(final PlanitMatsimWriterModeMappingSettings other) {
-    this(other.getOutputDirectory(), other.getFileName(), other.getCountry(),
-        other.planit2MatsimModeMapping, other.activatedPlanitModes);
+    super(other.getOutputDirectory(), other.getFileName(), other.getCountry());
+    this.modeMapping = other.modeMapping;
   }
 
   /**
@@ -183,8 +153,8 @@ public abstract class PlanitMatsimWriterModeMappingSettings
    * @param countryName     to use
    */
   public PlanitMatsimWriterModeMappingSettings(String outputDirectory, String outputFileName, String countryName) {
-    this(outputDirectory, outputFileName, countryName,
-        new HashMap<>(DEFAULT_PLANIT2MATSIM_MODE_MAPPING), new HashSet<>(DEFAULT_ACTIVATED_MODES));
+    super(outputDirectory, outputFileName, countryName);
+    this.modeMapping = createInitialDefaultMapping();
   }
 
   /**
@@ -205,8 +175,15 @@ public abstract class PlanitMatsimWriterModeMappingSettings
       final Map<PredefinedModeType, String> planit2MatsimModeMapping,
       final Set<PredefinedModeType> activatedPlanitModes) {
     super(outputDirectory, outputFileName, countryName);
-    this.planit2MatsimModeMapping = planit2MatsimModeMapping;
-    this.activatedPlanitModes = activatedPlanitModes;
+    this.modeMapping = new PlanitToExternalModeMapping();
+
+    // Convert old structures into the new delegate instance
+    if (planit2MatsimModeMapping != null) {
+      planit2MatsimModeMapping.forEach(this.modeMapping::addDefaultMapping);
+    }
+    if (activatedPlanitModes != null) {
+      activatedPlanitModes.forEach(this.modeMapping::activate);
+    }
   }
 
   /**
@@ -216,11 +193,11 @@ public abstract class PlanitMatsimWriterModeMappingSettings
    * @param matsimMode     the new MATSim mode string to use
    */
   public void updatePredefinedModeMapping(PredefinedModeType planitModeType, String matsimMode) {
-    if (planit2MatsimModeMapping.containsKey(planitModeType)) {
+    if (modeMapping.isMapped(planitModeType)) {
       LOGGER.info(String.format("Overwriting mode mapping: PLANit mode %s mapped to MATSIM mode %s",
-          planitModeType.toString(), matsimMode));
+          planitModeType, matsimMode));
     }
-    planit2MatsimModeMapping.put(planitModeType, matsimMode);
+    modeMapping.overrideMapping(planitModeType, matsimMode);
   }
 
   /**
@@ -230,9 +207,9 @@ public abstract class PlanitMatsimWriterModeMappingSettings
    * @param planitModeType to deactivate
    */
   public void deactivatePredefinedMode(PredefinedModeType planitModeType) {
-    if (activatedPlanitModes.contains(planitModeType)) {
+    if (modeMapping.isMapped(planitModeType)) {
       LOGGER.info(String.format("Deactivating PLANit mode %s for MATSIM network writer", planitModeType));
-      activatedPlanitModes.remove(planitModeType);
+      modeMapping.deactivate(planitModeType);
     }
   }
 
@@ -240,7 +217,7 @@ public abstract class PlanitMatsimWriterModeMappingSettings
    * Deactivate all currently activated modes
    */
   public void deactivateAllModes() {
-    activatedPlanitModes.clear();
+    modeMapping.deactivateAll();
   }
 
   /**
@@ -251,10 +228,9 @@ public abstract class PlanitMatsimWriterModeMappingSettings
    * @param planitModeType to activate
    */
   public void activatePredefinedMode(PredefinedModeType planitModeType) {
-    if (!activatedPlanitModes.contains(planitModeType)) {
+    if (!modeMapping.isMapped(planitModeType)) {
       LOGGER.info(String.format("Activating PLANit mode %s for MATSIM network writer", planitModeType));
-      activatedPlanitModes.add(planitModeType);
-      planit2MatsimModeMapping.put(planitModeType, getDefaultPredefinedModeMappings(planitModeType));
+      modeMapping.overrideMapping(planitModeType, getDefaultPredefinedModeMappings(planitModeType));
     }
   }
 
@@ -274,12 +250,14 @@ public abstract class PlanitMatsimWriterModeMappingSettings
         continue;
       }
 
-      if (activatedPlanitModes.contains(mode.getPredefinedModeType())) {
-        if (planit2MatsimModeMapping.containsKey(mode.getPredefinedModeType())) {
-          modeToMatsimMapping.put(mode, planit2MatsimModeMapping.get(mode.getPredefinedModeType()));
+      PredefinedModeType type = mode.getPredefinedModeType();
+      if (modeMapping.isMapped(type)) {
+        String mappedMatsimMode = modeMapping.getMappedMode(type);
+        if (!StringUtils.isNullOrBlank(mappedMatsimMode)) {
+          modeToMatsimMapping.put(mode, mappedMatsimMode);
         } else {
           LOGGER.info(String.format("[IGNORED] Found activated PLANit mode %s without mapping to MATSim mode, " +
-              "please provide explicit mapping", mode.getPredefinedModeType().value()));
+              "please provide explicit mapping", type.value()));
         }
       }
     }

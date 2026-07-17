@@ -118,9 +118,9 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
   @Override
   public void write(final MacroscopicNetwork infrastructureNetwork, final Zoning zoning) {
     PlanItRunTimeException.throwIfNull(infrastructureNetwork,
-        "network is null when persisting MATSim intermodal network");
+        "Network is null when persisting MATSim intermodal network");
     PlanItRunTimeException.throwIfNull(zoning,
-        "zoning is null when persisting MATSim intermodal network");
+        "Zoning is null when persisting MATSim intermodal network");
     PlanItRunTimeException.throwIf(!(infrastructureNetwork instanceof MacroscopicNetwork),
         "MATSim intermodal writer only supports macroscopic networks");
 
@@ -136,7 +136,9 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
     var networkWriter = writeMatsimNetwork(infrastructureNetwork);
 
     /* zoning writer, only persisting stops in absence of services */
-    writeMatsimPartialPtSchedule(networkWriter.getPrimaryIdMapper(), zoning, infrastructureNetwork);
+    if(!zoning.getTransferZones().isEmpty()) {
+      writeMatsimPartialPtSchedule(networkWriter.getPrimaryIdMapper(), zoning, infrastructureNetwork);
+    }
   }
 
 
