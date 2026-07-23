@@ -4,20 +4,24 @@ import org.goplanit.converter.demands.DiscreteDemandsWriter;
 import org.goplanit.converter.idmapping.DiscreteDemandsIdMapper;
 import org.goplanit.demands.discrete.DiscreteDemands;
 import org.goplanit.demands.discrete.person.Person;
+import org.goplanit.demands.discrete.person.PersonUtils;
 import org.goplanit.demands.discrete.tour.ScheduleElement;
 import org.goplanit.demands.discrete.tour.Tour;
 import org.goplanit.demands.discrete.trip.Trip;
 import org.goplanit.demands.discrete.util.DirectionBound;
 import org.goplanit.matsim.converter.MatsimWriter;
 import org.goplanit.matsim.xml.MatsimAttributes;
+import org.goplanit.matsim.xml.MatsimElements;
 import org.goplanit.matsim.xml.MatsimPlansAttributes;
 import org.goplanit.matsim.xml.MatsimPlansElements;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.utils.exceptions.PlanItRunTimeException;
+import org.goplanit.utils.geo.PlanitJtsUtils;
 import org.goplanit.utils.id.IdMapperType;
 import org.goplanit.utils.misc.Pair;
 import org.goplanit.utils.misc.StringUtils;
 import org.goplanit.utils.mode.Mode;
+import org.goplanit.utils.time.LocalTimeUtils;
 import org.goplanit.utils.xml.PlanitXmlWriterUtils;
 import org.goplanit.utils.zoning.OdZone;
 import org.goplanit.zoning.Zoning;
@@ -28,10 +32,14 @@ import javax.xml.stream.XMLStreamWriter;
 import java.io.Writer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.LocalTime;
+import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
+
+import static org.goplanit.utils.time.LocalTimeUtils.SECONDS_IN_DAY;
 
 /**
  * A class that takes a PLANit DiscreteDemands and writes it as a MATSIM plans (v5) file.
@@ -63,6 +71,10 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    * Reproducible random generation stream */
   private SplittableRandom randomEngine;
 
+  /** contains the Persons' schedules that we will ignore. This is populated based on having schedules that are not
+   * based on the settings provided, e.g., contains modes deactivated in the mapping for example */
+  private Set<Person> personSchedulesToIgnore;
+
   /**
    * validate the settings making sure minimal output information is available
    */
@@ -80,14 +92,6 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   }
 
   /**
-   * Log some aggregate stats on the MATSim writer regarding the number of elements persisted
-   */
-  private void logWriterStats() {
-    // todo
-    //LOGGER.info(String.format("[STATS] created %d plans",matsimNodeCounter.longValue()));
-  }
-
-  /**
    * MATSIM writer settings
    */
   protected final MatsimDiscreteDemandsWriterSettings settings;
@@ -99,20 +103,31 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    *   <li>activity in between start of subtour but after arrival of parent tour at destination </li>
    *   <li>activity in between start of next tour but after arrival of previous tour back at origin </li>
    * </ul>
-   * @param xmlWriter to use
-   * @param currentElement  to use
-   * @param precedingElement to use
-   * @param person to use
+   *
+   * @param xmlWriter               to use
+   * @param currentElement          to use
+   * @param precedingElement        to use
+   * @param person                  to use
+   * @param periodStartTimeSeconds  to use
+   * @param periodEndTimeSeconds    to use
    * @throws XMLStreamException if error
    */
   private void checkForActivityElementBetweenScheduleElements(
       XMLStreamWriter xmlWriter,
       ScheduleElement currentElement,
       ScheduleElement precedingElement,
-      Person person)
+      Person person,
+      long periodStartTimeSeconds,
+      long periodEndTimeSeconds)
       throws XMLStreamException {
 
     OdZone homeZone = person.getHousehold().getZone();
+
+    // in MATSim 24h+ format
+    long startTimeSecondsUnbounded = currentElement.getStartTime().toSecondOfDay();
+    if(startTimeSecondsUnbounded < periodStartTimeSeconds){
+      startTimeSecondsUnbounded += SECONDS_IN_DAY;
+    }
 
     // Case 1: outbound trip followed by inbound trip --> activity occurs in between the two trips now
     //         NOTE: we check this in this way to allow for chained outbound trips
@@ -122,8 +137,9 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
         ((Trip)currentElement).getDirection() == DirectionBound.INBOUND){
       var upcomingTrip = ((Trip)currentElement);
       var thePurpose = upcomingTrip.getTour().getPurpose();
+
       writeActivityElement(
-          xmlWriter, person, thePurpose, upcomingTrip.getStartTime(),
+          xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
           ((Trip) precedingElement).getTour().getDestination()); // activity @ tour destination
       writeIndentation(xmlWriter);
     }
@@ -139,7 +155,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       // purpose instead
       boolean hasParent = currTour.hasParentTour();
       var thePurpose = hasParent ? currTour.getParentTour().getPurpose() : person.getInitialPurpose();
-      writeActivityElement(xmlWriter, person, thePurpose, currentElement.getStartTime(),
+      writeActivityElement(xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
           hasParent ? currTour.getParentTour().getDestination() : homeZone);
       writeIndentation(xmlWriter);
     }
@@ -153,7 +169,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       var inboundTripItsTour = ((Trip) currentElement).getTour();
       var thePurpose = inboundTripItsTour.getPurpose();
       // purpose from inbound trip its tour
-      writeActivityElement(xmlWriter, person, thePurpose, currentElement.getStartTime(),
+      writeActivityElement(xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
           inboundTripItsTour.getDestination()); // zone @ trip tour's origin
       writeIndentation(xmlWriter);
     }
@@ -165,7 +181,8 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       var currTour = ((Tour)currentElement);
       var thePurpose = currTour.hasParentTour() ?
           currTour.getParentTour().getPurpose() : person.getInitialPurpose();
-      writeActivityElement(xmlWriter, person, thePurpose, currTour.getStartTime(), currTour.getOrigin());
+      writeActivityElement(
+          xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded), currTour.getOrigin());
       writeIndentation(xmlWriter);
     }
 
@@ -188,6 +205,12 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       Map<Mode, String> modeMapping,
       long periodStartTimeSeconds,
       long periodEndTimeSeconds) {
+    if(scheduleElement.getStartTime() == null){
+      throw new PlanItRunTimeException(
+          "Start time of schedule element is null for person (%s), this should not happen",
+          person.getIdsAsString());
+    }
+
     var startTimeSeconds = scheduleElement.getStartTime().toSecondOfDay();
     if(startTimeSeconds < periodStartTimeSeconds || startTimeSeconds > periodEndTimeSeconds){
       //ignore outside of time period
@@ -214,7 +237,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
           ScheduleElement prevTourScheduleElement = null;
           for(var tourScheduleElement : currTour.getSchedule()){
 
-            checkForActivityElementBetweenScheduleElements(xmlWriter, tourScheduleElement, prevTourScheduleElement, person);
+            checkForActivityElementBetweenScheduleElements(xmlWriter, tourScheduleElement, prevTourScheduleElement, person, periodStartTimeSeconds, periodEndTimeSeconds);
 
             // delegate one level deeper
             processScheduleElement(
@@ -244,12 +267,12 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    * @param xmlWriter writer
    * @param person the person doing the activity
    * @param activityDescription description of activity
-   * @param endTime end time of activity
+   * @param endTime MATSim formatted end time of activity
    * @param activeZone the zone the activity relates to
    * @throws XMLStreamException if error
    */
   private void writeActivityElement(
-      XMLStreamWriter xmlWriter, Person person, String activityDescription, LocalTime endTime, OdZone activeZone)
+      XMLStreamWriter xmlWriter, Person person, String activityDescription, String endTime, OdZone activeZone)
       throws XMLStreamException {
     if(activityDescription == null || activityDescription.isBlank()){
       LOGGER.warning(String.format("Description for activity has no content (for person (%s))",
@@ -280,16 +303,22 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
           finalX = startPoint.x;
           finalY = startPoint.y;
         }
-      } else {
-        LOGGER.fine(String.format("No physical links intersected Zone (%s) boundary context. " +
-            "Zone centroid coordinates applied instead.", activeZone.getIdsAsString()));
+      } else if(activeZone.hasGeometry()){
+        // fallback use centroid location
+        var startPoint = PlanitJtsUtils.extractPolygonCentre(activeZone.getGeometry());
+        if(startPoint != null){
+          finalX = startPoint.getX();
+          finalY = startPoint.getY();
+        }
       }
+    }else if(getSettings().getLocationGeneratorType().equals(LocationGeneratorType.ZONE_CENTROID)){
+      //todo:
     }
 
     if(Double.isNaN(finalX) || Double.isNaN(finalY)){
       LOGGER.severe(String.format(
-          "Zone has no location to fall back on, unable to provide spatial reference for activity %s of person (%s)",
-          activityDescription, person.getIdsAsString()));
+          "Zone (%s) has no location to fall back on, unable to provide spatial reference for activity %s of person (%s)",
+          activeZone.getIdsAsString(), activityDescription, person.getIdsAsString()));
     }
 
     // activity end point
@@ -305,8 +334,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     }
 
     // end time of activity
-    xmlWriter.writeAttribute(
-        MatsimPlansAttributes.END_TIME, endTime.format(MatsimWriter.HHmmssFormat));
+    xmlWriter.writeAttribute(MatsimPlansAttributes.END_TIME, endTime);
 
     writeNewLine(xmlWriter);
 
@@ -377,11 +405,16 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       writeIndentation(xmlWriter);
 
       var initialActivity = person.getSchedule().getFirst();
+      long startTimeSecondsUnbounded = initialActivity.getStartTime().toSecondOfDay();
+      if(startTimeSecondsUnbounded < periodStartTimeSeconds){
+        startTimeSecondsUnbounded += SECONDS_IN_DAY;
+      }
+
       writeActivityElement(
           xmlWriter,
           person,
           person.getInitialPurpose(),
-          initialActivity.getStartTime() /* end time of idle activity */,
+          LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded) /* end time of idle activity */,
           homeZone);
       writeIndentation(xmlWriter);
 
@@ -390,7 +423,8 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       for(int index=0;index< person.getSchedule().size(); index++){
         var scheduleElement = person.getSchedule().get(index);
 
-        checkForActivityElementBetweenScheduleElements(xmlWriter, scheduleElement, prevElement, person);
+        checkForActivityElementBetweenScheduleElements(
+            xmlWriter, scheduleElement, prevElement, person, periodStartTimeSeconds, periodEndTimeSeconds);
 
         /* now we proceed with each travel involved activity */
         processScheduleElement(
@@ -401,7 +435,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
 
       var thePurpose = person.getInitialPurpose();
       writeActivityElement(
-            xmlWriter, person, thePurpose, LocalTime.ofSecondOfDay(periodEndTimeSeconds - 1), homeZone);
+            xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(periodEndTimeSeconds - 1), homeZone);
 
       writeEndElementNewLine(xmlWriter, true /*decrease indent */);
     } catch (XMLStreamException e) {
@@ -426,6 +460,10 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       for(var person : discreteDemands.getPersons()){
         writerStats.incrementPersonsProcessed();
 
+        if(personSchedulesToIgnore.contains(person)){
+          continue;
+        }
+
         if(person.getHousehold() == null){
           LOGGER.warning(String.format(
               "Currently MATSim plan writer requires person (%s) to have a household, missing, skip",
@@ -444,11 +482,14 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
         xmlWriter.writeAttribute(MatsimAttributes.ID, getPrimaryIdMapper().getPersonClassIdMapper().apply(person));
         writeNewLine(xmlWriter);
 
-        boolean supportAttributes = false; // todo
-        if(supportAttributes){
-          // attributes
-          writeStartElementNewLine(xmlWriter, MatsimPlansElements.ATTRIBUTES, true /* add indentation*/);
-          //todo: support custom attributes that we can pass through but have no functional meaning in PLANit
+        if(person.hasExternalId()){
+          // attributes - Inside the person block right before initializing the <plan> tag
+          writeStartElementNewLine(xmlWriter, MatsimElements.ATTRIBUTES, true /* add indentation*/);
+
+          // external id
+          writeMatsimCustomAttributeEntry(
+              xmlWriter, "externalId", "java.lang.String", person.getExternalId());
+
           writeEndElementNewLine(xmlWriter, true /* undo indentation */ );
         }
 
@@ -473,6 +514,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    * @param discreteDemands demands to extract from
    */
   protected void writeMatsimPopulationXML(XMLStreamWriter xmlWriter, DiscreteDemands discreteDemands){
+
     try{
       // population
       writeStartElementNewLine(xmlWriter, MatsimPlansElements.POPULATION, true /* add indentation*/);
@@ -511,6 +553,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       PlanitXmlWriterUtils.endXmlDocument(xmlFileWriterPair);
     }catch (Exception e) {
       LOGGER.severe(e.getMessage());
+      e.printStackTrace();
       throw new PlanItRunTimeException(String.format("error while persisting MATSIM plans to %s", matsimPlansPath));
     }
   }
@@ -564,9 +607,13 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   }
 
   /**
-   * Initialise before writing, prep the CRS and prep the strategy on how to map activities spatially and temporally
+   * Initialise before writing, prep the CRS and prep the strategy on how to map activities spatially and temporally,
+   * also identify the modes which may be present in the network but are not activated for persisting, so we can
+   * prune those schedules from the output
+   *
+   * @param demands to work with
    */
-  private void initialise() {
+  private void initialise(DiscreteDemands demands) {
 
     /* CRS - we allow for conversion but this requires source crs of both zoning and network to be known and set*/
     LOGGER.info(String.format("Network CRS set to     : %s",referenceNetwork.getCoordinateReferenceSystem().getName()));
@@ -583,15 +630,41 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
         getSettings().getCountry(),
         true);
 
+    // identify persons to exclude based on deactivated mode legs
+    var deactivatedModes = findDeactivatedModesAvailableInNetwork();
+    if(!deactivatedModes.isEmpty()){
+      this.personSchedulesToIgnore =
+          PersonUtils.findPersonsWithScheduleElementsContaining(demands.getPersons(), deactivatedModes);
+      if(!personSchedulesToIgnore.isEmpty()) {
+        LOGGER.info(String.format("Excluding %d persons with at least one trip with a deactivated mode",
+            personSchedulesToIgnore.size()));
+      }
+    }else{
+      this.personSchedulesToIgnore = Collections.emptySet();
+    }
+
     // Pre-populate length weights tracking if distance weighting is chosen
     if (getSettings().getLocationGeneratorType() == LocationGeneratorType.ZONE_LINKS_DISTANCE_WEIGHTED) {
-      LOGGER.info("Pre-indexing structural metric zone-to-link length arrays for random allocations...");
+      LOGGER.info("[START] Pre-indexing structural metric zone-to-link length arrays for random allocations...");
       this.randomEngine = new SplittableRandom(DEFAULT_SIMULATION_SEED);
       this.zoneLinkWeightsIndex = LocationGeneratorUtils.populateZoneLinkWeightsIndex(
           referenceNetwork, referenceZoning.getOdZones(), getGeoUtils()
       );
+      LOGGER.info("[DONE] Pre-indexed structural metric zone-to-link length arrays for random allocations...");
     }
 
+  }
+
+  /**
+   * Find modes in network that are not activated for persistence
+   *
+   * @return modes not activated for persistence
+   */
+  private Set<Mode> findDeactivatedModesAvailableInNetwork() {
+    var modeMappings = getSettings().collectActivatedPlanitModeToMatsimModeMapping(
+        getReferenceNetwork().getTransportLayers().getFirst());
+    return getReferenceNetwork().getModes().stream().filter(
+        m -> m.isPredefinedModeType() && !modeMappings.containsKey(m)).collect(Collectors.toSet());
   }
 
   /**
@@ -630,15 +703,15 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     getComponentIdMappers().populateMissingIdMappers(getIdMapperType());
 
     /* log configuration */
-    settings.logSettings(getReferenceNetwork());
+    settings.logSettings(getReferenceNetwork(), 0);
 
     /* prep */
-    initialise();
+    initialise(demands);
 
     /* write */
     writeXmlPlansFile(demands, getSettings().isWriteAsGZip());
 
-    logWriterStats();
+    LOGGER.info(this.writerStats.toString());
   }
 
 
@@ -647,9 +720,10 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    */
   @Override
   public void reset() {
-//    matsimNodeCounter.reset();
-//    matsimLinkCounter.reset();
-//    matsimTurnRestrictionCounter.reset();
+    writerStats.reset();
+    zoneLinkWeightsIndex.clear();
+    randomEngine = null;
+    personSchedulesToIgnore.clear();
   }
 
   /**

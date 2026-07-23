@@ -1,10 +1,9 @@
 package org.goplanit.matsim.util;
 
 import org.goplanit.converter.ConverterWriterSettings;
-import org.goplanit.converter.utils.ExternalToPlanitModeMapping;
 import org.goplanit.converter.utils.PlanitToExternalModeMapping;
 import org.goplanit.network.MacroscopicNetwork;
-import org.goplanit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
+import org.goplanit.utils.misc.LoggingUtils;
 import org.goplanit.utils.misc.StringUtils;
 import org.goplanit.utils.mode.Mode;
 import org.goplanit.utils.mode.Modes;
@@ -34,15 +33,11 @@ public abstract class PlanitMatsimWriterModeMappingSettings
   protected static PlanitToExternalModeMapping createInitialDefaultMapping() {
     PlanitToExternalModeMapping mapping = new PlanitToExternalModeMapping();
     EnumSet<PredefinedModeType> predefinedModes =
-        PredefinedModeType.getPredefinedModeTypesWithout(
-          PredefinedModeType.CUSTOM,
-          PredefinedModeType.BICYCLE,
-          PredefinedModeType.PEDESTRIAN);
+        PredefinedModeType.getPredefinedModeTypesWithout(PredefinedModeType.CUSTOM);
 
     for (PredefinedModeType modeType : predefinedModes) {
       mapping.addDefaultMapping(modeType, getDefaultPredefinedModeMappings(modeType));
     }
-    mapping.activateAllDefaults();
     return mapping;
   }
 
@@ -52,12 +47,6 @@ public abstract class PlanitMatsimWriterModeMappingSettings
    * @param modeType to get MATSim default mapping for
    * @return default mapping found
    */
-  /**
-   * Resolves the default MATSim mapping string for a given PLANit mode.
-   *
-   * @param modeType PLANit mode type
-   * @return Mapped default MATSim mode string
-   */
   protected static String getDefaultPredefinedModeMappings(PredefinedModeType modeType) {
     switch (modeType) {
       case BUS:
@@ -66,9 +55,20 @@ public abstract class PlanitMatsimWriterModeMappingSettings
       case TRAM:
       case LIGHTRAIL:
       case FERRY:
-        return DEFAULT_PUBLIC_TRANSPORT_MODE;
+        return MatsimBuiltInMode.PT.getValue();
+      case PEDESTRIAN:
+        return MatsimBuiltInMode.WALK.getValue();
+      case BICYCLE:
+        return MatsimBuiltInMode.BIKE.getValue();
+      case GOODS_VEHICLE:
+      case HEAVY_GOODS_VEHICLE:
+      case LARGE_HEAVY_GOODS_VEHICLE:
+        return MatsimBuiltInMode.FREIGHT.getValue();
+      case TAXI:
+      case RIDE_SHARE:
+        return MatsimBuiltInMode.DRT.getValue();
       default:
-        return DEFAULT_PRIVATE_TRANSPORT_MODE;
+        return MatsimBuiltInMode.CAR.getValue();
     }
   }
 
@@ -80,7 +80,8 @@ public abstract class PlanitMatsimWriterModeMappingSettings
    *
    * @param macroscopicNetwork provided for reference
    */
-  protected void logSettings(MacroscopicNetwork macroscopicNetwork) {
+  protected void logSettings(MacroscopicNetwork macroscopicNetwork, int level) {
+    super.logSettings(level);
 
     Modes planitModes = macroscopicNetwork.getModes();
     for (Mode planitMode : planitModes) {
@@ -94,8 +95,8 @@ public abstract class PlanitMatsimWriterModeMappingSettings
       if (!modeMapping.isMapped(type)) {
         LOGGER.info(String.format("[DEACTIVATED] PLANit mode:%s", type.value()));
       } else {
-        LOGGER.info(String.format("[ACTIVATED] PLANit mode:%s -> MATSIM mode:%s",
-            type.value(), modeMapping.getMappedMode(type)));
+        LOGGER.info(LoggingUtils.settingsMapping(
+            "PLANit mode: "+type.value(), "MATSIM mode: "+modeMapping.getMappedMode(type), level + 1));
       }
     }
   }
@@ -104,16 +105,6 @@ public abstract class PlanitMatsimWriterModeMappingSettings
    * Default setting for restricting a link's max speed by its supported mode max speeds if more restricting
    */
   public static final Boolean DEFAULT_RESTRICT_SPEED_LIMIT_BY_SUPPORTED_MODE = false;
-
-  /**
-   * default mode for all public transport modes in Matsim is pt, so that is what we use for initial mapping
-   */
-  public static final String DEFAULT_PUBLIC_TRANSPORT_MODE = "pt";
-
-  /**
-   * default mode for all private transport modes in Matsim is car, so that is what we use for initial mapping
-   */
-  public static final String DEFAULT_PRIVATE_TRANSPORT_MODE = "car";
 
   /**
    * Shallow copy constructor. Can be sued when mode mappings requires syncing across various settings classes that
@@ -155,6 +146,10 @@ public abstract class PlanitMatsimWriterModeMappingSettings
   public PlanitMatsimWriterModeMappingSettings(String outputDirectory, String outputFileName, String countryName) {
     super(outputDirectory, outputFileName, countryName);
     this.modeMapping = createInitialDefaultMapping();
+
+    modeMapping.activate(PredefinedModeType.CAR);
+    modeMapping.activate(PredefinedModeType.BUS);
+    modeMapping.activate(PredefinedModeType.TRAIN);
   }
 
   /**
@@ -221,6 +216,13 @@ public abstract class PlanitMatsimWriterModeMappingSettings
   }
 
   /**
+   * Activate all default mapped modes
+   */
+  public void activateAllDefaultMappedModes() {
+    modeMapping.activateAllDefaults();
+  }
+
+  /**
    * Activate the provided predefined mode from the activated modes listed for inclusion in the MATSIM network
    * (in mapped form). By default all PLANit modes are active, so this is only needed when a mode has been
    * deactivated earlier
@@ -235,7 +237,7 @@ public abstract class PlanitMatsimWriterModeMappingSettings
   }
 
   /**
-   * Creating a mapping from actual PLANit modes in the network to the MATSIM mode mapping as per the configuration
+   * Creating a mapping from PLANit modes in the network to the MATSIM mode mapping as per the configuration
    * in this class instance
    *
    * @param networkLayer the networkLayer

@@ -1,31 +1,20 @@
 package org.goplanit.matsim.test;
 
-import org.goplanit.demands.discrete.DiscreteDemands;
-import org.goplanit.demands.discrete.util.DirectionBound;
 import org.goplanit.io.converter.demands.PlanitDiscreteDemandsReaderFactory;
 import org.goplanit.io.converter.intermodal.PlanitIntermodalReaderFactory;
 import org.goplanit.logging.Logging;
 import org.goplanit.matsim.converter.MatsimIntermodalWriterFactory;
 import org.goplanit.matsim.converter.demand.LocationGeneratorType;
 import org.goplanit.matsim.converter.demand.MatsimDiscreteDemandsWriterFactory;
-import org.goplanit.matsim.util.MatsimAssertionUtils;
-import org.goplanit.network.MacroscopicNetwork;
-import org.goplanit.utils.geo.PlanitJtsCrsUtils;
-import org.goplanit.utils.geo.PlanitJtsUtils;
+import org.goplanit.network.MacroscopicNetworkUtils;
 import org.goplanit.utils.id.IdGenerator;
-import org.goplanit.utils.id.IdGroupingToken;
 import org.goplanit.utils.mode.PredefinedModeType;
-import org.goplanit.zoning.Zoning;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
-import java.time.Duration;
-import java.time.LocalTime;
-import java.time.temporal.ChronoUnit;
-import java.util.concurrent.atomic.LongAdder;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.fail;
@@ -96,22 +85,17 @@ public class MatsimLargeConversionWriterTest {
       var planitNetwork = result.first();
       var planitZoning = result.second();
 
-      var carMode = planitNetwork.getModes().get(PredefinedModeType.CAR);
-      var taxiMode = planitNetwork.getModes().getFactory().registerNew(PredefinedModeType.TAXI);
-      var rideShareMode = planitNetwork.getModes().getFactory().registerNew(PredefinedModeType.RIDE_SHARE);
-      var hovMode = planitNetwork.getModes().getFactory().registerNew(PredefinedModeType.CAR_HIGH_OCCUPANCY);
-      planitNetwork.getTransportLayers().stream().flatMap( l ->
-          l.getLinkSegmentTypes().stream()).forEach(lt -> {
-            if(lt.isModeAllowed(carMode)) {
-              var ag = lt.getAccessProperties(carMode);
-              lt.registerModeOnAccessGroup(taxiMode, ag);
-              lt.registerModeOnAccessGroup(rideShareMode, ag);
-              lt.registerModeOnAccessGroup(hovMode, ag);
-            }
-      });
+      MacroscopicNetworkUtils.expandModeSupport(
+          planitNetwork,
+          PredefinedModeType.CAR, // expand car with:
+          PredefinedModeType.CAR_SHARE,
+          PredefinedModeType.TAXI,
+          PredefinedModeType.RIDE_SHARE,
+          PredefinedModeType.CAR_HIGH_OCCUPANCY);
 
       // writer for infrastructure
       var matsimInfraWriter = MatsimIntermodalWriterFactory.create(MATSIM_OUTPUT_DIR.toAbsolutePath().toString());
+      matsimInfraWriter.getSettings().getNetworkSettings().activateAllDefaultMappedModes();
       matsimInfraWriter.write(planitNetwork, planitZoning);
 
 
@@ -122,7 +106,9 @@ public class MatsimLargeConversionWriterTest {
 
       // writer for demand - utilising network and zoning for reference
       var plansWriter =
-          MatsimDiscreteDemandsWriterFactory.create(planitNetwork, planitZoning);
+          MatsimDiscreteDemandsWriterFactory.create(
+              MATSIM_OUTPUT_DIR.toAbsolutePath().toString(), planitNetwork, planitZoning);
+      plansWriter.getSettings().activateAllDefaultMappedModes();
       // map plans to physical locations based on distance weighted random draws within the zone of the activity
       plansWriter.getSettings().setLocationGeneratorType(LocationGeneratorType.ZONE_LINKS_DISTANCE_WEIGHTED);
       plansWriter.write(planitDiscreteDemands);

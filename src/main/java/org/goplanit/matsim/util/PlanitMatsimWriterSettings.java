@@ -5,8 +5,10 @@ import org.goplanit.converter.FileBasedConverterWriterSettings;
 import org.goplanit.converter.SingleFileBasedConverterWriterSettings;
 import org.goplanit.utils.math.Precision;
 import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.goplanit.utils.misc.LoggingUtils;
 
 import java.text.DecimalFormat;
+import java.util.logging.Logger;
 
 /**
  * Base writer settings class to be used by all available matsim writer settings classes.
@@ -17,6 +19,8 @@ import java.text.DecimalFormat;
  */
 public abstract class PlanitMatsimWriterSettings extends SingleFileBasedConverterWriterSettings
     implements ConverterWriterSettings {
+
+  private static final Logger LOGGER = Logger.getLogger(PlanitMatsimWriterSettings.class.getCanonicalName());
 
   /**
    * number of decimals to use, default is Precision.DEFAULT_DECIMAL_FORMAT
@@ -65,7 +69,17 @@ public abstract class PlanitMatsimWriterSettings extends SingleFileBasedConverte
   public PlanitMatsimWriterSettings(
       final String outputDirectory, final String outputFileName, final String countryName) {
     super(outputDirectory, outputFileName, countryName);
-  }   
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void logSettings(int level) {
+    super.logSettings(level);
+    LOGGER.info(LoggingUtils.settingsValue("Decimal fidelity", decimalFormat.getMaximumFractionDigits(), level));
+    LOGGER.info(LoggingUtils.settingsValue("Write as GZip", isWriteAsGZip(), level));
+  }
 
   /** Collect number of decimals used in writing coordinates
    *

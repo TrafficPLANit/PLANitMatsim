@@ -165,10 +165,13 @@ class MatsimPtXmlWriter {
     if(!upstreamStop){
       /* only relevant for NOT the very first leg (first leg we assume is the only one corresponding
       to an upstream stop)*/
-      xmlWriter.writeAttribute(MatsimTransitAttributes.ARRIVAL_OFFSET, cumulativeTravelTime.format(MatsimWriter.HHmmssFormat));
+      // todo: time should be using seconds of day and then use LocalTimeUtils.formatHhMmSs to support beyond 24h format
+      xmlWriter.writeAttribute(
+          MatsimTransitAttributes.ARRIVAL_OFFSET, cumulativeTravelTime.format(MatsimWriter.HHmmssFormat));
     }
 
     /* departureOffset */
+    // todo: time should be using seconds of day and then use LocalTimeUtils.formatHhMmSs to support beyond 24h format
     xmlWriter.writeAttribute(MatsimTransitAttributes.DEPARTURE_OFFSET,
         cumulativeTravelTime.plusNanos(relLegTiming.getDwellTime().toNanoOfDay()).format(MatsimWriter.HHmmssFormat));
 

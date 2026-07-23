@@ -7,6 +7,7 @@ import java.util.logging.Logger;
 import org.goplanit.matsim.util.PlanitMatsimWriterSettings;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.utils.locale.CountryNames;
+import org.goplanit.utils.misc.LoggingUtils;
 
 /**
  * Settings specific to writing the zoning related output in MATSim format (pt)
@@ -33,15 +34,11 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
    * Log settings
    */
   @Override
-  public void logSettings() {
-
-    LOGGER.info(String.format("------- MATSim public transport settings -------------"));
-    Path matsimZoningPath =  Paths.get(getOutputDirectory(), getFileName().concat(
-        MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
-    LOGGER.info(String.format("Persisting MATSim public transport to        : %s", matsimZoningPath));
-    LOGGER.info(String.format("Generate MATSim Matrix based PT routing file : %s",
-        isGenerateMatrixBasedPtRouterFiles()));
-    super.logSettings();
+  public void logSettings(int level) {
+    LOGGER.info(LoggingUtils.settingsHeader("MATSim zoning writer settings"));
+    super.logSettings(level);
+    LOGGER.info(LoggingUtils.settingsValue(
+        "Generate MATSim Matrix based PT routing file", isGenerateMatrixBasedPtRouterFiles(), level));
   }
 
   /**

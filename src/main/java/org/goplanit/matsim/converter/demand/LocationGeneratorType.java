@@ -6,9 +6,11 @@ package org.goplanit.matsim.converter.demand;
  * * @author markr
  */
 public enum LocationGeneratorType {
-  /** Draw a random link within the zone, weighted by link length */
+  /** Draw a link within the zone, weighted by link length, fallback if no links in zone is the geometry's
+   * dynamically generated centroid */
   ZONE_LINKS_DISTANCE_WEIGHTED,
 
-  /** Fall back directly to the Zone's geometric centroid coordinates */
+  /** Fall back directly to the Zone's geometric centroid coordinates if available, fallback is the dynamically
+   * generated centroid of the zone's geometry if available */
   ZONE_CENTROID
 }

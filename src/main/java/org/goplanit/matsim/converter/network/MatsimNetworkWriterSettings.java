@@ -9,6 +9,7 @@ import org.goplanit.converter.ConverterWriterSettings;
 import org.goplanit.matsim.converter.MatsimWriter;
 import org.goplanit.matsim.util.PlanitMatsimWriterModeMappingSettings;
 import org.goplanit.network.MacroscopicNetwork;
+import org.goplanit.utils.misc.LoggingUtils;
 import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
 
 /** Settings for the MATSIM writer
@@ -65,20 +66,14 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterModeMappingSe
    * @param macroscopicNetwork provided for reference 
    */
   @Override
-  public void logSettings(MacroscopicNetwork macroscopicNetwork) {
-  
-    Path matsimNetworkPath =  Paths.get(getOutputDirectory(),
-        getFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
-    LOGGER.info(String.format("Persisting MATSim network to: %s", matsimNetworkPath));
-    
-    LOGGER.info(String.format("Decimal fidelity set to %s", decimalFormat.getMaximumFractionDigits()));
-    LOGGER.info(String.format("Persisting XML as GZip: %s", this.writeAsGZip));
-    if(getDestinationCoordinateReferenceSystem() != null) {
-      LOGGER.info(String.format("Destination Coordinate Reference System set to: %s",
-          getDestinationCoordinateReferenceSystem().getName()));
-    }
-
-    super.logSettings(macroscopicNetwork);
+  public void logSettings(MacroscopicNetwork macroscopicNetwork, int level) {
+    LOGGER.info(LoggingUtils.settingsHeader("MATSim Network Writer Settings"));
+    super.logSettings(macroscopicNetwork, level);
+    LOGGER.info(LoggingUtils.settingsValue("linkNtCategoryfunction", linkNtCategoryfunction, level));
+    LOGGER.info(LoggingUtils.settingsValue("linkTypefunction", linkTypefunction, level));
+    LOGGER.info(LoggingUtils.settingsValue("Generate detailed geometry", generateDetailedLinkGeometryFile, level));
+    LOGGER.info(LoggingUtils.settingsValue(
+        "Restrict link speed by supported modes", restrictLinkSpeedBySupportedModes, level));
   }
 
   /**

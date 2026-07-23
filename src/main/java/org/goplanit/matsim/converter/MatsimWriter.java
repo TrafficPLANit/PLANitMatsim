@@ -8,6 +8,9 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 
 import org.goplanit.converter.CrsWriterImpl;
+import org.goplanit.matsim.xml.MatsimAttributes;
+import org.goplanit.matsim.xml.MatsimElements;
+import org.goplanit.matsim.xml.MatsimPlansElements;
 import org.goplanit.utils.id.IdMapperType;
 import org.goplanit.matsim.util.PlanitMatsimWriterSettings;
 import org.goplanit.network.MacroscopicNetwork;
@@ -77,6 +80,26 @@ public abstract class MatsimWriter<T> extends CrsWriterImpl<T> {
    */
   protected Coordinate extractDestinationCrsCompatibleCoordinate(Point location){
     return createTransformedCoordinate(location.getCoordinate());
+  }
+
+  /**
+   * Write a MATSim compliant custom attribute element
+   *
+   * @param xmlWriter to use
+   * @param name name of the attribute
+   * @param javaClazz java class, e.g., java.lang.String
+   * @param value value of the attribute
+   * @throws XMLStreamException if error
+   */
+  protected void writeMatsimCustomAttributeEntry(
+      XMLStreamWriter xmlWriter, String name, String javaClazz, Object value) throws XMLStreamException {
+    writeStartElement(xmlWriter, MatsimElements.ATTRIBUTE, false);
+    xmlWriter.writeAttribute("name", name);
+    xmlWriter.writeAttribute("class", javaClazz);
+    xmlWriter.writeCharacters(value.toString());
+    xmlWriter.writeEndElement();
+    writeNewLine(xmlWriter);
+    decreaseIndentation();
   }
 
   /** Add indentation to stream at current indentation level

@@ -4,8 +4,11 @@ import org.goplanit.converter.ConverterWriterSettings;
 import org.goplanit.matsim.converter.network.MatsimNetworkWriterSettings;
 import org.goplanit.matsim.util.PlanitMatsimWriterSettings;
 import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.goplanit.network.MacroscopicNetwork;
+import org.goplanit.utils.misc.LoggingUtils;
 
 import java.text.DecimalFormat;
+import java.util.logging.Logger;
 
 /**
  * Settings specific to writing the intermodal related outputs in MATSim format, i.e., network and pt
@@ -15,6 +18,8 @@ import java.text.DecimalFormat;
  *
  */
 public class MatsimIntermodalWriterSettings extends PlanitMatsimWriterSettings implements ConverterWriterSettings {
+
+  private static final Logger LOGGER = Logger.getLogger(MatsimIntermodalWriterSettings.class.getCanonicalName());
   
   /** the network and zoning settings to use in case we are writing without services */
   protected final MatsimNetworkWriterSettings networkSettings;
@@ -75,7 +80,17 @@ public class MatsimIntermodalWriterSettings extends PlanitMatsimWriterSettings i
       this(new MatsimNetworkWriterSettings(outputDirectory, networkOutputFileName, countryName),
           new MatsimZoningWriterSettings(outputDirectory, ptOutputFileName, countryName),
           new MatsimPtServicesWriterSettings(outputDirectory, ptOutputFileName, countryName));
-  }    
+  }
+
+  /**
+   * log settings
+   */
+  public void logSettings(MacroscopicNetwork network, int level){
+    LOGGER.info(LoggingUtils.settingsHeader("MATSim intermodal writer settings"));
+    networkSettings.logSettings(network, level);
+    zoningSettings.logSettings(level);
+    ptServicesSettings.logSettings(level);
+  }
 
   /**
    * {@inheritDoc}

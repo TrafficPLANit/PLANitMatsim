@@ -607,7 +607,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
         true);
 
     /* log settings */
-    settings.logSettings(macroscopicNetwork);
+    settings.logSettings(macroscopicNetwork, 0);
     
     /* write */
     final MacroscopicNetworkLayerImpl macroscopicPhysicalNetworkLayer =

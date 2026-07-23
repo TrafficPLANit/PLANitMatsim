@@ -127,10 +127,21 @@ public class MatsimPlansWriterStats {
             "  Persons skipped (no tours)     : %d%n" +
             "  Activities written             : %d%n" +
             "  Legs written                   : %d%n",
-        personsProcessed,
-        personsWritten,
-        personsSkippedNoTours,
-        activitiesWritten,
-        legsWritten);
+        getPersonsProcessed(),
+        getPersonsWritten(),
+        getPersonsSkippedNoTours(),
+        getActivitiesWritten(),
+        getLegsWritten());
+  }
+
+  /**
+   * Reset
+   */
+  public void reset() {
+    personsProcessed = 0;
+    personsWritten = 0;
+    personsSkippedNoTours = 0;
+    activitiesWritten = 0;
+    legsWritten = 0;
   }
 }

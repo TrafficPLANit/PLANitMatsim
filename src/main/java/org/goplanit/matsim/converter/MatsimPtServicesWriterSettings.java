@@ -2,6 +2,7 @@ package org.goplanit.matsim.converter;
 
 import org.goplanit.matsim.util.PlanitMatsimWriterModeMappingSettings;
 import org.goplanit.utils.locale.CountryNames;
+import org.goplanit.utils.misc.LoggingUtils;
 import org.goplanit.zoning.Zoning;
 
 import java.nio.file.Path;
@@ -35,9 +36,8 @@ public class MatsimPtServicesWriterSettings extends PlanitMatsimWriterModeMappin
    *
    */
   protected void logSettingsWithoutModeMapping() {
-    Path matsimZoningPath =  Paths.get(getOutputDirectory(),
-        getFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
-    LOGGER.info(String.format("Persisting MATSim public transport to: %s", matsimZoningPath));
+    LOGGER.info(LoggingUtils.settingsHeader("MATSim public transport services settings"));
+    super.logSettings(0); // bypass mode mapping
   }
 
   /** default value aligned with MATSim default */

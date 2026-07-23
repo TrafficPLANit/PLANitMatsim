@@ -6,6 +6,7 @@ import org.goplanit.matsim.converter.MatsimWriter;
 import org.goplanit.matsim.util.PlanitMatsimWriterModeMappingSettings;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.utils.exceptions.PlanItRunTimeException;
+import org.goplanit.utils.misc.LoggingUtils;
 import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
 
 import java.nio.file.Path;
@@ -37,16 +38,10 @@ public class MatsimDiscreteDemandsWriterSettings extends PlanitMatsimWriterModeM
    * @param referenceNetwork provided for reference
    */
   @Override
-  public void logSettings(MacroscopicNetwork referenceNetwork) {
-
-    Path matsimPath =  Paths.get(getOutputDirectory(),
-        getFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
-    LOGGER.info(String.format("Persisting MATSim plans to: %s", matsimPath));
-
-    LOGGER.info(String.format("Decimal fidelity set to %s", decimalFormat.getMaximumFractionDigits()));
-    LOGGER.info(String.format("Persisting XML as GZip: %s", this.writeAsGZip));
-
-    super.logSettings(referenceNetwork);
+  public void logSettings(MacroscopicNetwork referenceNetwork, int level) {
+    LOGGER.info(LoggingUtils.settingsHeader("MATSim Plans (Discrete Demands) Writer Settings"));
+    super.logSettings(referenceNetwork, level);
+    LOGGER.info(LoggingUtils.settingsValue("Location generation type", locationGeneratorType, level));
   }
 
 

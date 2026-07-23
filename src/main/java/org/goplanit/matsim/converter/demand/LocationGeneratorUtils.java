@@ -12,6 +12,9 @@ import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.MultiLineString;
 import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.prep.PreparedGeometry;
+import org.locationtech.jts.geom.prep.PreparedGeometryFactory;
+import org.locationtech.jts.index.strtree.STRtree;
 
 import java.util.*;
 import java.util.logging.Logger;
@@ -37,14 +40,16 @@ public class LocationGeneratorUtils {
   public static Map<Long, ZoneLinkWeights> populateZoneLinkWeightsIndex(
       MacroscopicNetwork network, OdZones odZones, PlanitJtsCrsUtils crsUtils) {
 
-    Map<Long, ZoneLinkWeights> zoneWeightsMap = new HashMap<>();
-
-    // safeguard
-    if(network.getTransportLayers().size()!=1){
+    if (network.getTransportLayers().size() != 1) {
       throw new PlanItRunTimeException("Currently zone link weights only support a single network layer, abort");
     }
+    var zoneWeightsIndex = new HashMap<Long, ZoneLinkWeights>();
     var layer = network.getTransportLayers().getFirst();
 
+    //Build the Spatial Index (R-Tree) over the links
+    var linkSpatialIndex = layer.getLinks().createSpatialIndex();
+    // Process Zones using Spatial Filtering
+    PreparedGeometryFactory prepFactory = new PreparedGeometryFactory();
     for (var zone : odZones) {
       var zoneGeom = zone.getGeometry();
       if (zoneGeom == null) {
@@ -53,38 +58,39 @@ public class LocationGeneratorUtils {
         continue;
       }
 
+      // prep for fast boolean lookups
+      PreparedGeometry prepZoneGeom = prepFactory.create(zoneGeom);
+
       List<MacroscopicLinkSegment> intersectingSegments = new ArrayList<>();
       List<Double> cumulativeLengths = new ArrayList<>();
       double runningTotalLength = 0.0;
 
-      for (MacroscopicLink link : layer.getLinks()) {
-        var linkGeom = link.getGeometry();
-        if (linkGeom == null) {
-          continue;
-        }
+      // Fast Bounding-Box Query: Returns only candidate links intersecting the Zone's envelope
+      @SuppressWarnings("unchecked")
+      List<MacroscopicLink> candidateLinks = linkSpatialIndex.query(zoneGeom.getEnvelopeInternal());
 
-        // Fast topological intersection evaluate check in native coordinates
-        if (zoneGeom.intersects(linkGeom)) {
+      for (MacroscopicLink link : candidateLinks) {
+        var linkGeom = link.getGeometry(); // Guaranteed non-null from step 2
+
+        // Exact topological intersection check
+        if (prepZoneGeom.intersects(linkGeom)) {
           double lengthInsideZoneKm;
 
-          if (zoneGeom.contains(linkGeom)) {
-            // Fully enclosed - use the master link attribute directly without calculation
+          // use in full when contained, otherwise portion within
+          if (prepZoneGeom.contains(linkGeom)) {
             lengthInsideZoneKm = link.getLengthKm();
           } else {
-            // Cut across boundary - extract the intersection fragment geometry
             Geometry internalIntersection = zoneGeom.intersection(linkGeom);
 
             if (internalIntersection != null && !internalIntersection.isEmpty()) {
               lengthInsideZoneKm = 0.0;
 
-              // Handle standard LineStrings
               if (internalIntersection instanceof LineString) {
                 lengthInsideZoneKm = crsUtils.getDistanceInKilometres((LineString) internalIntersection);
-              }
-              // Handle fragmented MultiLineStrings resulting from complex boundary cuts
-              else if (internalIntersection instanceof MultiLineString) {
+              } else if (internalIntersection instanceof MultiLineString) {
                 MultiLineString mls = (MultiLineString) internalIntersection;
-                for (int i = 0; i < mls.getNumGeometries(); i++) {
+                int numGeoms = mls.getNumGeometries();
+                for (int i = 0; i < numGeoms; i++) {
                   lengthInsideZoneKm += crsUtils.getDistanceInKilometres((LineString) mls.getGeometryN(i));
                 }
               }
@@ -93,7 +99,6 @@ public class LocationGeneratorUtils {
             }
           }
 
-          // Buffer slightly against minor precision noise
           if (lengthInsideZoneKm > 0.0001) {
             for (var segment : link.getLinkSegments()) {
               if (segment != null) {
@@ -107,12 +112,12 @@ public class LocationGeneratorUtils {
       }
 
       if (!intersectingSegments.isEmpty()) {
-        zoneWeightsMap.put(
+        zoneWeightsIndex.put(
             zone.getId(), new ZoneLinkWeights(intersectingSegments, cumulativeLengths, runningTotalLength));
       }
     }
 
-    return zoneWeightsMap;
+    return zoneWeightsIndex;
   }
 
   /**
