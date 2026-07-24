@@ -5,15 +5,17 @@ import org.goplanit.converter.idmapping.DiscreteDemandsIdMapper;
 import org.goplanit.demands.discrete.DiscreteDemands;
 import org.goplanit.demands.discrete.person.Person;
 import org.goplanit.demands.discrete.person.PersonUtils;
+import org.goplanit.demands.discrete.tour.ActivitySchedule;
 import org.goplanit.demands.discrete.tour.ScheduleElement;
 import org.goplanit.demands.discrete.tour.Tour;
+import org.goplanit.demands.discrete.tour.TourImpl;
 import org.goplanit.demands.discrete.trip.Trip;
+import org.goplanit.demands.discrete.trip.TripImpl;
 import org.goplanit.demands.discrete.util.DirectionBound;
 import org.goplanit.matsim.converter.MatsimWriter;
-import org.goplanit.matsim.xml.MatsimAttributes;
-import org.goplanit.matsim.xml.MatsimElements;
-import org.goplanit.matsim.xml.MatsimPlansAttributes;
-import org.goplanit.matsim.xml.MatsimPlansElements;
+import org.goplanit.matsim.util.MatsimBuiltInMode;
+import org.goplanit.matsim.util.ScheduleCollapsingUtils;
+import org.goplanit.matsim.xml.*;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.utils.exceptions.PlanItRunTimeException;
 import org.goplanit.utils.geo.PlanitJtsUtils;
@@ -21,6 +23,7 @@ import org.goplanit.utils.id.IdMapperType;
 import org.goplanit.utils.misc.Pair;
 import org.goplanit.utils.misc.StringUtils;
 import org.goplanit.utils.mode.Mode;
+import org.goplanit.utils.mode.PredefinedModeType;
 import org.goplanit.utils.time.LocalTimeUtils;
 import org.goplanit.utils.xml.PlanitXmlWriterUtils;
 import org.goplanit.utils.zoning.OdZone;
@@ -125,17 +128,17 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
 
     // in MATSim 24h+ format
     long startTimeSecondsUnbounded = currentElement.getStartTime().toSecondOfDay();
-    if(startTimeSecondsUnbounded < periodStartTimeSeconds){
+    if (startTimeSecondsUnbounded < periodStartTimeSeconds) {
       startTimeSecondsUnbounded += SECONDS_IN_DAY;
     }
 
     // Case 1: outbound trip followed by inbound trip --> activity occurs in between the two trips now
     //         NOTE: we check this in this way to allow for chained outbound trips
     //         this exhausts the use of the trip's tour purpose in one go - no further nesting
-    if((currentElement instanceof Trip) && (precedingElement instanceof Trip) &&
-        ((Trip)precedingElement).getDirection() == DirectionBound.OUTBOUND &&
-        ((Trip)currentElement).getDirection() == DirectionBound.INBOUND){
-      var upcomingTrip = ((Trip)currentElement);
+    if ((currentElement instanceof TripImpl) && (precedingElement instanceof TripImpl) &&
+        ((Trip) precedingElement).getDirection() == DirectionBound.OUTBOUND &&
+        ((Trip) currentElement).getDirection() == DirectionBound.INBOUND) {
+      var upcomingTrip = ((Trip) currentElement);
       var thePurpose = upcomingTrip.getTour().getPurpose();
 
       writeActivityElement(
@@ -144,11 +147,76 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       writeIndentation(xmlWriter);
     }
 
-    // Case 2: sub tour: activity from preceding tour occurs in between arrival from inbound trip and
+    // Case 2a: multiple consecutive Inbound or Outbound legs of trips of the same mode, either we collapse them into
+    //         a single activity or we intersperse them with activities based on the trip purpose rather than the
+    //         tour purpose
+    // Case 2b: same only now different modes between the chain of InBound/Outbound (pt walk access for example). In
+    //          that case we also either collapse or not depending on configuration
+    if ((currentElement instanceof Trip) && (precedingElement instanceof Trip)) {
+      Trip prevTrip = (Trip) precedingElement;
+      Trip currTrip = (Trip) currentElement;
+
+      if (prevTrip.getDirection() == currTrip.getDirection()) {
+
+        // Resolve both the underlying PLANit types and the target MATSim destination strings
+        PredefinedModeType prevPlanitMode = prevTrip.getMode().getPredefinedModeType();
+        PredefinedModeType currPlanitMode = currTrip.getMode().getPredefinedModeType();
+
+        String prevMatsimMode = getSettings().getMappedMatsimMode(prevPlanitMode);
+        String currMatsimMode = getSettings().getMappedMatsimMode(currPlanitMode);
+
+        // Identify if the current travel segments belong to the Public Transport network layer
+        boolean isPrevPt = MatsimBuiltInMode.fromValue(prevMatsimMode).map(MatsimBuiltInMode::isTypeOfPt).orElse(false);
+        boolean isCurrPt = MatsimBuiltInMode.fromValue(currMatsimMode).map(MatsimBuiltInMode::isTypeOfPt).orElse(false);
+
+        // =====================================================================
+        // OPTION A: DISAGGREGATE SIMULATION LAYOUT (Detailed physical routing)
+        // =====================================================================
+        String thePurpose = prevTrip.getPurpose();
+        if (getSettings().isUseDisaggregateTransitModes()) {
+
+          // Every single public transport segment swap or mode shift requires an explicit interaction facility marker
+          if (isPrevPt || isCurrPt || prevPlanitMode != currPlanitMode) {
+
+            // more specific, MATSim compliant
+            if (isCurrPt || isPrevPt) {
+              thePurpose = MatsimPredefinedActivityTypes.PT_INTERACTION;
+            }
+
+            writeActivityElement(
+                xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
+                prevTrip.getDestination(true));
+            writeIndentation(xmlWriter);
+            return;
+          }
+
+          writeActivityElement(
+              xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
+              prevTrip.getDestination(true));
+          writeIndentation(xmlWriter);
+          return;
+        }else {
+          // AGGREGATE - so collapse if needed
+
+          // Transit Transfers: Any consecutive public transport legs collapse completely into a single block
+          if (isPrevPt && isCurrPt) {
+            return; // Collapse (Write Nothing) - will be picked up on the last one
+          }
+
+          writeActivityElement(
+              xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
+              prevTrip.getDestination(true));
+          writeIndentation(xmlWriter);
+          return;
+        }
+      }
+    }
+
+    // Case 3: sub tour: activity from preceding tour occurs in between arrival from inbound trip and
     //                   start of this tour. Arrival at this location is based on
     //                   parent tour (this is interspersed), the location resides at the parent tour's
     //                   destination so use that purpose
-    if((currentElement instanceof Tour) && (precedingElement instanceof Trip) &&
+    if((currentElement instanceof TourImpl) && (precedingElement instanceof TripImpl) &&
         ((Trip)precedingElement).getDirection() == DirectionBound.OUTBOUND){
       var currTour = ((Tour)currentElement);
       // purpose from parent, if no parent, we have to assume this is the op level tour, so locale is person's initial
@@ -160,12 +228,12 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       writeIndentation(xmlWriter);
     }
 
-    // Case 3: returning back to origin from destination location AFTER just coming back to destination location from
+    // Case 4: returning back to origin from destination location AFTER just coming back to destination location from
     //         subtour --> purpose is inbound trip's tour purpose, and end time of activity at tour's destination is
     //         the trip's start time, location is the destination location of the trip it's tour (or its preceding
     //         tour's origin)
-    if((currentElement instanceof Trip) && ((Trip)currentElement).getDirection() == DirectionBound.INBOUND
-        && (precedingElement instanceof Tour)){
+    if((currentElement instanceof TripImpl) && ((Trip)currentElement).getDirection() == DirectionBound.INBOUND
+        && (precedingElement instanceof TourImpl)){
       var inboundTripItsTour = ((Trip) currentElement).getTour();
       var thePurpose = inboundTripItsTour.getPurpose();
       // purpose from inbound trip its tour
@@ -174,10 +242,10 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       writeIndentation(xmlWriter);
     }
 
-    // Case 4: starting a new tour after a preceding tour has finished fully and we have spent time waiting
+    // Case 5: starting a new tour after a preceding tour has finished fully and we have spent time waiting
     //         in between. In that case, the purpose is that of the parent, and the end time of the activity is the
     //         start time of the outbound trip
-    if((currentElement instanceof Tour) && (precedingElement instanceof Tour)){
+    if((currentElement instanceof TourImpl) && (precedingElement instanceof TourImpl)){
       var currTour = ((Tour)currentElement);
       var thePurpose = currTour.hasParentTour() ?
           currTour.getParentTour().getPurpose() : person.getInitialPurpose();
@@ -219,12 +287,12 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
 
     try{
 
-      if(scheduleElement instanceof Trip){
+      if(scheduleElement instanceof TripImpl){
         // trips are always a travel leg, the activities come from the tours
-        writeLegElement(xmlWriter, (Trip) scheduleElement, modeMapping);
+        writeLegElement(xmlWriter, (TripImpl) scheduleElement, modeMapping);
         writeIndentation(xmlWriter);
 
-      }else if(scheduleElement instanceof Tour){
+      }else if(scheduleElement instanceof TourImpl){
         // nest
         var currTour = (Tour) scheduleElement;
 
@@ -349,7 +417,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    * @param modeMapping to use
    */
   private void writeLegElement(
-      XMLStreamWriter xmlWriter, Trip trip, Map<Mode, String> modeMapping) throws XMLStreamException {
+      XMLStreamWriter xmlWriter, TripImpl trip, Map<Mode, String> modeMapping) throws XMLStreamException {
 
     // leg
     xmlWriter.writeEmptyElement(MatsimPlansElements.LEG);
@@ -418,10 +486,22 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
           homeZone);
       writeIndentation(xmlWriter);
 
+      ActivitySchedule processedSchedule;
+      if (getSettings().isUseDisaggregateTransitModes()
+          || !ScheduleCollapsingUtils.requiresScheduleCollapsing(
+              person.getSchedule(), getSettings().getModeCollapseRules())) {
+        // pass-through: reuses the original pristine reference instantly
+        processedSchedule = person.getSchedule();
+      } else {
+        // Groups complex (multi-)transfer chains non-destructively via peeking views
+        processedSchedule = ScheduleCollapsingUtils.collapseContiguousTripChainsByModeRules(
+            person.getSchedule(), getSettings().getModeCollapseRules());
+      }
+
       // track the schedule of the person to extract activities and travel leg information in MATSim format
       ScheduleElement prevElement = null;
-      for(int index=0;index< person.getSchedule().size(); index++){
-        var scheduleElement = person.getSchedule().get(index);
+      for(int index=0;index< processedSchedule.size(); index++){
+        var scheduleElement = processedSchedule.get(index);
 
         checkForActivityElementBetweenScheduleElements(
             xmlWriter, scheduleElement, prevElement, person, periodStartTimeSeconds, periodEndTimeSeconds);

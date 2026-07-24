@@ -266,6 +266,32 @@ public abstract class PlanitMatsimWriterModeMappingSettings
     return modeToMatsimMapping;
   }
 
+  /**
+   * Directly obtains the mapped MATSim mode string for a given PLANit predefined mode type
+   * based on the active configuration mapping registry.
+   *
+   * @param type the predefined PLANit mode type to look up
+   * @return the mapped MATSim mode string, or null if unmapped or blank
+   */
+  public String getMappedMatsimMode(PredefinedModeType type) {
+    if (type == null) {
+      return null;
+    }
+
+    if (modeMapping.isMapped(type)) {
+      String mappedMatsimMode = modeMapping.getMappedMode(type);
+      if (!StringUtils.isNullOrBlank(mappedMatsimMode)) {
+        return mappedMatsimMode;
+      }
+
+      LOGGER.info(String.format(
+          "[IGNORED] Found activated PLANit mode %s without mapping to MATSim mode, " +
+              "please provide explicit mapping", type.value()));
+    }
+
+    return null;
+  }
+
 
   /**
    * {@inheritDoc}

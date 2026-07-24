@@ -15,6 +15,12 @@ public enum MatsimBuiltInMode {
   /** Public transport leg (buses, trains, trams) handled via transit schedules */
   PT("pt"),
 
+  /** bus */
+  BUS("bus"),
+
+  /** train */
+  TRAIN("train"),
+
   /** Native pedestrian walk mode, typically handled via teleportation or sidewalk layers */
   WALK("walk"),
 
@@ -62,6 +68,23 @@ public enum MatsimBuiltInMode {
         .filter(mode -> mode.getValue().equals(normalized))
         .findFirst();
   }
+
+  /**
+   * Check if it is a type of pt or the pt group itself
+   *
+   * @return true when bus, train, or pt
+   */
+  public boolean isTypeOfPt(){
+    switch (this){
+      case PT:
+      case BUS:
+      case TRAIN:
+        return true;
+      default:
+        return false;
+    }
+  }
+
 
   /**
    * {@inheritDoc}
