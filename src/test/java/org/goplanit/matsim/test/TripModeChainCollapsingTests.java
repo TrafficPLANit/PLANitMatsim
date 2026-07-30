@@ -295,14 +295,14 @@ public class TripModeChainCollapsingTests {
     var trip = discreteDemands.getTrips().getFactory().registerNew(tour, DirectionBound.OUTBOUND, true);
     trip.setMode(network.getModes().get(PredefinedModeType.CAR));
 
-    // 1. Verify Mutator Safety Barrier on AggregateTripView
+    // Verify Mutator Safety Barrier on AggregateTripView
     var tripView = new AggregateTripView(List.of(trip), trip);
     assertThrows(UnsupportedOperationException.class, () -> tripView.setPurpose("gym"),
         "Mutations on the aggregate trip view layer must throw UnsupportedOperationException.");
     assertThrows(UnsupportedOperationException.class, () -> tripView.setOrigin(zoning.getOdZones().get(4)),
         "Mutations on the aggregate trip view layer must throw UnsupportedOperationException.");
 
-    // 2. Verify Mutator Safety Barrier on AggregateTourView
+    // Verify Mutator Safety Barrier on AggregateTourView
     var mockSchedule = new org.goplanit.demands.discrete.tour.ActivitySchedule();
     var tourView = new AggregateTourView(tour, mockSchedule);
     assertThrows(UnsupportedOperationException.class, () -> tourView.setPurpose("leisure"),
@@ -319,7 +319,7 @@ public class TripModeChainCollapsingTests {
    */
   @Test
   public void testInvalidContextMalformedConstructorAssertions() {
-    // 1. Verify rule definition validation boundaries
+    // Verify rule definition validation boundaries
     assertThrows(NullPointerException.class, () -> new ModeChainCollapseRule(null, List.of(), List.of()),
         "Null main mode should fail instantly with a NullPointerException.");
     assertThrows(NullPointerException.class, () -> new ModeChainCollapseRule(
@@ -337,7 +337,7 @@ public class TripModeChainCollapsingTests {
     var trip = discreteDemands.getTrips().getFactory().registerNew(tour, DirectionBound.OUTBOUND, true);
     trip.setMode(network.getModes().get(PredefinedModeType.CAR));
 
-    // 2. Verify aggregate view constructor validation boundaries
+    // Verify aggregate view constructor validation boundaries
     assertThrows(IllegalArgumentException.class, () -> new AggregateTripView(List.of(), trip),
         "Empty lists must fail initialization requirements with an IllegalArgumentException.");
   }
@@ -412,12 +412,12 @@ public class TripModeChainCollapsingTests {
     assertEquals(2, tourSchedule.sizeUnrolled(true),
         "Should produce exactly 2 leaf elements inside the tour schedule.");
 
-    // 1. First element must be the collapsed TAXI view
+    // First element must be the collapsed TAXI view
     assertTrue(tourSchedule.get(0) instanceof AggregateTripView, "First element must be an AggregateTripView.");
     var taxiView = (AggregateTripView) tourSchedule.get(0);
     assertEquals(PredefinedModeType.TAXI, taxiView.getMode().getPredefinedModeType());
 
-    // 2. Second element is the un-collapsed bus leg passed through natively
+    // Second element is the un-collapsed bus leg passed through natively
     assertTrue(tourSchedule.get(1) instanceof Trip, "Second element must remain a native standalone Trip.");
     var remainingBus = (Trip) tourSchedule.get(1);
     assertEquals(PredefinedModeType.BUS, remainingBus.getMode().getPredefinedModeType());
@@ -438,7 +438,8 @@ public class TripModeChainCollapsingTests {
 
     var person = discreteDemands.getPersons().get(0);
     var tour = discreteDemands.getTours().getFactory().registerNew(
-        person, zoning.getOdZones().get(0), zoning.getOdZones().get(1), LocalTime.of(8, 0), LocalTime.of(17, 30), true);
+        person, zoning.getOdZones().get(0), zoning.getOdZones().get(1),
+        LocalTime.of(8, 0), LocalTime.of(17, 30), true);
 
     // Sequence construction: walk1 -> bus1 -> walk2 -> train -> walk3 -> bus2 -> walk4
     var trip1 = discreteDemands.getTrips().getFactory().registerNew(
@@ -495,14 +496,14 @@ public class TripModeChainCollapsingTests {
     assertEquals(3, tourSchedule.sizeUnrolled(true),
         "The 7 original trips must condense into exactly 3 unrolled leaf elements.");
 
-    // 1. First element: walk1 -> bus1 -> walk2 collapsed to BUS view via standard match
+    // First element: walk1 -> bus1 -> walk2 collapsed to BUS view via standard match
     assertTrue(tourSchedule.get(0) instanceof AggregateTripView,
         "First element must be an AggregateTripView.");
     var busView1 = (AggregateTripView) tourSchedule.get(0);
     assertEquals(PredefinedModeType.BUS, busView1.getMode().getPredefinedModeType());
     assertEquals(3, busView1.getCollapsedTrips().size());
 
-    // 2. Second element: train collapsed to TRAIN view by peeking backwards to borrow walk2 and looking ahead to walk3
+    // Second element: train collapsed to TRAIN view by peeking backwards to borrow walk2 and looking ahead to walk3
     assertTrue(tourSchedule.get(1) instanceof AggregateTripView,
         "Second element must be an AggregateTripView.");
     var trainView = (AggregateTripView) tourSchedule.get(1);
@@ -511,7 +512,7 @@ public class TripModeChainCollapsingTests {
     assertEquals(trip3, trainView.getCollapsedTrips().get(0),
         "The TRAIN view must successfully borrow trip3 (walk2) from the previous history entry.");
 
-    // 3. Third element: walk3 -> bus2 -> walk4 collapsed to BUS view via peeking backwards to borrow walk3
+    // Third element: walk3 -> bus2 -> walk4 collapsed to BUS view via peeking backwards to borrow walk3
     assertTrue(tourSchedule.get(2) instanceof AggregateTripView,
         "Third element must be an AggregateTripView.");
     var busView2 = (AggregateTripView) tourSchedule.get(2);

@@ -287,12 +287,12 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
 
     try{
 
-      if(scheduleElement instanceof TripImpl){
+      if(scheduleElement instanceof Trip){
         // trips are always a travel leg, the activities come from the tours
-        writeLegElement(xmlWriter, (TripImpl) scheduleElement, modeMapping);
+        writeLegElement(xmlWriter, (Trip) scheduleElement, modeMapping);
         writeIndentation(xmlWriter);
 
-      }else if(scheduleElement instanceof TourImpl){
+      }else if(scheduleElement instanceof Tour){
         // nest
         var currTour = (Tour) scheduleElement;
 
@@ -318,8 +318,9 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
         }
 
       }else{
-        LOGGER.severe(String.format("Unsupported person schedule element type, skip, " +
-            "should not happen, and may result in invalid plan for person (%s)", person.getIdsAsString()));
+        LOGGER.severe(String.format("Unsupported person schedule element type (%s), skip, " +
+            "should not happen, and may result in invalid plan for person (%s)",
+            scheduleElement.getClass().getCanonicalName(), person.getIdsAsString()));
       }
 
     } catch (XMLStreamException e) {
@@ -417,7 +418,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    * @param modeMapping to use
    */
   private void writeLegElement(
-      XMLStreamWriter xmlWriter, TripImpl trip, Map<Mode, String> modeMapping) throws XMLStreamException {
+      XMLStreamWriter xmlWriter, Trip trip, Map<Mode, String> modeMapping) throws XMLStreamException {
 
     // leg
     xmlWriter.writeEmptyElement(MatsimPlansElements.LEG);

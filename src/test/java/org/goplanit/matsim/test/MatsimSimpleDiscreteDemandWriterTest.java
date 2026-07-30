@@ -140,7 +140,8 @@ public class MatsimSimpleDiscreteDemandWriterTest {
       //          +-- Trip OUTBOUND [walk] 18:00
       //          |
       //          +-- TOUR: SHOPPING
-      //          |    zone0 -> zone3
+      //          |    zone0 -> zone1 18:00
+      //          |    zone1 -> zone3 19:00
       //          |    18:00 - 20:30
       //          |
       //          +-- Trip INBOUND [walk] 20:20
@@ -240,10 +241,18 @@ public class MatsimSimpleDiscreteDemandWriterTest {
       tour_after_tour0_p0.setPurpose(PURPOSE_SHOPPING);
       //  with inbound + outbound trip for this next tour
       {
-        var tour_after_tour0_outbound = discreteDemands.getTrips().getFactory().registerNew(
+        var tour_after_tour0_outbound1 = discreteDemands.getTrips().getFactory().registerNew(
             tour_after_tour0_p0, DirectionBound.OUTBOUND, addToSchedule);
-        tour_after_tour0_outbound.setMode(walkMode);
-        tour_after_tour0_outbound.syncStartTimeToTourStartTime();
+        tour_after_tour0_outbound1.setPurpose("shopping_part1");
+        tour_after_tour0_outbound1.setDestination(zone1);
+        tour_after_tour0_outbound1.setMode(walkMode);
+        tour_after_tour0_outbound1.syncStartTimeToTourStartTime();
+        var tour_after_tour0_outbound2 = discreteDemands.getTrips().getFactory().registerNew(
+            tour_after_tour0_p0, DirectionBound.OUTBOUND, addToSchedule);
+        tour_after_tour0_outbound2.setPurpose("shopping_part2");
+        tour_after_tour0_outbound2.setOrigin(zone1);
+        tour_after_tour0_outbound2.setMode(walkMode);
+        tour_after_tour0_outbound2.setStartTime(LocalTime.of(19,0));
         var tour_after_tour0_inbound = discreteDemands.getTrips().getFactory().registerNew(
             tour_after_tour0_p0, DirectionBound.INBOUND, addToSchedule);
         tour_after_tour0_inbound.setMode(walkMode);

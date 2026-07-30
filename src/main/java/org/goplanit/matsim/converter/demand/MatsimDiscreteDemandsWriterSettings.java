@@ -28,13 +28,6 @@ public class MatsimDiscreteDemandsWriterSettings extends PlanitMatsimWriterModeM
   /** rule for mode chain collapsing. Only relevant when useDisaggregateTransitModes is set to false */
   private List<ModeChainCollapseRule> modeCollapseRules = DEFAULT_MODE_COLLAPSE_RULES;
 
-  /** switches between pt (aggregate) and bus/train based mode mapping and also affects how multi-trip (single
-   * direction tour chains are handled, e.g., if aggregate then a walk->bus->walk outbound chain of three trips
-   * collapses to a single pt trip. If disaggregate, the plan would retain the three distinct trips with an activity
-   * interspersed between each of the trips.
-   */
-  private boolean useDisaggregateTransitModes = DEFAULT_USE_DISAGGREGATE_TRANSIT_MODES;
-
 
   /** default used =  LocationGeneratorType.ZONE_LINKS_DISTANCE_WEIGHTED */
   public static LocationGeneratorType DEFAULT_LOCATION_GENERATOR_TYPE =
@@ -49,8 +42,6 @@ public class MatsimDiscreteDemandsWriterSettings extends PlanitMatsimWriterModeM
       new ModeChainCollapseRule(TRAIN, List.of(PEDESTRIAN), List.of(PEDESTRIAN))
   );
 
-  /** default used is false */
-  public static final boolean DEFAULT_USE_DISAGGREGATE_TRANSIT_MODES = false;
 
   /**
    * Convenience method to log all the current settings
@@ -62,8 +53,6 @@ public class MatsimDiscreteDemandsWriterSettings extends PlanitMatsimWriterModeM
     LOGGER.info(LoggingUtils.settingsHeader("MATSim Plans (Discrete Demands) Writer Settings"));
     super.logSettings(referenceNetwork, level);
     LOGGER.info(LoggingUtils.settingsValue("Location generation type", getLocationGeneratorType(), level));
-    LOGGER.info(LoggingUtils.settingsValue(
-        "Use disaggregate transit modes ", isUseDisaggregateTransitModes(), level));
   }
 
 
@@ -111,24 +100,6 @@ public class MatsimDiscreteDemandsWriterSettings extends PlanitMatsimWriterModeM
   }
 
   /**
-   * Get the value of useDisaggregateTransitModes.
-   *
-   * @return value of useDisaggregateTransitModes
-   */
-  public boolean isUseDisaggregateTransitModes() {
-    return useDisaggregateTransitModes;
-  }
-
-  /**
-   * Set the value of useDisaggregateTransitModes.
-   *
-   * @param useDisaggregateTransitModes value of useDisaggregateTransitModes
-   */
-  public void setUseDisaggregateTransitModes(boolean useDisaggregateTransitModes) {
-    this.useDisaggregateTransitModes = useDisaggregateTransitModes;
-  }
-
-  /**
    * Get the value of modeCollapseRules.
    *
    * @return value of modeCollapseRules
@@ -144,7 +115,6 @@ public class MatsimDiscreteDemandsWriterSettings extends PlanitMatsimWriterModeM
   public void reset() {
     super.reset();
     this.locationGeneratorType = DEFAULT_LOCATION_GENERATOR_TYPE;
-    this.useDisaggregateTransitModes = DEFAULT_USE_DISAGGREGATE_TRANSIT_MODES;
     this.modeCollapseRules = DEFAULT_MODE_COLLAPSE_RULES;
   }  
   
