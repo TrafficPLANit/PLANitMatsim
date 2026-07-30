@@ -111,6 +111,12 @@ public class MatsimLargeConversionWriterTest {
       plansWriter.getSettings().activateAllDefaultMappedModes();
       // map plans to physical locations based on distance weighted random draws within the zone of the activity
       plansWriter.getSettings().setLocationGeneratorType(LocationGeneratorType.ZONE_LINKS_DISTANCE_WEIGHTED);
+
+      plansWriter.getSettings().setConnectorFlagsForRule(
+          PredefinedModeType.BUS, false, false);
+      plansWriter.getSettings().setConnectorFlagsForRule(
+          PredefinedModeType.TRAIN, false, false);
+
       plansWriter.write(planitDiscreteDemands);
 
     } catch (final Exception e) {

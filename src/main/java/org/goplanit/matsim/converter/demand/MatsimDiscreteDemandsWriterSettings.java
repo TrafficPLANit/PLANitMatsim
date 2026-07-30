@@ -5,10 +5,14 @@ import org.goplanit.matsim.util.ModeChainCollapseRule;
 import org.goplanit.matsim.util.PlanitMatsimWriterModeMappingSettings;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.utils.misc.LoggingUtils;
+import org.goplanit.utils.mode.PredefinedModeType;
 
 import static org.goplanit.utils.mode.PredefinedModeType.*;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.logging.Logger;
 
 /** Settings for the MATSIM discrete demands write, e.g., plans
@@ -24,9 +28,8 @@ public class MatsimDiscreteDemandsWriterSettings extends PlanitMatsimWriterModeM
   /** The chosen activity location generation strategy */
   private LocationGeneratorType locationGeneratorType = DEFAULT_LOCATION_GENERATOR_TYPE;
 
-  //todo: needs options to change this beyond current fixed defaults for testing
   /** rule for mode chain collapsing. Only relevant when useDisaggregateTransitModes is set to false */
-  private List<ModeChainCollapseRule> modeCollapseRules = DEFAULT_MODE_COLLAPSE_RULES;
+  private Map<PredefinedModeType, ModeChainCollapseRule> modeCollapseRules = new TreeMap<>(DEFAULT_MODE_COLLAPSE_RULES);
 
 
   /** default used =  LocationGeneratorType.ZONE_LINKS_DISTANCE_WEIGHTED */
@@ -37,9 +40,9 @@ public class MatsimDiscreteDemandsWriterSettings extends PlanitMatsimWriterModeM
    * Default is that bus and train allow for walk access/egress and we collapse that into bus and train as a single
    * leg, the PLANit to MATSim mode mapping may then collapse that further into pt if it detects adjacent bus/train
    * legs that go in the same direction (if configure as such) */
-  public static final List<ModeChainCollapseRule> DEFAULT_MODE_COLLAPSE_RULES = List.of(
-      new ModeChainCollapseRule(BUS, List.of(PEDESTRIAN),List.of(PEDESTRIAN)),
-      new ModeChainCollapseRule(TRAIN, List.of(PEDESTRIAN), List.of(PEDESTRIAN))
+  public static final Map<PredefinedModeType, ModeChainCollapseRule> DEFAULT_MODE_COLLAPSE_RULES = Map.of(
+      BUS, new ModeChainCollapseRule(BUS, List.of(PEDESTRIAN), List.of(PEDESTRIAN)),
+      TRAIN, new ModeChainCollapseRule(TRAIN, List.of(PEDESTRIAN), List.of(PEDESTRIAN))
   );
 
 
@@ -53,6 +56,17 @@ public class MatsimDiscreteDemandsWriterSettings extends PlanitMatsimWriterModeM
     LOGGER.info(LoggingUtils.settingsHeader("MATSim Plans (Discrete Demands) Writer Settings"));
     super.logSettings(referenceNetwork, level);
     LOGGER.info(LoggingUtils.settingsValue("Location generation type", getLocationGeneratorType(), level));
+
+    if (!isUseDisaggregateTransitModes() && modeCollapseRules != null && !modeCollapseRules.isEmpty()) {
+      LOGGER.info(LoggingUtils.settingsSection("Mode Chain Collapse Rules", level));
+      for (ModeChainCollapseRule rule : modeCollapseRules.values()) {
+        LOGGER.info(LoggingUtils.settingsValue(rule.getMainMode().toString(),
+            String.format("fromConnectors=%s, toConnectors=%s, allowedFromAbsentIfToPresent=%b, " +
+                    "allowedToAbsentIfFromPresent=%b",
+                rule.getAllowedFromConnectors(), rule.getAllowedToConnectors(),
+                rule.isAllowedFromMissingIfToPresent(), rule.isAllowedToMissingIfFromPresent()), level + 1));
+      }
+    }
   }
 
 
@@ -100,12 +114,91 @@ public class MatsimDiscreteDemandsWriterSettings extends PlanitMatsimWriterModeM
   }
 
   /**
-   * Get the value of modeCollapseRules.
+   * Get the modeCollapseRules.
    *
-   * @return value of modeCollapseRules
+   * @return modeCollapseRules
    */
-  public List<ModeChainCollapseRule> getModeCollapseRules() {
-    return modeCollapseRules;
+  public Collection<ModeChainCollapseRule> getModeCollapseRules() {
+    return modeCollapseRules.values();
+  }
+
+  /**
+   * Add a new mode chain collapse rule, or replace it if the main mode already exists.
+   *
+   * @param rule the rule to add
+   */
+  public void setModeCollapseRule(ModeChainCollapseRule rule) {
+    if (rule != null) {
+      this.modeCollapseRules.put(rule.getMainMode(), rule);
+    }
+  }
+
+  /**
+   * Remove a mode chain collapse rule given its main mode.
+   * If the main mode does not exist, nothing happens.
+   *
+   * @param mainMode the main mode of the rule to remove
+   */
+  public void removeModeCollapseRule(PredefinedModeType mainMode) {
+    if (mainMode != null && this.modeCollapseRules != null) {
+      this.modeCollapseRules.remove(mainMode);
+    }
+  }
+
+  /**
+   * Add succeeding egress connectors ("to" modes) to an existing main mode rule.
+   * If the main mode does not exist, nothing happens.
+   *
+   * @param mainMode the main mode identifying the rule
+   * @param toConnectors the list of to-connectors to append
+   */
+  public void addToConnectorsToRule(PredefinedModeType mainMode, List<PredefinedModeType> toConnectors) {
+    if (mainMode == null || toConnectors == null || toConnectors.isEmpty() || this.modeCollapseRules == null) {
+      return;
+    }
+    ModeChainCollapseRule r = this.modeCollapseRules.get(mainMode);
+    if (r != null) {
+      r.getAllowedToConnectors().addAll(toConnectors);
+    }
+  }
+
+  /**
+   * Add preceding access connectors ("from" modes) to an existing main mode rule.
+   * If the main mode does not exist, nothing happens.
+   *
+   * @param mainMode the main mode identifying the rule
+   * @param fromConnectors the list of from-connectors to append
+   */
+  public void addFromConnectorsToRule(PredefinedModeType mainMode, List<PredefinedModeType> fromConnectors) {
+    if (mainMode == null || fromConnectors == null || fromConnectors.isEmpty() || this.modeCollapseRules == null) {
+      return;
+    }
+    ModeChainCollapseRule r = this.modeCollapseRules.get(mainMode);
+    if (r != null) {
+      r.getAllowedFromConnectors().addAll(fromConnectors);
+    }
+  }
+
+  /**
+   * Override the missing connector flags for an existing main mode rule.
+   * If the main mode does not exist, nothing happens.
+   *
+   * @param mainMode the main mode identifying the rule
+   * @param allowedFromMissingIfToPresent flag value to set
+   * @param allowedToMissingIfFromPresent flag value to set
+   */
+  public void setConnectorFlagsForRule(
+      PredefinedModeType mainMode,
+      boolean allowedFromMissingIfToPresent,
+      boolean allowedToMissingIfFromPresent) {
+    if (mainMode == null || this.modeCollapseRules == null) {
+      return;
+    }
+    ModeChainCollapseRule r = this.modeCollapseRules.get(mainMode);
+    if (r != null) {
+      r.setAllowedFromMissingIfToPresent(allowedFromMissingIfToPresent);
+      r.setAllowedToMissingIfFromPresent(allowedToMissingIfFromPresent);
+    }
   }
 
   /**

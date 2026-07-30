@@ -2,7 +2,6 @@ package org.goplanit.matsim.test;
 
 import org.goplanit.demands.discrete.DiscreteDemands;
 import org.goplanit.demands.discrete.tour.ActivitySchedule;
-import org.goplanit.demands.discrete.tour.ScheduleElement;
 import org.goplanit.demands.discrete.trip.Trip;
 import org.goplanit.demands.discrete.util.DirectionBound;
 import org.goplanit.matsim.util.AggregateTourView;
@@ -12,6 +11,8 @@ import org.goplanit.matsim.util.ScheduleCollapsingUtils;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.utils.id.IdGenerator;
 import org.goplanit.utils.id.IdGroupingToken;
+import org.goplanit.utils.mode.Mode;
+import org.goplanit.utils.mode.PredefinedMode;
 import org.goplanit.utils.mode.PredefinedModeType;
 import org.goplanit.zoning.Zoning;
 import org.junit.jupiter.api.AfterEach;
@@ -19,7 +20,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -550,5 +550,140 @@ public class TripModeChainCollapsingTests {
         "Mutations on the aggregate tour view layer must throw UnsupportedOperationException.");
   }
 
+  /**
+   * CONDITIONAL MISSING CONNECTORS: Allowed from-missing if to-present.
+   * Verifies that a rule configured with allowedFromMissingIfToPresent = true successfully collapses
+   * a transit trip chain even when the preceding access connector is completely absent, provided
+   * that the succeeding egress connector is present.
+   */
+  @Test
+  public void testAllowedFromMissingIfToPresentCollapseRule() {
+    var network = new MacroscopicNetwork(IdGroupingToken.collectGlobalToken());
+    var zoning = new Zoning(network.getIdGroupingToken(), network.getNetworkGroupingTokenId());
+    var discreteDemands = createBaseMemoryDemandModel(network, zoning);
+
+    var person = discreteDemands.getPersons().get(0);
+    var tour = discreteDemands.getTours().getFactory().registerNew(
+        person, zoning.getOdZones().get(0), zoning.getOdZones().get(1),
+        LocalTime.of(8, 0), LocalTime.of(17, 30), true);
+
+    // Sequence construction: bus1 -> walk2 (Missing preceding access walk connector)
+    var trip1 = discreteDemands.getTrips().getFactory().registerNew(
+        tour, DirectionBound.OUTBOUND, true);
+    trip1.setMode(network.getModes().get(PredefinedModeType.BUS));
+    trip1.setStartTime(LocalTime.of(8, 10));
+
+    var trip2 = discreteDemands.getTrips().getFactory().registerNew(
+        tour, DirectionBound.OUTBOUND, true);
+    trip2.setMode(network.getModes().get(PredefinedModeType.PEDESTRIAN));
+    trip2.setStartTime(LocalTime.of(8, 25));
+
+    // Define a rule where BUS requires a preceding walk and succeeding walk,
+    // but the preceding walk is allowed to be missing since the succeeding walk is present.
+    var conditionalRule = new ModeChainCollapseRule(
+        PredefinedModeType.BUS,
+        List.of(PredefinedModeType.PEDESTRIAN),
+        List.of(PredefinedModeType.PEDESTRIAN),
+        true,  // allowedFromMissingIfToPresent
+        false  // allowedToMissingIfFromPresent
+    );
+    List<ModeChainCollapseRule> rules = List.of(conditionalRule);
+
+    assertTrue(ScheduleCollapsingUtils.requiresScheduleCollapsing(person.getSchedule(), rules),
+        "Pre-screen aggregator must confirm collapsing requirements when missing access is permitted by rule.");
+
+    // Execute the collapsing utility over the schedule container
+    var collapsed = ScheduleCollapsingUtils.collapseContiguousTripChainsByModeRules(
+        person.getSchedule(), rules);
+
+    // Verification Assertions
+    assertEquals(1, collapsed.size(), "The schedule contains 1 main tour.");
+    var processedTour = (org.goplanit.demands.discrete.tour.Tour) collapsed.get(0);
+    assertTrue(processedTour instanceof AggregateTourView,
+        "The tour must be wrapped inside an AggregateTourView.");
+
+    var tourSchedule = processedTour.getSchedule();
+
+    // Verify unrolled leaf elements condense into 1 AggregateTripView containing the main bus and the egress walk
+    assertEquals(1, tourSchedule.sizeUnrolled(true),
+        "The 2 trips must condense into exactly 1 unrolled leaf element.");
+
+    assertTrue(tourSchedule.get(0) instanceof AggregateTripView,
+        "First element must be an AggregateTripView.");
+    var busView = (AggregateTripView) tourSchedule.get(0);
+    assertEquals(PredefinedModeType.BUS, busView.getMode().getPredefinedModeType());
+    assertEquals(2, busView.getCollapsedTrips().size(),
+        "The collapsed view must contain the main bus trip and the egress walk connector.");
+    assertEquals(trip1, busView.getCollapsedTrips().get(0));
+    assertEquals(trip2, busView.getCollapsedTrips().get(1));
+  }
+
+  /**
+   * CONDITIONAL MISSING CONNECTORS: Allowed to-missing if from-present.
+   * Verifies that a rule configured with allowedToMissingIfFromPresent = true successfully collapses
+   * a transit trip chain even when the succeeding egress connector is completely absent, provided
+   * that the preceding access connector is present.
+   */
+  @Test
+  public void testAllowedToMissingIfFromPresentCollapseRule() {
+    var network = new MacroscopicNetwork(IdGroupingToken.collectGlobalToken());
+    var zoning = new Zoning(network.getIdGroupingToken(), network.getNetworkGroupingTokenId());
+    var discreteDemands = createBaseMemoryDemandModel(network, zoning);
+
+    var person = discreteDemands.getPersons().get(0);
+    var tour = discreteDemands.getTours().getFactory().registerNew(
+        person, zoning.getOdZones().get(0), zoning.getOdZones().get(1),
+        LocalTime.of(8, 0), LocalTime.of(17, 30), true);
+
+    // Sequence construction: walk1 -> bus1 (Missing succeeding egress walk connector)
+    var trip1 = discreteDemands.getTrips().getFactory().registerNew(
+        tour, DirectionBound.OUTBOUND, true);
+    trip1.setMode(network.getModes().get(PredefinedModeType.PEDESTRIAN));
+    trip1.setStartTime(LocalTime.of(8, 0));
+
+    var trip2 = discreteDemands.getTrips().getFactory().registerNew(
+        tour, DirectionBound.OUTBOUND, true);
+    trip2.setMode(network.getModes().get(PredefinedModeType.BUS));
+    trip2.setStartTime(LocalTime.of(8, 10));
+
+    // Define a rule where BUS requires a preceding walk and succeeding walk,
+    // but the succeeding walk is allowed to be missing since the preceding walk is present.
+    var conditionalRule = new ModeChainCollapseRule(
+        PredefinedModeType.BUS,
+        List.of(PredefinedModeType.PEDESTRIAN),
+        List.of(PredefinedModeType.PEDESTRIAN),
+        false, // allowedFromMissingIfToPresent
+        true   // allowedToMissingIfFromPresent
+    );
+    List<ModeChainCollapseRule> rules = List.of(conditionalRule);
+
+    assertTrue(ScheduleCollapsingUtils.requiresScheduleCollapsing(person.getSchedule(), rules),
+        "Pre-screen aggregator must confirm collapsing requirements when missing egress is permitted by rule.");
+
+    // Execute the collapsing utility over the schedule container
+    var collapsed = ScheduleCollapsingUtils.collapseContiguousTripChainsByModeRules(
+        person.getSchedule(), rules);
+
+    // Verification Assertions
+    assertEquals(1, collapsed.size(), "The schedule contains 1 main tour.");
+    var processedTour = (org.goplanit.demands.discrete.tour.Tour) collapsed.get(0);
+    assertTrue(processedTour instanceof AggregateTourView,
+        "The tour must be wrapped inside an AggregateTourView.");
+
+    var tourSchedule = processedTour.getSchedule();
+
+    // Verify unrolled leaf elements condense into 1 AggregateTripView containing the access walk and main bus
+    assertEquals(1, tourSchedule.sizeUnrolled(true),
+        "The 2 trips must condense into exactly 1 unrolled leaf element.");
+
+    assertTrue(tourSchedule.get(0) instanceof AggregateTripView,
+        "First element must be an AggregateTripView.");
+    var busView = (AggregateTripView) tourSchedule.get(0);
+    assertEquals(PredefinedModeType.BUS, busView.getMode().getPredefinedModeType());
+    assertEquals(2, busView.getCollapsedTrips().size(),
+        "The collapsed view must contain the access walk connector and the main bus trip.");
+    assertEquals(trip1, busView.getCollapsedTrips().get(0));
+    assertEquals(trip2, busView.getCollapsedTrips().get(1));
+  }
 
 }
