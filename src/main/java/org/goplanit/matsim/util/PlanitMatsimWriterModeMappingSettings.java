@@ -113,6 +113,9 @@ public abstract class PlanitMatsimWriterModeMappingSettings
   protected void logSettings(MacroscopicNetwork macroscopicNetwork, int level) {
     super.logSettings(level);
 
+    LOGGER.info(LoggingUtils.settingsValue(
+        "Use disaggregate transit modes ", isUseDisaggregateTransitModes(), level));
+
     Modes planitModes = macroscopicNetwork.getModes();
     for (Mode planitMode : planitModes) {
       if (!planitMode.isPredefinedModeType()) {
@@ -123,15 +126,15 @@ public abstract class PlanitMatsimWriterModeMappingSettings
 
       PredefinedModeType type = planitMode.getPredefinedModeType();
       if (!modeMapping.isMapped(type)) {
-        LOGGER.info(String.format("[DEACTIVATED] PLANit mode:%s", type.value()));
+        LOGGER.info(LoggingUtils.settingsMapping(
+            "PLANit mode: "+type.value(), "[DEACTIVATED]", level + 1));
       } else {
         LOGGER.info(LoggingUtils.settingsMapping(
-            "PLANit mode: "+type.value(), "MATSIM mode: "+modeMapping.getMappedMode(type), level + 1));
+            "PLANit mode: "+type.value(), "MATSIM mode: "
+                + modeMapping.getMappedMode(type), level + 1));
       }
     }
 
-    LOGGER.info(LoggingUtils.settingsValue(
-        "Use disaggregate transit modes ", isUseDisaggregateTransitModes(), level));
   }
 
   /**
@@ -186,6 +189,8 @@ public abstract class PlanitMatsimWriterModeMappingSettings
     modeMapping.activate(PredefinedModeType.CAR);
     modeMapping.activate(PredefinedModeType.BUS);
     modeMapping.activate(PredefinedModeType.TRAIN);
+    modeMapping.activate(PredefinedModeType.LIGHTRAIL);
+    modeMapping.activate(PredefinedModeType.FERRY);
   }
 
   /**

@@ -129,9 +129,6 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     final boolean COLLAPSE = true;
     final boolean DO_NOT_COLLAPSE = false;
     OdZone homeZone = person.getHousehold().getZone();
-    if(person.getExternalId().equals("233360")){
-      int bla = 4;
-    }
 
     // in MATSim 24h+ format
     long startTimeSecondsUnbounded = currentElement.getStartTime().toSecondOfDay();

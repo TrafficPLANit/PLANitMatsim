@@ -85,13 +85,7 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterModeMappingSe
    * Default setting for restricting a link's max speed by its supported mode max speeds if more restricting
    */
   public static final Boolean DEFAULT_RESTRICT_SPEED_LIMIT_BY_SUPPORTED_MODE = false;
-  
-  /** default mode for all public transport modes in Matsim is pt, so that is what we use for initial mapping */
-  public static final String DEFAULT_PUBLIC_TRANSPORT_MODE = "pt";
-  
-  /** default mode for all private transport modes in Matsim is car, so that is what we use for initial mapping */
-  public static final String DEFAULT_PRIVATE_TRANSPORT_MODE = "car";    
-  
+
   /** constructor 
    * @param countryName to use
    */
