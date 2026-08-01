@@ -138,6 +138,8 @@ public class LocationGeneratorUtils {
     /**
      * Perform a binary search length-weighted random draw to extract an internal link segment
      * using a seed-stable SplittableRandom instance.
+     *
+     * @param random to use
      */
     public MacroscopicLinkSegment drawRandomSegment(SplittableRandom random) {
       // nextDouble() returns a pseudorandom double between 0.0 (inclusive) and 1.0 (exclusive)

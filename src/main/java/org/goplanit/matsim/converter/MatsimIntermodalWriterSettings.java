@@ -84,6 +84,9 @@ public class MatsimIntermodalWriterSettings extends PlanitMatsimWriterSettings i
 
   /**
    * log settings
+   *
+   * @param network to use
+   * @param level indent level
    */
   public void logSettings(MacroscopicNetwork network, int level){
     LOGGER.info(LoggingUtils.settingsHeader("MATSim intermodal writer settings"));
