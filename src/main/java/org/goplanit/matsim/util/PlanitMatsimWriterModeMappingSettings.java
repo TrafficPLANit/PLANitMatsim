@@ -99,7 +99,7 @@ public abstract class PlanitMatsimWriterModeMappingSettings
   protected final PlanitToExternalModeMapping modeMapping;
 
   /** switches between pt (aggregate) and bus/train based mode mapping and also affects how multi-trip (single
-   * direction tour chains are handled, e.g., if aggregate then a walk->bus->walk outbound chain of three trips
+   * direction tour chains are handled, e.g., if aggregate then a walk-bus-walk outbound chain of three trips
    * collapses to a single pt trip. If disaggregate, the plan would retain the three distinct trips with an activity
    * interspersed between each of the trips.
    */
@@ -109,6 +109,7 @@ public abstract class PlanitMatsimWriterModeMappingSettings
    * Convenience method to log all the current settings
    *
    * @param macroscopicNetwork provided for reference
+   * @param level indent level
    */
   protected void logSettings(MacroscopicNetwork macroscopicNetwork, int level) {
     super.logSettings(level);

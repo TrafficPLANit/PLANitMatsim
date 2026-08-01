@@ -190,10 +190,6 @@ public class ScheduleCollapsingUtils {
    * @param collapseRules active configuration rules containing sequence blueprints to verify
    * @return true if a valid matching multi-trip chain block exists anywhere in this schedule hierarchy
    */
-  /**
-   * Fast, non-allocating pre-screen to check if a schedule hierarchy contains any
-   * contiguous transit transfer sequences matching structural rule criteria.
-   */
   public static boolean requiresScheduleCollapsing(
       ActivitySchedule schedule,
       Collection<ModeChainCollapseRule> collapseRules) {
@@ -241,6 +237,10 @@ public class ScheduleCollapsingUtils {
    * Evaluates a schedule container and all of its recursively nested sub-tour schedules,
    * creating a non-destructive collapsed ActivitySchedule supporting arbitrary connector lengths
    * and conditional missing connector options.
+   *
+   * @param originalSchedule the reference schedule to collapse
+   * @param collapseRules rules to apply
+   * @return created collapsed schedule
    */
   public static ActivitySchedule collapseContiguousTripChainsByModeRules(
       ActivitySchedule originalSchedule, Collection<ModeChainCollapseRule> collapseRules) {

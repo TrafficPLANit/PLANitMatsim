@@ -140,6 +140,7 @@ public class LocationGeneratorUtils {
      * using a seed-stable SplittableRandom instance.
      *
      * @param random to use
+     * @return segment drawn
      */
     public MacroscopicLinkSegment drawRandomSegment(SplittableRandom random) {
       // nextDouble() returns a pseudorandom double between 0.0 (inclusive) and 1.0 (exclusive)
