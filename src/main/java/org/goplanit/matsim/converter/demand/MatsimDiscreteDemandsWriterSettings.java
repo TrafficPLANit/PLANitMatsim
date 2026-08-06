@@ -28,7 +28,7 @@ public class MatsimDiscreteDemandsWriterSettings extends PlanitMatsimWriterModeM
   /** The chosen activity location generation strategy */
   private LocationGeneratorType locationGeneratorType = DEFAULT_LOCATION_GENERATOR_TYPE;
 
-  /** rule for mode chain collapsing. Only relevant when useDisaggregateTransitModes is set to false */
+  /** Rule for mode chain collapsing. Only relevant when useDisaggregateTransitModes is set to false */
   private Map<PredefinedModeType, ModeChainCollapseRule> modeCollapseRules = new TreeMap<>(DEFAULT_MODE_COLLAPSE_RULES);
 
 
@@ -36,7 +36,7 @@ public class MatsimDiscreteDemandsWriterSettings extends PlanitMatsimWriterModeM
   public static LocationGeneratorType DEFAULT_LOCATION_GENERATOR_TYPE =
       LocationGeneratorType.ZONE_LINKS_DISTANCE_WEIGHTED;
 
-  /** Unmodifiable rule hierarchy to collapse multi-stage public transport loops for aggregate modeling.
+  /** Default Rule hierarchy to collapse multi-stage public transport loops for aggregate modeling.
    * Default is that bus and train allow for walk access/egress and we collapse that into bus and train as a single
    * leg, the PLANit to MATSim mode mapping may then collapse that further into pt if it detects adjacent bus/train
    * legs that go in the same direction (if configure as such) */
@@ -143,6 +143,16 @@ public class MatsimDiscreteDemandsWriterSettings extends PlanitMatsimWriterModeM
     if (mainMode != null && this.modeCollapseRules != null) {
       this.modeCollapseRules.remove(mainMode);
     }
+  }
+
+  /**
+   * Remove all mode chain collapse rules. This ensures that no chains get collapsed. This can be useful if
+   * the original input has more detailed main modes but it already has collapsed its access/egress for example, so no
+   * further collapsing is required but the mapping to a more aggregate PT mode still needs to happen.
+   *
+   */
+  public void removeAllModeCollapseRules() {
+    this.modeCollapseRules.clear();
   }
 
   /**
