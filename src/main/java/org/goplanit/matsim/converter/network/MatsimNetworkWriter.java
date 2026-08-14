@@ -21,15 +21,13 @@ import org.geotools.geometry.jts.JTS;
 import org.goplanit.converter.idmapping.IdMapperFunctionFactory;
 import org.goplanit.matsim.converter.MatsimWriter;
 import org.goplanit.matsim.util.MatsimNetworkWriterUtils;
-import org.goplanit.matsim.xml.MatsimAttributes;
-import org.goplanit.matsim.xml.MatsimTransitAttributes;
+import org.goplanit.matsim.xml.*;
+import org.goplanit.utils.geo.PlanitCrsUtils;
 import org.goplanit.utils.graph.directed.BannedMovement;
 import org.goplanit.utils.graph.directed.EdgeSegment;
 import org.goplanit.utils.id.IdMapperType;
 import org.goplanit.converter.idmapping.NetworkIdMapper;
 import org.goplanit.converter.network.NetworkWriter;
-import org.goplanit.matsim.xml.MatsimNetworkAttributes;
-import org.goplanit.matsim.xml.MatsimNetworkElements;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.network.LayeredNetwork;
 import org.goplanit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
@@ -424,7 +422,20 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
   private void writeMatsimNetworkXML(
       XMLStreamWriter xmlWriter, MacroscopicNetworkLayerImpl networkLayer) throws PlanItException {
     try {
-      writeStartElementNewLine(xmlWriter,MatsimNetworkElements.NETWORK, true /* add indentation*/);
+      writeStartElement(xmlWriter,MatsimNetworkElements.NETWORK, true /* add indentation*/);
+      writeNewLine(xmlWriter);
+      // write a separate attributes/attribute element for the CRS on top
+      if(getDestinationCoordinateReferenceSystem()!=null){
+        writeStartElementNewLine(xmlWriter, MatsimElements.ATTRIBUTES, true /* add indentation*/);
+
+        // crs
+        writeMatsimCustomAttributeEntry(
+            xmlWriter, "coordinateSystem", "java.lang.String",
+            PlanitCrsUtils.extractSrsName(getDestinationCoordinateReferenceSystem()));
+
+        writeEndElementNewLine(xmlWriter, true /* undo indentation */ );
+      }
+
 
       /* nodes */
       writeMatsimNodes(xmlWriter, networkLayer);

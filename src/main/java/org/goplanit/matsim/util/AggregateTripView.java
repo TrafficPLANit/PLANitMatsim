@@ -127,6 +127,10 @@ public final class AggregateTripView implements Trip {
   @Override public Tour getTour() { return primaryVehicleTrip.getTour(); }
   @Override public DirectionBound getDirection() { return primaryVehicleTrip.getDirection(); }
   @Override public ActivitySchedule getSchedule() { return null; }
+  @Override
+  public Mode getOutboundMode() { return primaryVehicleTrip.getOutboundMode();}
+  @Override
+  public Mode getInboundMode() { return primaryVehicleTrip.getInboundMode();}
   @Override public long getId() { return primaryVehicleTrip.getId(); }
   @Override public Class<? extends IdAble> getIdClass() { return primaryVehicleTrip.getIdClass(); }
   @Override public String getExternalId() { return primaryVehicleTrip.getExternalId(); }

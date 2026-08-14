@@ -5,6 +5,7 @@ import org.goplanit.demands.discrete.tour.ActivitySchedule;
 import org.goplanit.demands.discrete.tour.ScheduleElement;
 import org.goplanit.demands.discrete.tour.Tour;
 import org.goplanit.utils.id.IdGroupingToken;
+import org.goplanit.utils.mode.Mode;
 import org.goplanit.utils.zoning.OdZone;
 
 import java.time.LocalTime;
@@ -73,6 +74,11 @@ public final class AggregateTourView implements Tour {
   @Override public String getXmlId() { return underlyingTour.getXmlId(); }
   @Override public boolean testNested(Predicate<ScheduleElement> predicate) {
     return collapsedSchedule.testNested(predicate); }
+  @Override
+  public Mode getOutboundMode() {
+    return collapsedSchedule.getOutboundMode(); }
+  @Override
+  public Mode getInboundMode() { return collapsedSchedule.getInboundMode(); }
 
   // --- Mutator Safety Exceptions for Immutable Mock Views ---
   @Override public void setPerson(Person person) {

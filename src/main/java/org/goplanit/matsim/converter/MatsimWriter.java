@@ -99,7 +99,6 @@ public abstract class MatsimWriter<T> extends CrsWriterImpl<T> {
     xmlWriter.writeCharacters(value.toString());
     xmlWriter.writeEndElement();
     writeNewLine(xmlWriter);
-    decreaseIndentation();
   }
 
   /** Add indentation to stream at current indentation level
@@ -244,7 +243,7 @@ public abstract class MatsimWriter<T> extends CrsWriterImpl<T> {
 
   /** the doc type of MATSim population/plans. */
   public static final String PLANS_DOCTYPE =
-      "<!DOCTYPE population SYSTEM \"https://www.matsim.org/files/dtd/population_v5.dtd\">";
+      "<!DOCTYPE population SYSTEM \"https://www.matsim.org/files/dtd/population_v6.dtd\">";
 
   /**
    * default extension for xml files generated

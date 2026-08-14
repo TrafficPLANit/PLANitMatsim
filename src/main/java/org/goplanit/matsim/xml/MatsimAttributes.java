@@ -14,6 +14,9 @@ public class MatsimAttributes {
   /** name */
   public static final String NAME = "name";
 
+  /** crs */
+  public static final String CRS = "crs";
+
   /** type */
   public static final String TYPE = "type";
 

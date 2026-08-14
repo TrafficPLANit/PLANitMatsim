@@ -8,9 +8,7 @@ import org.goplanit.demands.discrete.person.PersonUtils;
 import org.goplanit.demands.discrete.tour.ActivitySchedule;
 import org.goplanit.demands.discrete.tour.ScheduleElement;
 import org.goplanit.demands.discrete.tour.Tour;
-import org.goplanit.demands.discrete.tour.TourImpl;
 import org.goplanit.demands.discrete.trip.Trip;
-import org.goplanit.demands.discrete.trip.TripImpl;
 import org.goplanit.demands.discrete.util.DirectionBound;
 import org.goplanit.matsim.converter.MatsimWriter;
 import org.goplanit.matsim.util.MatsimBuiltInMode;
@@ -35,10 +33,7 @@ import javax.xml.stream.XMLStreamWriter;
 import java.io.Writer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collections;
-import java.util.Map;
-import java.util.Set;
-import java.util.SplittableRandom;
+import java.util.*;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -67,8 +62,8 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   private static final long DEFAULT_SIMULATION_SEED = 42L;
 
   /** LocationGenerator:ZONE_LINKS_DISTANCE_WEIGHTED requires
-   * Pre-indexed mapping of zone weights for sampling (if we use lik weighted sampling within zone) */
-  private Map<Long, LocationGeneratorUtils.ZoneLinkWeights> zoneLinkWeightsIndex;
+   * Pre-indexed mapping of zone weights by mode for sampling (if we use link weighted sampling within zone) */
+  private Map<Mode, Map<Long, LocationGeneratorUtils.ZoneLinkWeights>> zoneLinkWeightsIndexByMode;
 
   /** LocationGenerator:ZONE_LINKS_DISTANCE_WEIGHTED requires
    * Reproducible random generation stream */
@@ -143,11 +138,13 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
         ((Trip) precedingElement).getDirection() == DirectionBound.OUTBOUND &&
         ((Trip) currentElement).getDirection() == DirectionBound.INBOUND) {
       var upcomingTrip = ((Trip) currentElement);
+      var precedingTrip = ((Trip) precedingElement);
       var thePurpose = upcomingTrip.getTour().getPurpose();
 
+      // activity @ tour destination
       writeActivityElement(
           xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
-          ((Trip) precedingElement).getTour().getDestination()); // activity @ tour destination
+          precedingTrip.getTour().getDestination(), precedingTrip.getMode(), upcomingTrip.getMode());
       writeIndentation(xmlWriter);
       return DO_NOT_COLLAPSE;
     }
@@ -192,14 +189,14 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
 
             writeActivityElement(
                 xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
-                prevTrip.getDestination(true));
+                prevTrip.getDestination(true), prevTrip.getMode(), currTrip.getMode());
             writeIndentation(xmlWriter);
             return DO_NOT_COLLAPSE;
           }
 
           writeActivityElement(
               xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
-              prevTrip.getDestination(true));
+              prevTrip.getDestination(true), prevTrip.getMode(), currTrip.getMode());
           writeIndentation(xmlWriter);
           return DO_NOT_COLLAPSE;
         }else {
@@ -214,7 +211,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
 
           writeActivityElement(
               xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
-              prevTrip.getDestination(true));
+              prevTrip.getDestination(true), prevTrip.getMode(), currTrip.getMode());
           writeIndentation(xmlWriter);
           return DO_NOT_COLLAPSE;
         }
@@ -233,7 +230,8 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       boolean hasParent = currTour.hasParentTour();
       var thePurpose = hasParent ? currTour.getParentTour().getPurpose() : person.getInitialPurpose();
       writeActivityElement(xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
-          hasParent ? currTour.getParentTour().getDestination() : homeZone);
+          hasParent ? currTour.getParentTour().getDestination() : homeZone,
+          ((Trip) precedingElement).getMode(), currTour.getOutboundMode());
       writeIndentation(xmlWriter);
       return DO_NOT_COLLAPSE;
     }
@@ -248,7 +246,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       var thePurpose = inboundTripItsTour.getPurpose();
       // purpose from inbound trip its tour
       writeActivityElement(xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
-          inboundTripItsTour.getDestination()); // zone @ trip tour's origin
+          inboundTripItsTour.getDestination(), precedingElement.getInboundMode(), currentElement.getOutboundMode()); // zone @ trip tour's origin
       writeIndentation(xmlWriter);
       return DO_NOT_COLLAPSE;
     }
@@ -261,7 +259,8 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       var thePurpose = currTour.hasParentTour() ?
           currTour.getParentTour().getPurpose() : person.getInitialPurpose();
       writeActivityElement(
-          xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded), currTour.getOrigin());
+          xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
+          currTour.getOrigin(), precedingElement.getInboundMode(), currTour.getOutboundMode());
       writeIndentation(xmlWriter);
       return DO_NOT_COLLAPSE;
     }
@@ -369,10 +368,18 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    * @param activityDescription description of activity
    * @param endTime MATSim formatted end time of activity
    * @param activeZone the zone the activity relates to
+   * @param arrivalMode mode by which the arrival occurs (may be null if first)
+   * @param departureMode mode by which the departure occurs (may be null if last)
    * @throws XMLStreamException if error
    */
   private void writeActivityElement(
-      XMLStreamWriter xmlWriter, Person person, String activityDescription, String endTime, OdZone activeZone)
+      XMLStreamWriter xmlWriter,
+      Person person,
+      String activityDescription,
+      String endTime,
+      OdZone activeZone,
+      Mode arrivalMode,
+      Mode departureMode)
       throws XMLStreamException {
     if(activityDescription == null || activityDescription.isBlank()){
       LOGGER.warning(String.format("Description for activity has no content (for person (%s))",
@@ -387,9 +394,10 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
 
     // Apply distance-weighted link sampling strategy if active
     if (getSettings().getLocationGeneratorType() == LocationGeneratorType.ZONE_LINKS_DISTANCE_WEIGHTED
-        && this.zoneLinkWeightsIndex != null) {
+        && this.zoneLinkWeightsIndexByMode != null && this.zoneLinkWeightsIndexByMode.containsKey(arrivalMode)) {
 
-      LocationGeneratorUtils.ZoneLinkWeights weights = this.zoneLinkWeightsIndex.get(activeZone.getId());
+      LocationGeneratorUtils.ZoneLinkWeights weights =
+          this.zoneLinkWeightsIndexByMode.get(arrivalMode).get(activeZone.getId());
       if (weights != null) {
         var selectedSegment = weights.drawRandomSegment(this.randomEngine);
         if (selectedSegment== null || selectedSegment.getUpstreamVertex() == null ||
@@ -404,7 +412,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
           finalY = startPoint.y;
         }
       } else if(activeZone.hasGeometry()){
-        // fallback use centroid location
+        // fallback use centroid derived location
         var startPoint = PlanitJtsUtils.extractPolygonCentre(activeZone.getGeometry());
         if(startPoint != null){
           finalX = startPoint.getX();
@@ -412,7 +420,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
         }
       }
     }else if(getSettings().getLocationGeneratorType().equals(LocationGeneratorType.ZONE_CENTROID)){
-      //todo:
+      //auto-populated already
     }
 
     if(Double.isNaN(finalX) || Double.isNaN(finalY)){
@@ -510,14 +518,6 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
         startTimeSecondsUnbounded += SECONDS_IN_DAY;
       }
 
-      writeActivityElement(
-          xmlWriter,
-          person,
-          person.getInitialPurpose(),
-          LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded) /* end time of idle activity */,
-          homeZone);
-      writeIndentation(xmlWriter);
-
       ActivitySchedule processedSchedule;
       if (getSettings().isUseDisaggregateTransitModes()
           || !ScheduleCollapsingUtils.requiresScheduleCollapsing(
@@ -529,6 +529,16 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
         processedSchedule = ScheduleCollapsingUtils.collapseContiguousTripChainsByModeRules(
             person.getSchedule(), getSettings().getModeCollapseRules());
       }
+
+      writeActivityElement(
+          xmlWriter,
+          person,
+          person.getInitialPurpose(),
+          LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded) /* end time of idle activity */,
+          homeZone,
+          processedSchedule.getOutboundMode(), // initial activity as no incoming mode, simply adopt outbound one
+          processedSchedule.getOutboundMode());
+      writeIndentation(xmlWriter);
 
       // track the schedule of the person to extract activities and travel leg information in MATSim format
       ScheduleElement prevElement = null;
@@ -550,7 +560,13 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
 
       var thePurpose = person.getInitialPurpose();
       writeActivityElement(
-            xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(periodEndTimeSeconds - 1), homeZone);
+          xmlWriter,
+          person,
+          thePurpose,
+          LocalTimeUtils.formatHhMmSs(periodEndTimeSeconds - 1),
+          homeZone,
+          processedSchedule.getInboundMode(),
+          processedSchedule.getInboundMode()); // last activity has no departing trip, simply reuse inbound mode
 
       writeEndElementNewLine(xmlWriter, true /*decrease indent */);
     } catch (XMLStreamException e) {
@@ -760,12 +776,20 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
 
     // Pre-populate length weights tracking if distance weighting is chosen
     if (getSettings().getLocationGeneratorType() == LocationGeneratorType.ZONE_LINKS_DISTANCE_WEIGHTED) {
-      LOGGER.info("[START] Pre-indexing structural metric zone-to-link length arrays for random allocations...");
-      this.randomEngine = new SplittableRandom(DEFAULT_SIMULATION_SEED);
-      this.zoneLinkWeightsIndex = LocationGeneratorUtils.populateZoneLinkWeightsIndex(
-          referenceNetwork, referenceZoning.getOdZones(), getGeoUtils()
-      );
-      LOGGER.info("[DONE] Pre-indexed structural metric zone-to-link length arrays for random allocations...");
+
+      var activatedAvailableModes = findActivatedModesAvailableInNetwork();
+      if(!activatedAvailableModes.isEmpty()){
+        LOGGER.info("[START] Pre-indexing structural metric zone-to-link length arrays for random allocations...");
+        zoneLinkWeightsIndexByMode = new TreeMap<>();
+        for(var currMode : activatedAvailableModes){
+          LOGGER.info(String.format("[%s] Pre-indexing...", currMode.getPredefinedModeType()));
+          this.randomEngine = new SplittableRandom(DEFAULT_SIMULATION_SEED);
+          var zoneLinkWeightsIndex = LocationGeneratorUtils.populateZoneLinkWeightsIndex(
+              currMode, referenceNetwork, referenceZoning.getOdZones(), getGeoUtils());
+          this.zoneLinkWeightsIndexByMode.put(currMode, zoneLinkWeightsIndex);
+        }
+        LOGGER.info("[DONE] Pre-indexed structural metric zone-to-link length arrays for random allocations...");
+      }
     }
 
   }
@@ -780,6 +804,18 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
         getReferenceNetwork().getTransportLayers().getFirst());
     return getReferenceNetwork().getModes().stream().filter(
         m -> m.isPredefinedModeType() && !modeMappings.containsKey(m)).collect(Collectors.toSet());
+  }
+
+  /**
+   * Find modes in network that are activated for persistence
+   *
+   * @return modes activated for persistence that are also available in the network
+   */
+  private Set<Mode> findActivatedModesAvailableInNetwork() {
+    var modeMappings = getSettings().collectActivatedPlanitModeToMatsimModeMapping(
+        getReferenceNetwork().getTransportLayers().getFirst());
+    return getReferenceNetwork().getModes().stream().filter(
+        m -> m.isPredefinedModeType() && modeMappings.containsKey(m)).collect(Collectors.toSet());
   }
 
   /**
@@ -836,7 +872,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   @Override
   public void reset() {
     writerStats.reset();
-    zoneLinkWeightsIndex.clear();
+    zoneLinkWeightsIndexByMode.clear();
     randomEngine = null;
     personSchedulesToIgnore.clear();
   }
