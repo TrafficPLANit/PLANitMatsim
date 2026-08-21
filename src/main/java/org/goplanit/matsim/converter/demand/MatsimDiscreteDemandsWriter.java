@@ -400,7 +400,13 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
           this.zoneLinkWeightsIndexByMode.get(arrivalMode).get(activeZone.getId());
       if (weights != null) {
         var selectedSegment = weights.drawRandomSegment(this.randomEngine);
-        if (selectedSegment== null || selectedSegment.getUpstreamVertex() == null ||
+        if (selectedSegment == null) {
+          /* deliberately not dereferenced, the draw itself yielding nothing is a defect in the weight index rather
+           * than a property of a segment, and reporting it must not depend on having one */
+          LOGGER.severe(String.format(
+              "Drawn link segment for zone (%s) is null, falling back on centroid location",
+              activeZone.getIdsAsString()));
+        } else if (selectedSegment.getUpstreamVertex() == null ||
             selectedSegment.getUpstreamVertex().getPosition() == null) {
           LOGGER.severe(String.format("Drawn link segment (%s) has no upstream vertex, ignore",
               selectedSegment.getIdsAsString()));

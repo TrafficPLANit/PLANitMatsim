@@ -126,7 +126,7 @@ public class LocationGeneratorUtils {
             if(link.hasLinkSegmentBa() && link.getLinkSegmentBa().isModeAllowed(mode) &&
                 prepZoneGeom.contains(link.getVertexB().getPosition())){
               runningTotalLength += lengthInsideZoneKm;
-              intersectingSegments.add(link.getLinkSegmentAb());
+              intersectingSegments.add(link.getLinkSegmentBa());
               cumulativeLengths.add(runningTotalLength);
             }
           }
