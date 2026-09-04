@@ -17,6 +17,8 @@ import org.goplanit.matsim.xml.*;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.utils.exceptions.PlanItRunTimeException;
 import org.goplanit.utils.geo.PlanitJtsUtils;
+import org.goplanit.utils.graph.directed.DirectedVertex;
+import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
 import org.goplanit.utils.id.IdMapperType;
 import org.goplanit.utils.misc.Pair;
 import org.goplanit.utils.misc.StringUtils;
@@ -64,6 +66,9 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   /** LocationGenerator:ZONE_LINKS_DISTANCE_WEIGHTED requires
    * Pre-indexed mapping of zone weights by mode for sampling (if we use link weighted sampling within zone) */
   private Map<Mode, Map<Long, LocationGeneratorUtils.ZoneLinkWeights>> zoneLinkWeightsIndexByMode;
+
+  /** number of draws allowed when looking for an activity location that can also be departed from */
+  private static final int MAX_ACTIVITY_LOCATION_DRAWS = 10;
 
   /** LocationGenerator:ZONE_LINKS_DISTANCE_WEIGHTED requires
    * Reproducible random generation stream */
@@ -372,6 +377,66 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    * @param departureMode mode by which the departure occurs (may be null if last)
    * @throws XMLStreamException if error
    */
+  /**
+   * Draw a link segment for an activity that can also be departed from by the given mode.
+   * <p>
+   * The weight index only guarantees the arrival mode, since it is built per mode, whereas MATSim gives an activity a
+   * single link serving both its arrival and its departure. Where the drawn segment offers no way out for the
+   * departing mode, MATSim silently relocates the activity to the nearest link that does, which discards the
+   * length weighted placement this sampling exists to provide. Redrawing is enough to avoid that in nearly every
+   * case, the eligible share of segments being high, so no filtered index is maintained.
+   * </p>
+   * <p>
+   * Departure is judged on the segments leaving the drawn segment's downstream vertex, that being where the activity
+   * is placed, rather than on the drawn segment itself which is the one arrived on.
+   * </p>
+   *
+   * @param weights to draw from
+   * @param activeZone the draw relates to, for reporting
+   * @param arrivalMode the activity is reached by, for reporting
+   * @param departureMode the activity is left by, may be null in which case any draw will do
+   * @return drawn segment, the last attempt when none allowing departure was found, null when the draw yields nothing
+   */
+  private MacroscopicLinkSegment drawSegmentAllowingDeparture(
+      LocationGeneratorUtils.ZoneLinkWeights weights, OdZone activeZone, Mode arrivalMode, Mode departureMode) {
+
+    MacroscopicLinkSegment selectedSegment = null;
+    for (int attempt = 0; attempt < MAX_ACTIVITY_LOCATION_DRAWS; ++attempt) {
+      selectedSegment = weights.drawRandomSegment(this.randomEngine);
+      if (selectedSegment == null || departureMode == null ||
+          hasExitSegmentAllowingMode(selectedSegment.getDownstreamVertex(), departureMode)) {
+        return selectedSegment;
+      }
+    }
+
+    LOGGER.warning(String.format(
+        "Unable to find a location in zone (%s) reachable by (%s) that can also be departed by (%s) in %d draws, " +
+            "using the last draw, MATSim will relocate the departure to the nearest link allowing it",
+        activeZone.getIdsAsString(), arrivalMode != null ? arrivalMode.getName() : "n/a",
+        departureMode.getName(), MAX_ACTIVITY_LOCATION_DRAWS));
+    return selectedSegment;
+  }
+
+  /**
+   * Verify whether any segment leaving the given vertex allows the given mode
+   *
+   * @param vertex to check the exits of
+   * @param mode to check for
+   * @return true when at least one exit allows the mode
+   */
+  private static boolean hasExitSegmentAllowingMode(DirectedVertex vertex, Mode mode) {
+    if (vertex == null) {
+      return false;
+    }
+    for (var exitSegment : vertex.getExitEdgeSegments()) {
+      if (exitSegment instanceof MacroscopicLinkSegment &&
+          ((MacroscopicLinkSegment) exitSegment).isModeAllowed(mode)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private void writeActivityElement(
       XMLStreamWriter xmlWriter,
       Person person,
@@ -399,23 +464,25 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       LocationGeneratorUtils.ZoneLinkWeights weights =
           this.zoneLinkWeightsIndexByMode.get(arrivalMode).get(activeZone.getId());
       if (weights != null) {
-        var selectedSegment = weights.drawRandomSegment(this.randomEngine);
+        var selectedSegment = drawSegmentAllowingDeparture(weights, activeZone, arrivalMode, departureMode);
         if (selectedSegment == null) {
           /* deliberately not dereferenced, the draw itself yielding nothing is a defect in the weight index rather
            * than a property of a segment, and reporting it must not depend on having one */
           LOGGER.severe(String.format(
               "Drawn link segment for zone (%s) is null, falling back on centroid location",
               activeZone.getIdsAsString()));
-        } else if (selectedSegment.getUpstreamVertex() == null ||
-            selectedSegment.getUpstreamVertex().getPosition() == null) {
-          LOGGER.severe(String.format("Drawn link segment (%s) has no upstream vertex, ignore",
+        } else if (selectedSegment.getDownstreamVertex() == null ||
+            selectedSegment.getDownstreamVertex().getPosition() == null) {
+          LOGGER.severe(String.format("Drawn link segment (%s) has no downstream vertex, ignore",
               selectedSegment.getIdsAsString()));
         }else {
           matchedLinkSegmentId =
               getComponentIdMappers().getNetworkIdMappers().getMacroscopicLinkSegmentIdMapper().apply(selectedSegment);
-          Coordinate startPoint = selectedSegment.getUpstreamVertex().getPosition().getCoordinate();
-          finalX = startPoint.x;
-          finalY = startPoint.y;
+          /* the downstream end, since MATSim places an agent performing an activity at the end of its link: the
+           * arriving leg terminates by traversing the segment, and the departing leg continues from that same point */
+          Coordinate activityPoint = selectedSegment.getDownstreamVertex().getPosition().getCoordinate();
+          finalX = activityPoint.x;
+          finalY = activityPoint.y;
         }
       } else if(activeZone.hasGeometry()){
         // fallback use centroid derived location

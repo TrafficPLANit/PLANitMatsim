@@ -8,6 +8,7 @@ import org.goplanit.matsim.converter.network.MatsimNetworkWriter;
 import org.goplanit.matsim.converter.network.MatsimNetworkWriterFactory;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.network.ServiceNetwork;
+import org.goplanit.utils.network.layer.MacroscopicNetworkLayer;
 import org.goplanit.service.routed.RoutedServices;
 import org.goplanit.utils.exceptions.PlanItException;
 import org.goplanit.utils.exceptions.PlanItRunTimeException;
@@ -44,36 +45,41 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
    * @param infrastructureNetwork to persist as MATSIM network
    * @return the used network writer
    */
-  private MatsimNetworkWriter writeMatsimNetwork(MacroscopicNetwork infrastructureNetwork){
+  private MatsimNetworkWriter writeMatsimNetwork(
+      MacroscopicNetwork infrastructureNetwork, MatsimZoningWriter transferAccessWriter){
     MatsimNetworkWriter networkWriter =
         MatsimNetworkWriterFactory.create(getSettings().getNetworkSettings());
 
     /* write network */
     networkWriter.setIdMapperType(idMapper);
+    networkWriter.setTransferAccessWriter(transferAccessWriter);
     networkWriter.write(infrastructureNetwork);
     return networkWriter;
   }
 
   /**
-   * Persist the PLANit zoning as a partial MATSIM pt schedule, only containing the stops infrastructure
+   * Create the zoning writer and let it work out the transfer zone access, so the network writer can pick it up while
+   * writing its file. Without this the stops that are not already on the road network end up as islands nobody can
+   * reach on foot
    *
-   * @param parentNetworkIdMapper to use
-   * @param zoning                to extract stops information from
-   * @param infrastructureNetwork to persist as MATSIM network
+   * @param infrastructureNetwork being persisted
+   * @param zoning to extract the transfer zone access from
+   * @return the zoning writer to use, null when there are no transfer zones and the network write is left untouched
    */
-  private void writeMatsimPartialPtSchedule(
-      NetworkIdMapper parentNetworkIdMapper, Zoning zoning, MacroscopicNetwork infrastructureNetwork) {
+  private MatsimZoningWriter prepareTransferAccessWriter(
+      MacroscopicNetwork infrastructureNetwork, Zoning zoning) {
+    if(zoning.getTransferZones().isEmpty()) {
+      return null;
+    }
 
-    /* zoning writer */
     MatsimZoningWriter zoningWriter =
         MatsimZoningWriterFactory.create(getSettings().getZoningSettings(), infrastructureNetwork);
-
-    /* prep */
     zoningWriter.setIdMapperType(idMapper);
-    zoningWriter.setParentIdMappers(parentNetworkIdMapper);
-
-    /* write zoning */
-    zoningWriter.write(zoning);
+    zoningWriter.prepareTransferAccess(
+        zoning,
+        (MacroscopicNetworkLayer) infrastructureNetwork.getTransportLayers().getFirst(),
+        getSettings().getNetworkSettings().getMinimumLinkLengthMeters());
+    return zoningWriter;
   }
 
   /**
@@ -132,12 +138,17 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
                 "but found %s and %s instead",
             getSettings().getNetworkSettings().getCountry(), getSettings().getZoningSettings().getCountry()));
 
+    /* the zoning writer goes first, the network file has to carry its transfer zone access */
+    var zoningWriter = prepareTransferAccessWriter(infrastructureNetwork, zoning);
+
     /* network writer */
-    var networkWriter = writeMatsimNetwork(infrastructureNetwork);
+    var networkWriter = writeMatsimNetwork(infrastructureNetwork, zoningWriter);
 
     /* zoning writer, only persisting stops in absence of services */
-    if(!zoning.getTransferZones().isEmpty()) {
-      writeMatsimPartialPtSchedule(networkWriter.getPrimaryIdMapper(), zoning, infrastructureNetwork);
+    if(zoningWriter != null) {
+      /* only obtainable now, the network writer establishes its id mappers as it writes */
+      zoningWriter.setParentIdMappers(networkWriter.getPrimaryIdMapper());
+      zoningWriter.write(zoning);
     }
   }
 
@@ -165,8 +176,12 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
     PlanItException.throwIfNull(infrastructureNetwork,
         "Infrastructure network is null when persisting MATSim intermodal network");
 
+    /* prepared purely to contribute the transfer zone access to the network file, the stops themselves are persisted
+     * as part of the full schedule below */
+    var transferAccessWriter = prepareTransferAccessWriter(infrastructureNetwork, zoning);
+
     /* network writer */
-    var networkWriter = writeMatsimNetwork(infrastructureNetwork);
+    var networkWriter = writeMatsimNetwork(infrastructureNetwork, transferAccessWriter);
 
     /* persist PT stops, services and schedule*/
     writeMatsimFullPtSchedule(networkWriter.getPrimaryIdMapper(), routedServices, zoning);

@@ -60,6 +60,14 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterModeMappingSe
    */
   protected boolean restrictLinkSpeedBySupportedModes = DEFAULT_RESTRICT_SPEED_LIMIT_BY_SUPPORTED_MODE;
 
+  /** Minimum length in meters written for any MATSim link. Link lengths can legitimately end up as zero, for example
+   * a transfer connectoid whose stop sits exactly on its access node, or a physical link whose geometry collapsed.
+   * MATSim derives a travel time by dividing by the length, so a zero length link is not usable and the length is
+   * raised to this floor instead of being written out as is. Note this is in meters, whereas PLANit tracks lengths in
+   * km, so it is to be applied only after conversion to meters.
+   */
+  protected double minimumLinkLengthMeters = DEFAULT_MINIMUM_LINK_LENGTH_METERS;
+
   /**
    * Convenience method to log all the current settings
    * 
@@ -74,6 +82,7 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterModeMappingSe
     LOGGER.info(LoggingUtils.settingsValue("Generate detailed geometry", generateDetailedLinkGeometryFile, level));
     LOGGER.info(LoggingUtils.settingsValue(
         "Restrict link speed by supported modes", restrictLinkSpeedBySupportedModes, level));
+    LOGGER.info(LoggingUtils.settingsValue("Minimum link length (m)", minimumLinkLengthMeters, level));
   }
 
   /**
@@ -85,6 +94,12 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterModeMappingSe
    * Default setting for restricting a link's max speed by its supported mode max speeds if more restricting
    */
   public static final Boolean DEFAULT_RESTRICT_SPEED_LIMIT_BY_SUPPORTED_MODE = false;
+
+  /**
+   * Default minimum link length in meters, a metre being short enough not to distort routing while still giving
+   * MATSim a usable travel time
+   */
+  public static final double DEFAULT_MINIMUM_LINK_LENGTH_METERS = 1.0;
 
   /** constructor 
    * @param countryName to use
@@ -175,15 +190,37 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterModeMappingSe
    */
   public void setRestrictLinkSpeedBySupportedModes(boolean restrictLinkSpeedBySupportedModes) {
     this.restrictLinkSpeedBySupportedModes = restrictLinkSpeedBySupportedModes;
-  }  
-  
+  }
+
+  /** Collect the minimum length in meters written for any MATSim link
+   *
+   * @return minimum link length in meters
+   */
+  public double getMinimumLinkLengthMeters() {
+    return minimumLinkLengthMeters;
+  }
+
+  /** Set the minimum length in meters written for any MATSim link. Provided in meters rather than km to match the
+   * unit MATSim itself uses for a link length
+   *
+   * @param minimumLinkLengthMeters to use
+   */
+  public void setMinimumLinkLengthMeters(double minimumLinkLengthMeters) {
+    this.minimumLinkLengthMeters = minimumLinkLengthMeters;
+  }
+
   /**
    * {@inheritDoc}
    */
   @Override
   public void reset() {
     super.reset();
-    //todo
-  }  
+    this.linkNtCategoryfunction = null;
+    this.linkNtTypefunction = null;
+    this.linkTypefunction = null;
+    this.generateDetailedLinkGeometryFile = DEFAULT_GENERATE_DETAILED_LINK_GEOMETRY;
+    this.restrictLinkSpeedBySupportedModes = DEFAULT_RESTRICT_SPEED_LIMIT_BY_SUPPORTED_MODE;
+    this.minimumLinkLengthMeters = DEFAULT_MINIMUM_LINK_LENGTH_METERS;
+  }
   
 }

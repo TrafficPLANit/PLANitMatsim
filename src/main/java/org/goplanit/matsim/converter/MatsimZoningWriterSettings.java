@@ -29,7 +29,19 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
 
   /** flag indicating the default for whether transit routes are blocking at their stop facilities */
   protected boolean ptBlockingAtStopFacility = PT_BLOCKING_AT_STOP_DEFAULT;
-  
+
+  /** Flag indicating whether to write the access to transfer zones as MATSim nodes and links. Without it a rail or
+   * ferry stop is an island in the MATSim network and nobody can reach it on foot, so this is on by default.
+   */
+  protected boolean writeTransferZoneAccess = DEFAULT_WRITE_TRANSFER_ZONE_ACCESS;
+
+  /** Free speed in km/h written on the MATSim links providing access to a transfer zone. These links stand in for
+   * walking between the stop and the network rather than for real infrastructure, so a single walking speed applies
+   * regardless of which modes the underlying connectoid entry allows. Kept as a setting so it is visible and can be
+   * made more granular later if that turns out to matter.
+   */
+  protected double transferZoneAccessSpeedKmH = DEFAULT_TRANSFER_ZONE_ACCESS_SPEED_KM_H;
+
   /**
    * Log settings
    */
@@ -39,6 +51,9 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
     super.logSettings(level);
     LOGGER.info(LoggingUtils.settingsValue(
         "Generate MATSim Matrix based PT routing file", isGenerateMatrixBasedPtRouterFiles(), level));
+    LOGGER.info(LoggingUtils.settingsValue("Write transfer zone access", isWriteTransferZoneAccess(), level));
+    LOGGER.info(LoggingUtils.settingsValue(
+        "Transfer zone access speed (km/h)", getTransferZoneAccessSpeedKmH(), level));
   }
 
   /**
@@ -48,6 +63,14 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
 
   /** default value aligned with MATSim default */
   public static final boolean PT_BLOCKING_AT_STOP_DEFAULT = false;
+
+  /**
+   * Default for writing transfer zone access is true, since a pt network that cannot be walked into is not useful
+   */
+  public static final boolean DEFAULT_WRITE_TRANSFER_ZONE_ACCESS = true;
+
+  /** Default free speed on transfer zone access links in km/h, an average walking pace */
+  public static final double DEFAULT_TRANSFER_ZONE_ACCESS_SPEED_KM_H = 5.0;
   
   /**
    * Default constructor using default output file name and Global country name
@@ -122,7 +145,10 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
    */
   @Override
   public void reset() {
-    // TODO Auto-generated method stub    
+    this.generateMatrixBasedPtRouterFiles = DEFAULT_GENERATE_MATRIX_BASED_PT_ROUTER_FILES;
+    this.ptBlockingAtStopFacility = PT_BLOCKING_AT_STOP_DEFAULT;
+    this.writeTransferZoneAccess = DEFAULT_WRITE_TRANSFER_ZONE_ACCESS;
+    this.transferZoneAccessSpeedKmH = DEFAULT_TRANSFER_ZONE_ACCESS_SPEED_KM_H;
   }
 
   /**
@@ -142,5 +168,39 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
   public void setPtBlockingAtStopFacility(boolean ptBlockingAtStopFacility) {
     this.ptBlockingAtStopFacility = ptBlockingAtStopFacility;
   }
-      
+
+  /** Collect the flag indicating if the access to transfer zones is written as MATSim nodes and links
+   *
+   * @return flag, when true transfer zone access is written, when false it is not
+   */
+  public boolean isWriteTransferZoneAccess() {
+    return writeTransferZoneAccess;
+  }
+
+  /** Set the flag indicating if the access to transfer zones is to be written as MATSim nodes and links. When
+   * disabled, stops that are not already on the road network cannot be reached on foot in MATSim
+   *
+   * @param writeTransferZoneAccess when true activate, when false do not
+   */
+  public void setWriteTransferZoneAccess(boolean writeTransferZoneAccess) {
+    this.writeTransferZoneAccess = writeTransferZoneAccess;
+  }
+
+  /** Collect the free speed written on transfer zone access links
+   *
+   * @return speed in km/h
+   */
+  public double getTransferZoneAccessSpeedKmH() {
+    return transferZoneAccessSpeedKmH;
+  }
+
+  /** Set the free speed written on transfer zone access links, applied regardless of the modes allowed on the
+   * underlying connectoid entry since these links represent walking to and from the stop
+   *
+   * @param transferZoneAccessSpeedKmH to use, in km/h
+   */
+  public void setTransferZoneAccessSpeedKmH(double transferZoneAccessSpeedKmH) {
+    this.transferZoneAccessSpeedKmH = transferZoneAccessSpeedKmH;
+  }
+
 }

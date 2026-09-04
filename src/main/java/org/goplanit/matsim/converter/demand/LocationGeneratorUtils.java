@@ -116,15 +116,17 @@ public class LocationGeneratorUtils {
 
           if (lengthInsideZoneKm > 0.0001) {
 
-            // mode compatibility check + make sure start point of segment also falls in zone
+            /* mode compatibility check + make sure the downstream end of the segment also falls in the zone, that
+             * being where an activity drawing this segment is placed, since MATSim locates an agent performing an
+             * activity at the end of its link */
             if(link.hasLinkSegmentAb() && link.getLinkSegmentAb().isModeAllowed(mode) &&
-                prepZoneGeom.contains(link.getVertexA().getPosition())){
+                prepZoneGeom.contains(link.getVertexB().getPosition())){
               runningTotalLength += lengthInsideZoneKm;
               intersectingSegments.add(link.getLinkSegmentAb());
               cumulativeLengths.add(runningTotalLength);
             }
             if(link.hasLinkSegmentBa() && link.getLinkSegmentBa().isModeAllowed(mode) &&
-                prepZoneGeom.contains(link.getVertexB().getPosition())){
+                prepZoneGeom.contains(link.getVertexA().getPosition())){
               runningTotalLength += lengthInsideZoneKm;
               intersectingSegments.add(link.getLinkSegmentBa());
               cumulativeLengths.add(runningTotalLength);

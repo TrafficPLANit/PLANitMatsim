@@ -19,6 +19,7 @@ import org.apache.commons.csv.CSVPrinter;
 import org.geotools.api.referencing.operation.TransformException;
 import org.geotools.geometry.jts.JTS;
 import org.goplanit.converter.idmapping.IdMapperFunctionFactory;
+import org.goplanit.matsim.converter.MatsimTransferAccessWriter;
 import org.goplanit.matsim.converter.MatsimWriter;
 import org.goplanit.matsim.util.MatsimNetworkWriterUtils;
 import org.goplanit.matsim.xml.*;
@@ -66,6 +67,11 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
 
   /** track number of MATSim turn restrictions persisted */
   private final LongAdder matsimTurnRestrictionCounter = new LongAdder();
+
+  /** contributes the transfer zone access to this network file, null when there is nothing to contribute. Wired up by
+   * the intermodal writer rather than by a user, since only a combined network and zoning write has transfer zones in
+   * the first place */
+  private MatsimTransferAccessWriter transferAccessWriter;
 
   /**
    * Construct the json type string that MATSim adopts for banned movements
@@ -174,8 +180,14 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
               networkIdMappers.getVertexIdMapper().apply(linkSegment.getDownstreamVertex()));
           
           /* LENGTH */
-          xmlWriter.writeAttribute(MatsimNetworkAttributes.LENGTH,
-              String.format("%.2f",Unit.KM.convertTo(Unit.METER, linkSegment.getParent().getLengthKm())));
+          /* PLANit tracks length in km, MATSim in meters, so convert first and only then guard the result: a zero
+           * (or negative) length link makes MATSim divide by zero when deriving a travel time. A real length is left
+           * untouched, however short, since only the absence of one is the problem */
+          double lengthMeters = Unit.KM.convertTo(Unit.METER, linkSegment.getParent().getLengthKm());
+          if(lengthMeters <= 0.0) {
+            lengthMeters = getSettings().getMinimumLinkLengthMeters();
+          }
+          xmlWriter.writeAttribute(MatsimNetworkAttributes.LENGTH, String.format("%.2f", lengthMeters));
         }
         
         if(linkSegment.getLinkSegmentType() == null) {
@@ -343,7 +355,14 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
       for(Link link: networkLayer.getLinks()) {
         writeMatsimLink(xmlWriter, link, planitModeToMatsimModeMapping, bannedMovementsByFromSegment);
       }
-      
+
+      /* the connections to the stops, every node they refer to having been written already */
+      if(transferAccessWriter != null) {
+        transferAccessWriter.writeTransferAccessLinks(
+            xmlWriter, getIndentLevel(), planitModeToMatsimModeMapping,
+            getComponentIdMappers().getNetworkIdMappers().getVertexIdMapper());
+      }
+
       writeEndElementNewLine(xmlWriter, true /*-- indent */); // LINKS
     } catch (XMLStreamException e) {
       LOGGER.severe(e.getMessage());
@@ -404,7 +423,14 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
       for(Node node : networkLayer.getNodes()) {
         writeMatsimNode(xmlWriter, node);
       }
-      
+
+      /* the stops themselves, which only the zoning side knows how to express */
+      if(transferAccessWriter != null) {
+        transferAccessWriter.writeTransferAccessNodes(
+            xmlWriter, getIndentLevel(), this::extractDestinationCrsCompatibleCoordinate,
+            settings.getDecimalFormat());
+      }
+
       writeEndElementNewLine(xmlWriter, true /*-- indent */); // NODES
     } catch (XMLStreamException e) {
       LOGGER.severe(e.getMessage());
@@ -649,6 +675,15 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
   @Override
   public MatsimNetworkWriterSettings getSettings() {
     return settings;
+  }
+
+  /** Set the writer contributing the transfer zone access to this network file. This is internal wiring between the
+   * MATSim writers, done by the intermodal writer, rather than something to be set by a user
+   *
+   * @param transferAccessWriter to delegate to, null to write the physical network only
+   */
+  public void setTransferAccessWriter(MatsimTransferAccessWriter transferAccessWriter) {
+    this.transferAccessWriter = transferAccessWriter;
   }
 
   /**
