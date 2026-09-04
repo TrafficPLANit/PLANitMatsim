@@ -14,13 +14,12 @@ import org.goplanit.matsim.util.MatsimBuiltInMode;
 import org.goplanit.utils.geo.PlanitJtsCrsUtils;
 import org.goplanit.utils.graph.Vertex;
 import org.goplanit.utils.mode.Mode;
-import org.goplanit.utils.mode.TrackModeType;
-import org.goplanit.utils.mode.UseOfModeType;
 import org.goplanit.utils.network.layer.MacroscopicNetworkLayer;
 import org.goplanit.utils.unit.Unit;
 import org.goplanit.utils.zoning.TransferZone;
 import org.goplanit.utils.zoning.connectoid.ConnectoidAccessZoneEntry;
 import org.goplanit.utils.zoning.connectoid.TransferConnectoid;
+import org.goplanit.utils.zoning.connectoid.ZoneConnectoidType;
 import org.goplanit.zoning.Zoning;
 import org.locationtech.jts.geom.Point;
 
@@ -169,34 +168,16 @@ class TransferAccessBuilder {
   }
 
   /**
-   * Verify whether a mode may be written onto a transfer link.
+   * Collect the MATSim modes for the links to a stop.
    * <p>
-   * An access zone entry records where the stop meets the network, not who may traverse the connection. For a stop
-   * attached through the road modes fallback that mode is a car, and putting car on a transfer link would let MATSim
-   * route cars through the station node as a shortcut, a defect we would be introducing rather than fixing. So private
-   * road vehicles are dropped, while public road vehicles such as a bus are kept since a bus genuinely does serve the
-   * stop.
+   * Walk is always present: it is how a passenger covers the gap between the platform and the vehicle, and so is what
+   * a pt vehicle stop entry contributes here. Its mode names the vehicle serving the stop rather than anything that
+   * traverses the walk to it, so it has no further say. Beyond walk the access and egress entries decide, they being
+   * the record of which passengers can reach the stop and how, which is exactly what the link is being written for.
    * </p>
    *
-   * @param mode to verify
-   * @return true when the mode belongs on a transfer link
-   */
-  private static boolean isEligibleTransferLinkMode(Mode mode) {
-    if(!mode.hasUseFeatures() || !mode.hasPhysicalFeatures()) {
-      return true;
-    }
-    boolean privateMode = mode.getUseFeatures().getUseOfType().equals(UseOfModeType.PRIVATE);
-    boolean roadMode = mode.getPhysicalFeatures().getTrackType().equals(TrackModeType.ROAD);
-    return !(privateMode && roadMode);
-  }
-
-  /**
-   * Collect the MATSim modes for a transfer link. Walk is always present, because without it nobody can get off the
-   * vehicle and the stop becomes a dead end, and that holds for the pt vehicle stop side just as much as for the road
-   * side.
-   *
-   * @param entry to collect the allowed modes from
-   * @param planitModeToMatsimModeMapping to map PLANit modes with
+   * @param entries to collect the allowed modes from
+   * @param planitModeToMatsimModeMapping to map PLANit modes with, only holding modes activated for MATSim
    * @return the MATSim modes to write
    */
   private static Set<String> collectTransferLinkModes(
@@ -205,13 +186,10 @@ class TransferAccessBuilder {
     matsimModes.add(MatsimBuiltInMode.WALK.getValue());
 
     for(var entry : entries) {
-      if(!entry.hasExplicitlyAllowedModes()) {
+      if(entry.getType().equals(ZoneConnectoidType.PT_VEHICLE_STOP) || !entry.hasExplicitlyAllowedModes()) {
         continue;
       }
       for(var mode : entry.getExplicitlyAllowedModes()) {
-        if(!isEligibleTransferLinkMode(mode)) {
-          continue;
-        }
         var matsimMode = planitModeToMatsimModeMapping.get(mode);
         if(matsimMode != null) {
           matsimModes.add(matsimMode);

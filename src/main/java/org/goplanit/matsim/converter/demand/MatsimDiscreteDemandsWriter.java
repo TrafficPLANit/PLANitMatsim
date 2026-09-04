@@ -21,9 +21,11 @@ import org.goplanit.utils.graph.directed.DirectedVertex;
 import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
 import org.goplanit.utils.id.IdMapperType;
 import org.goplanit.utils.misc.Pair;
+import org.goplanit.utils.misc.Triple;
 import org.goplanit.utils.misc.StringUtils;
 import org.goplanit.utils.mode.Mode;
 import org.goplanit.utils.mode.PredefinedModeType;
+import org.goplanit.utils.mode.UseOfModeType;
 import org.goplanit.utils.time.LocalTimeUtils;
 import org.goplanit.utils.xml.PlanitXmlWriterUtils;
 import org.goplanit.utils.zoning.OdZone;
@@ -66,6 +68,16 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   /** LocationGenerator:ZONE_LINKS_DISTANCE_WEIGHTED requires
    * Pre-indexed mapping of zone weights by mode for sampling (if we use link weighted sampling within zone) */
   private Map<Mode, Map<Long, LocationGeneratorUtils.ZoneLinkWeights>> zoneLinkWeightsIndexByMode;
+
+  /** the mode whose links stand in for a public mode when placing an activity, null when none is available */
+  private Mode publicModePlacementMode;
+
+  /** zones that yielded no drawable location and so fell back on their centroid, reported once at the end */
+  private Set<Long> centroidFallbackZoneIds;
+
+  /** cached outcome of searching a zone in full for a location reachable by one mode and departable by another, keyed
+   * on that combination. A null value marks a combination known to have no such location */
+  private Map<Triple<Long, Mode, Mode>, LocationGeneratorUtils.ZoneLinkWeights> departureCompatibleWeightsCache;
 
   /** number of draws allowed when looking for an activity location that can also be departed from */
   private static final int MAX_ACTIVITY_LOCATION_DRAWS = 10;
@@ -409,12 +421,25 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       }
     }
 
-    LOGGER.warning(String.format(
-        "Unable to find a location in zone (%s) reachable by (%s) that can also be departed by (%s) in %d draws, " +
-            "using the last draw, MATSim will relocate the departure to the nearest link allowing it",
-        activeZone.getIdsAsString(), arrivalMode != null ? arrivalMode.getName() : "n/a",
-        departureMode.getName(), MAX_ACTIVITY_LOCATION_DRAWS));
-    return selectedSegment;
+    /* the eligible share of segments is normally high, so ten draws failing suggests it is genuinely low rather than
+     * that we were unlucky. Settle it by inspecting the zone in full, affordable precisely because it is rare, and
+     * remember the outcome so a zone that keeps coming up is only walked once */
+    var cacheKey = Triple.of(activeZone.getId(), arrivalMode, departureMode);
+    if (!departureCompatibleWeightsCache.containsKey(cacheKey)) {
+      var searchedWeights = weights.createFilteredCopy(
+          segment -> hasExitSegmentAllowingMode(segment.getDownstreamVertex(), departureMode));
+      departureCompatibleWeightsCache.put(cacheKey, searchedWeights);
+      if (searchedWeights == null) {
+        LOGGER.warning(String.format(
+            "No location in zone (%s) reachable by (%s) can also be departed by (%s), using the drawn location, " +
+                "MATSim will relocate the departure to the nearest link allowing it",
+            activeZone.getIdsAsString(), arrivalMode != null ? arrivalMode.getName() : "n/a",
+            departureMode.getName()));
+      }
+    }
+
+    var compatibleWeights = departureCompatibleWeightsCache.get(cacheKey);
+    return compatibleWeights != null ? compatibleWeights.drawRandomSegment(this.randomEngine) : selectedSegment;
   }
 
   /**
@@ -435,6 +460,47 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       }
     }
     return false;
+  }
+
+  /**
+   * Determine the mode whose links place an activity reached or left by a public mode. A public mode has stops rather
+   * than activity locations, so placing on its own links puts people on the track itself, where no activity belongs
+   * and from where nothing but the same public mode can leave. Walking is what a passenger does at either end of a
+   * public leg, so the pedestrian network is the natural stand-in, the transfer links written into the network
+   * carrying them on to the stop from there. Where no active mode is modelled the road network is the next best
+   * thing, being connected to the stops rather than being them.
+   *
+   * @param activatedAvailableModes to choose from
+   * @return the mode to place with, null when neither is available, in which case the zone centroid remains
+   */
+  private static Mode resolvePublicModePlacementMode(Set<Mode> activatedAvailableModes) {
+    var substitute = activatedAvailableModes.stream().filter(
+        m -> m.getPredefinedModeType() == PredefinedModeType.PEDESTRIAN).findFirst();
+    if (substitute.isEmpty()) {
+      substitute = activatedAvailableModes.stream().filter(
+          m -> m.getPredefinedModeType() == PredefinedModeType.CAR).findFirst();
+      substitute.ifPresent(m -> LOGGER.info(
+          "No pedestrian mode activated, placing activities of public mode legs on car links instead"));
+    }
+    if (substitute.isEmpty()) {
+      LOGGER.warning(
+          "Neither pedestrian nor car activated, activities of public mode legs fall back on their zone centroid");
+    }
+    return substitute.orElse(null);
+  }
+
+  /**
+   * The mode to place an activity with, being the mode itself unless it is public, see
+   * {@link #resolvePublicModePlacementMode(Set)}
+   *
+   * @param mode to resolve, may be null
+   * @return mode to place with, null when there is nothing to place with
+   */
+  private Mode resolvePlacementMode(Mode mode) {
+    if (mode == null || mode.getUseFeatures().getUseOfType() != UseOfModeType.PUBLIC) {
+      return mode;
+    }
+    return this.publicModePlacementMode;
   }
 
   private void writeActivityElement(
@@ -459,12 +525,18 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
 
     // Apply distance-weighted link sampling strategy if active
     if (getSettings().getLocationGeneratorType() == LocationGeneratorType.ZONE_LINKS_DISTANCE_WEIGHTED
-        && this.zoneLinkWeightsIndexByMode != null && this.zoneLinkWeightsIndexByMode.containsKey(arrivalMode)) {
+        && this.zoneLinkWeightsIndexByMode != null) {
 
+      Mode placementArrivalMode = resolvePlacementMode(arrivalMode);
+      Mode placementDepartureMode = resolvePlacementMode(departureMode);
+
+      var modeWeights = placementArrivalMode != null ?
+          this.zoneLinkWeightsIndexByMode.get(placementArrivalMode) : null;
       LocationGeneratorUtils.ZoneLinkWeights weights =
-          this.zoneLinkWeightsIndexByMode.get(arrivalMode).get(activeZone.getId());
+          modeWeights != null ? modeWeights.get(activeZone.getId()) : null;
       if (weights != null) {
-        var selectedSegment = drawSegmentAllowingDeparture(weights, activeZone, arrivalMode, departureMode);
+        var selectedSegment =
+            drawSegmentAllowingDeparture(weights, activeZone, placementArrivalMode, placementDepartureMode);
         if (selectedSegment == null) {
           /* deliberately not dereferenced, the draw itself yielding nothing is a defect in the weight index rather
            * than a property of a segment, and reporting it must not depend on having one */
@@ -486,6 +558,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
         }
       } else if(activeZone.hasGeometry()){
         // fallback use centroid derived location
+        this.centroidFallbackZoneIds.add(activeZone.getId());
         var startPoint = PlanitJtsUtils.extractPolygonCentre(activeZone.getGeometry());
         if(startPoint != null){
           finalX = startPoint.getX();
@@ -819,6 +892,9 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    */
   private void initialise(DiscreteDemands demands) {
 
+    this.centroidFallbackZoneIds = new LinkedHashSet<>();
+    this.departureCompatibleWeightsCache = new HashMap<>();
+
     /* CRS - we allow for conversion but this requires source crs of both zoning and network to be known and set*/
     LOGGER.info(String.format("Network CRS set to     : %s",referenceNetwork.getCoordinateReferenceSystem().getName()));
     if(referenceZoning.getCoordinateReferenceSystem() == null){
@@ -853,14 +929,10 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       var activatedAvailableModes = findActivatedModesAvailableInNetwork();
       if(!activatedAvailableModes.isEmpty()){
         LOGGER.info("[START] Pre-indexing structural metric zone-to-link length arrays for random allocations...");
-        zoneLinkWeightsIndexByMode = new TreeMap<>();
-        for(var currMode : activatedAvailableModes){
-          LOGGER.info(String.format("[%s] Pre-indexing...", currMode.getPredefinedModeType()));
-          this.randomEngine = new SplittableRandom(DEFAULT_SIMULATION_SEED);
-          var zoneLinkWeightsIndex = LocationGeneratorUtils.populateZoneLinkWeightsIndex(
-              currMode, referenceNetwork, referenceZoning.getOdZones(), getGeoUtils());
-          this.zoneLinkWeightsIndexByMode.put(currMode, zoneLinkWeightsIndex);
-        }
+        this.zoneLinkWeightsIndexByMode = LocationGeneratorUtils.populateZoneLinkWeightsIndex(
+            activatedAvailableModes, referenceNetwork, referenceZoning.getOdZones(), getGeoUtils());
+        this.randomEngine = new SplittableRandom(DEFAULT_SIMULATION_SEED);
+        this.publicModePlacementMode = resolvePublicModePlacementMode(activatedAvailableModes);
         LOGGER.info("[DONE] Pre-indexed structural metric zone-to-link length arrays for random allocations...");
       }
     }
@@ -935,6 +1007,11 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     /* write */
     writeXmlPlansFile(demands, getSettings().isWriteAsGZip());
 
+    if (!this.centroidFallbackZoneIds.isEmpty()) {
+      LOGGER.warning(String.format(
+          "%d zones had no drawable link for at least one activity and fell back on their centroid location",
+          this.centroidFallbackZoneIds.size()));
+    }
     LOGGER.info(this.writerStats.toString());
   }
 
@@ -946,6 +1023,9 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   public void reset() {
     writerStats.reset();
     zoneLinkWeightsIndexByMode.clear();
+    publicModePlacementMode = null;
+    centroidFallbackZoneIds = null;
+    departureCompatibleWeightsCache = null;
     randomEngine = null;
     personSchedulesToIgnore.clear();
   }
