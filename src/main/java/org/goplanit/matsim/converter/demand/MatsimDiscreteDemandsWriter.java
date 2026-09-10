@@ -19,7 +19,9 @@ import org.goplanit.utils.exceptions.PlanItRunTimeException;
 import org.goplanit.utils.geo.PlanitJtsUtils;
 import org.goplanit.utils.graph.directed.DirectedVertex;
 import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
+import org.goplanit.utils.id.ExternalIdAbleUtils;
 import org.goplanit.utils.id.IdMapperType;
+import org.goplanit.utils.misc.LoggingUtils;
 import org.goplanit.utils.misc.Pair;
 import org.goplanit.utils.misc.Triple;
 import org.goplanit.utils.misc.StringUtils;
@@ -89,6 +91,21 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   /** contains the Persons' schedules that we will ignore. This is populated based on having schedules that are not
    * based on the settings provided, e.g., contains modes deactivated in the mapping for example */
   private Set<Person> personSchedulesToIgnore;
+
+  /** persons skipped because they have no household, reported once at the end */
+  private Set<Person> personsWithoutHousehold;
+
+  /** persons skipped because their household has no home zone, reported once at the end */
+  private Set<Person> personsWithoutHomeZone;
+
+  /** tours encountered without any schedule of their own, reported once at the end */
+  private Set<Tour> toursWithoutSchedule;
+
+  /** number of activities written without a description, reported once at the end */
+  private int activitiesWithoutDescriptionCount;
+
+  /** maximum number of entities listed individually when reporting an issue affecting many of them */
+  private static final int MAX_LOGGED_ENTITIES = 10;
 
   /**
    * validate the settings making sure minimal output information is available
@@ -335,8 +352,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
         var currTour = (Tour) scheduleElement;
 
         if(!currTour.hasSchedule()){
-          LOGGER.warning(String.format("Found tour (%s) without a schedule (trips, or sub-tours), should not happen",
-              currTour.getIdsAsString()));
+          toursWithoutSchedule.add(currTour);
           return;
         }else{
 
@@ -513,8 +529,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       Mode departureMode)
       throws XMLStreamException {
     if(activityDescription == null || activityDescription.isBlank()){
-      LOGGER.warning(String.format("Description for activity has no content (for person (%s))",
-          person.getIdsAsString()));
+      ++activitiesWithoutDescriptionCount;
     }
 
     // Default coordinates sourced directly from centroid definitions
@@ -627,7 +642,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    * assumed selected plan per person
    *
    * @param xmlWriter       to use
-   * @param person          to write the selected plan for
+   * @param person          to write the selected plan for, expected to have a home location available
    * @param modeMapping     to use
    * @param discreteDemands to use
    */
@@ -637,18 +652,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     long periodStartTimeSeconds = timePeriod.getStartTimeSeconds();
     long periodEndTimeSeconds = periodStartTimeSeconds + timePeriod.getDurationSeconds();
 
-    if(person.getHousehold() == null){
-      LOGGER.severe(String.format("Expecting each person to have a household, skipping person (%s)",
-          person.getHousehold()));
-      return;
-    }
     OdZone homeZone = person.getHousehold().getZone();
-    if(homeZone == null){
-      LOGGER.severe(String.format("Expecting household (%s) to have a home zone, " +
-              "unable to complete person (%s) schedule, skip",
-          person.getHousehold().getIdsAsString(), person.getIdsAsString()));
-      return;
-    }
 
     try{
       // plan
@@ -723,6 +727,25 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   }
 
   /**
+   * Verify the person can be placed at a home location, i.e. it has a household and that household has a zone.
+   * Persons without one are collected so they can be reported collectively rather than one entry each
+   *
+   * @param person to verify
+   * @return true when a home location is available, false otherwise
+   */
+  private boolean hasHomeLocation(Person person) {
+    if (person.getHousehold() == null) {
+      personsWithoutHousehold.add(person);
+      return false;
+    }
+    if (person.getHousehold().getZone() == null) {
+      personsWithoutHomeZone.add(person);
+      return false;
+    }
+    return true;
+  }
+
+  /**
    * Write persons element and then trigger writing all individual persons
    *
    * @param xmlWriter to use
@@ -741,11 +764,10 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
           continue;
         }
 
-        if(person.getHousehold() == null){
-          LOGGER.warning(String.format(
-              "Currently MATSim plan writer requires person (%s) to have a household, missing, skip",
-              person.getIdsAsString()));
+        if(!hasHomeLocation(person)){
+          continue;
         }
+
         var initialActivity = person.getSchedule().getFirst();
         if(initialActivity == null){
           writerStats.incrementPersonsSkippedNoTours();
@@ -884,6 +906,37 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   }
 
   /**
+   * Report the issues collected while writing, each as a single entry stating how many entities were affected, their
+   * share of the total and a capped list of the entities themselves
+   *
+   * @param totalPersonCount total number of persons considered, used to express the share affected
+   */
+  private void logCollatedWriteIssues(int totalPersonCount) {
+    if (!personsWithoutHousehold.isEmpty()) {
+      LOGGER.warning(String.format(
+          "Skipped %s persons without a household, a MATSim plan requires a home location, persons %s",
+          LoggingUtils.countWithPercentage(personsWithoutHousehold.size(), totalPersonCount),
+          ExternalIdAbleUtils.toIdsAsString(personsWithoutHousehold, MAX_LOGGED_ENTITIES)));
+    }
+    if (!personsWithoutHomeZone.isEmpty()) {
+      LOGGER.warning(String.format(
+          "Skipped %s persons whose household has no home zone, a MATSim plan requires a home location, persons %s",
+          LoggingUtils.countWithPercentage(personsWithoutHomeZone.size(), totalPersonCount),
+          ExternalIdAbleUtils.toIdsAsString(personsWithoutHomeZone, MAX_LOGGED_ENTITIES)));
+    }
+    if (!toursWithoutSchedule.isEmpty()) {
+      LOGGER.warning(String.format(
+          "Found %d tours without a schedule (trips, or sub-tours), these contribute no legs to the plan, tours %s",
+          toursWithoutSchedule.size(),
+          ExternalIdAbleUtils.toIdsAsString(toursWithoutSchedule, MAX_LOGGED_ENTITIES)));
+    }
+    if (activitiesWithoutDescriptionCount > 0) {
+      LOGGER.warning(String.format(
+          "Wrote %d activities without a description", activitiesWithoutDescriptionCount));
+    }
+  }
+
+  /**
    * Initialise before writing, prep the CRS and prep the strategy on how to map activities spatially and temporally,
    * also identify the modes which may be present in the network but are not activated for persisting, so we can
    * prune those schedules from the output
@@ -894,6 +947,10 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
 
     this.centroidFallbackZoneIds = new LinkedHashSet<>();
     this.departureCompatibleWeightsCache = new HashMap<>();
+    this.personsWithoutHousehold = new LinkedHashSet<>();
+    this.personsWithoutHomeZone = new LinkedHashSet<>();
+    this.toursWithoutSchedule = new LinkedHashSet<>();
+    this.activitiesWithoutDescriptionCount = 0;
 
     /* CRS - we allow for conversion but this requires source crs of both zoning and network to be known and set*/
     LOGGER.info(String.format("Network CRS set to     : %s",referenceNetwork.getCoordinateReferenceSystem().getName()));
@@ -1012,6 +1069,8 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
           "%d zones had no drawable link for at least one activity and fell back on their centroid location",
           this.centroidFallbackZoneIds.size()));
     }
+    logCollatedWriteIssues(demands.getPersons().size());
+
     LOGGER.info(this.writerStats.toString());
   }
 
@@ -1028,6 +1087,10 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     departureCompatibleWeightsCache = null;
     randomEngine = null;
     personSchedulesToIgnore.clear();
+    personsWithoutHousehold = null;
+    personsWithoutHomeZone = null;
+    toursWithoutSchedule = null;
+    activitiesWithoutDescriptionCount = 0;
   }
 
   /**
