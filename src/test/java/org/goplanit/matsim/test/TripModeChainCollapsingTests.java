@@ -4,6 +4,7 @@ import org.goplanit.demands.discrete.DiscreteDemands;
 import org.goplanit.demands.discrete.tour.ActivitySchedule;
 import org.goplanit.demands.discrete.trip.Trip;
 import org.goplanit.demands.discrete.util.DirectionBound;
+import org.goplanit.matsim.util.AggregateParticipantTourView;
 import org.goplanit.matsim.util.AggregateTourView;
 import org.goplanit.matsim.util.AggregateTripView;
 import org.goplanit.matsim.util.ModeChainCollapseRule;
@@ -148,10 +149,10 @@ public class TripModeChainCollapsingTests {
     // Verify top-level structure container details
     assertEquals(1, collapsed.size(),
         "Top level list must contain exactly 1 tour element wrapper.");
-    assertTrue(collapsed.get(0) instanceof AggregateTourView,
-        "Top level component must wrap inside an AggregateTourView.");
+    assertTrue(collapsed.get(0) instanceof AggregateParticipantTourView,
+        "Top level component must wrap inside an AggregateParticipantTourView.");
 
-    var tourView = (AggregateTourView) collapsed.get(0);
+    var tourView = (AggregateParticipantTourView) collapsed.get(0);
     var innerSchedule = tourView.getSchedule();
 
     // Verify inner leaf metrics utilizing sizeUnrolled(true)
@@ -212,7 +213,7 @@ public class TripModeChainCollapsingTests {
     // Because requiresScheduleCollapsing returns false, the fast-path immediately returns person.getSchedule()
     assertEquals(1, collapsed.size(), "Top level should contain exactly 1 tour element.");
 
-    var tourElement = (org.goplanit.demands.discrete.tour.Tour) collapsed.get(0);
+    var tourElement = ((org.goplanit.demands.discrete.tour.ParticipantTour) collapsed.get(0)).getTour();
     var innerSchedule = tourElement.getSchedule();
 
     // Verify that none of the 3 internal trips collapsed
@@ -263,10 +264,11 @@ public class TripModeChainCollapsingTests {
     // Verify top-level structure preserves the original reference wrapper
     assertEquals(1, collapsed.size(),
         "Top level should contain exactly 1 tour element.");
-    assertFalse(collapsed.get(0) instanceof AggregateTourView,
-        "Top level component must not be an AggregateTourView wrapper.");
+    assertFalse(collapsed.get(0) instanceof AggregateParticipantTourView,
+        "Top level component must not be an AggregateParticipantTourView wrapper.");
 
-    var tourElement = (org.goplanit.demands.discrete.tour.Tour) collapsed.get(0);
+    var tourElement =
+        ((org.goplanit.demands.discrete.tour.ParticipantTour) collapsed.get(0)).getTour();
     var innerSchedule = tourElement.getSchedule();
 
     // Verify that both trip elements passed through natively as un-collapsed leaves
@@ -307,7 +309,7 @@ public class TripModeChainCollapsingTests {
     var tourView = new AggregateTourView(tour, mockSchedule);
     assertThrows(UnsupportedOperationException.class, () -> tourView.setPurpose("leisure"),
         "Mutations on the aggregate tour view layer must throw UnsupportedOperationException.");
-    assertThrows(UnsupportedOperationException.class, () -> tourView.setPerson(null),
+    assertThrows(UnsupportedOperationException.class, () -> tourView.addParticipant(null, null),
         "Mutations on the aggregate tour view layer must throw UnsupportedOperationException.");
   }
 
@@ -402,7 +404,7 @@ public class TripModeChainCollapsingTests {
 
     // Verification Assertions
     assertEquals(1, collapsed.size(), "The schedule contains 1 main tour.");
-    var processedTour = (org.goplanit.demands.discrete.tour.Tour) collapsed.get(0);
+    var processedTour = ((org.goplanit.demands.discrete.tour.ParticipantTour) collapsed.get(0)).getTour();
     assertTrue(processedTour instanceof AggregateTourView,
         "The tour must be wrapped inside an AggregateTourView.");
 
@@ -486,7 +488,7 @@ public class TripModeChainCollapsingTests {
 
     // Verification Assertions
     assertEquals(1, collapsed.size(), "The schedule contains 1 main tour.");
-    var processedTour = (org.goplanit.demands.discrete.tour.Tour) collapsed.get(0);
+    var processedTour = ((org.goplanit.demands.discrete.tour.ParticipantTour) collapsed.get(0)).getTour();
     assertTrue(processedTour instanceof AggregateTourView,
         "The tour must be wrapped inside an AggregateTourView.");
 
@@ -544,7 +546,7 @@ public class TripModeChainCollapsingTests {
     // Verify all core mutator boundaries block edits cleanly
     assertThrows(UnsupportedOperationException.class, () -> view.setPurpose("leisure"),
         "Mutations on the aggregate tour view layer must throw UnsupportedOperationException.");
-    assertThrows(UnsupportedOperationException.class, () -> view.setPerson(null),
+    assertThrows(UnsupportedOperationException.class, () -> view.addParticipant(null, null),
         "Mutations on the aggregate tour view layer must throw UnsupportedOperationException.");
     assertThrows(UnsupportedOperationException.class, () -> view.setOrigin(zoning.getOdZones().get(3)),
         "Mutations on the aggregate tour view layer must throw UnsupportedOperationException.");
@@ -598,7 +600,7 @@ public class TripModeChainCollapsingTests {
 
     // Verification Assertions
     assertEquals(1, collapsed.size(), "The schedule contains 1 main tour.");
-    var processedTour = (org.goplanit.demands.discrete.tour.Tour) collapsed.get(0);
+    var processedTour = ((org.goplanit.demands.discrete.tour.ParticipantTour) collapsed.get(0)).getTour();
     assertTrue(processedTour instanceof AggregateTourView,
         "The tour must be wrapped inside an AggregateTourView.");
 
@@ -666,7 +668,7 @@ public class TripModeChainCollapsingTests {
 
     // Verification Assertions
     assertEquals(1, collapsed.size(), "The schedule contains 1 main tour.");
-    var processedTour = (org.goplanit.demands.discrete.tour.Tour) collapsed.get(0);
+    var processedTour = ((org.goplanit.demands.discrete.tour.ParticipantTour) collapsed.get(0)).getTour();
     assertTrue(processedTour instanceof AggregateTourView,
         "The tour must be wrapped inside an AggregateTourView.");
 

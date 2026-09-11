@@ -3,7 +3,9 @@ package org.goplanit.matsim.util;
 import org.apache.commons.collections4.IterableUtils;
 import org.goplanit.demands.discrete.tour.ActivitySchedule;
 import org.goplanit.demands.discrete.tour.ScheduleElement;
+import org.goplanit.demands.discrete.tour.ParticipantTour;
 import org.goplanit.demands.discrete.tour.Tour;
+import org.goplanit.utils.exceptions.PlanItRunTimeException;
 import org.goplanit.demands.discrete.trip.Trip;
 import org.goplanit.demands.discrete.trip.TripImpl;
 import org.goplanit.utils.mode.PredefinedModeType;
@@ -256,18 +258,26 @@ public class ScheduleCollapsingUtils {
     for (int i = 0; i < total; i++) {
       var el = originalSchedule.get(i);
 
-      if (el instanceof Tour) {
-        Tour tour = (Tour) el;
+      if (el instanceof ParticipantTour) {
+        var participation = (ParticipantTour) el;
+        Tour tour = participation.getTour();
         if (tour.hasSchedule() && tour.getSchedule() != null) {
           var collapsedNested = collapseContiguousTripChainsByModeRules(tour.getSchedule(), collapseRules);
-          buffer.add(tour.getSchedule() != collapsedNested ? new AggregateTourView(tour, collapsedNested) : tour);
+          /* the participation is what sits on the schedule, so a collapsed tour is handed back wrapped in a view of
+           * the participation rather than as the tour itself */
+          buffer.add(tour.getSchedule() != collapsedNested
+              ? new AggregateParticipantTourView(participation, new AggregateTourView(tour, collapsedNested))
+              : participation);
           continue;
         }
+        buffer.add(participation);
+        continue;
       }
 
       if (!(el instanceof Trip)) {
-        buffer.add(el);
-        continue;
+        throw new PlanItRunTimeException(
+            "Unsupported schedule element type (%s) encountered when collapsing trip chains",
+            el.getClass().getCanonicalName());
       }
 
       Trip activeTrip = (Trip) el;

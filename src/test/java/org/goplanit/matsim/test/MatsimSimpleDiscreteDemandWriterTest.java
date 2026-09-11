@@ -1,9 +1,11 @@
 package org.goplanit.matsim.test;
 
 import org.goplanit.demands.discrete.DiscreteDemands;
+import org.goplanit.demands.discrete.tour.TourParticipantRole;
 import org.goplanit.demands.discrete.util.DirectionBound;
 import org.goplanit.logging.Logging;
 import org.goplanit.matsim.converter.demand.MatsimDiscreteDemandsWriterFactory;
+import org.goplanit.matsim.converter.demand.MatsimDiscreteDemandsWriterSettings;
 import org.goplanit.matsim.util.MatsimAssertionUtils;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.utils.geo.PlanitCrsUtils;
@@ -25,6 +27,7 @@ import java.time.Duration;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.Consumer;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -80,11 +83,12 @@ public class MatsimSimpleDiscreteDemandWriterTest {
    * GtfsToPlanitSydneyTest.testGtfsIntermodalReaderWithPreExistingPlanitTransferZones
    * </p>
    */
-  @Test
-  public void testMemoryModelToMatsimPlans() {
+  private void runPlansWriterTest(
+      String outputSubDir, String referenceSubDir,
+      Consumer<MatsimDiscreteDemandsWriterSettings> settingsCustomizer) {
 
-    final Path MATSIM_OUTPUT_DIR = Path.of(RESOURCE_PATH.toString(), "testcases", "synthetic", "plans");
-    final Path MATSIM_REF_DIR = Path.of(RESOURCE_PATH.toString(), "matsim", "synthetic", "plans");
+    final Path MATSIM_OUTPUT_DIR = Path.of(RESOURCE_PATH.toString(), "testcases", "synthetic", outputSubDir);
+    final Path MATSIM_REF_DIR = Path.of(RESOURCE_PATH.toString(), "matsim", "synthetic", referenceSubDir);
 
     try {
 
@@ -259,6 +263,21 @@ public class MatsimSimpleDiscreteDemandWriterTest {
         tour_after_tour0_inbound.syncStartTimeToTourEndWithNegativeOffset(Duration.of(10, ChronoUnit.MINUTES));
       }
 
+      // a shared tour is held once and carries one set of trips, and everyone else taking part in it comes along on
+      // those same trips. Two shared tours are set up, differing in the mode they are made on
+
+      // tour0 is made by car, so person1 is carried by person0 and travels it as a passenger
+      person1.getSchedule().add(tour0_p0.addParticipant(person1, TourParticipantRole.ACCOMPANYING));
+
+      // tour2 goes by bus and returns on foot, neither of which anyone is carried on, so person3 travels it exactly
+      // as person2 does
+      person3.getSchedule().add(tour2_p2.addParticipant(person3, TourParticipantRole.ACCOMPANYING));
+
+      // person4 has no travel of their own, so accompanying person2 is the whole of their day
+      var person4 = discreteDemands.getPersons().getFactory().registerNew(household1);
+      person4.setInitialPurpose("home");
+      person4.getSchedule().add(tour2_p2.addParticipant(person4, TourParticipantRole.ACCOMPANYING));
+
       var matsimPlansWriter =
           MatsimDiscreteDemandsWriterFactory.create(MATSIM_OUTPUT_DIR.toAbsolutePath().toString(), network, zoning);
       // settings/config
@@ -275,6 +294,8 @@ public class MatsimSimpleDiscreteDemandWriterTest {
       matsimPlansWriter.getSettings().updatePredefinedModeMapping(PredefinedModeType.TRAIN, "pt");
       matsimPlansWriter.getSettings().updatePredefinedModeMapping(PredefinedModeType.PEDESTRIAN, "walk");
 
+      settingsCustomizer.accept(matsimPlansWriter.getSettings());
+
       // convert
       matsimPlansWriter.write(discreteDemands);
 
@@ -285,5 +306,27 @@ public class MatsimSimpleDiscreteDemandWriterTest {
       LOGGER.severe(e.getMessage());
       fail(e.getMessage());
     }
+  }
+
+  /**
+   * A shared tour is written for the participant owning it alone, so it yields one traveller however many take part
+   * in it. The companions contribute nothing, and a person who does nothing but accompany ends up without a plan
+   */
+  @Test
+  public void testMemoryModelToMatsimPlans() {
+    runPlansWriterTest("plans", "plans", settings -> settings.setWriteAccompanyingParticipants(false));
+  }
+
+  /**
+   * Everyone taking part in a shared tour travels it. On a mode they are carried on they are a passenger, written
+   * with MATSim's ride mode so that the tour still puts a single vehicle on the network; on any other mode they
+   * travel by that mode in their own right
+   */
+  @Test
+  public void testMemoryModelToMatsimPlansWithAccompanyingParticipants() {
+    runPlansWriterTest("plans_joint", "plans_joint", settings -> {
+      // the default, stated here because it is what this case is about
+      settings.setWriteAccompanyingParticipants(true);
+    });
   }
 }

@@ -12,7 +12,9 @@ import static org.goplanit.utils.mode.PredefinedModeType.*;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.logging.Logger;
 
 /** Settings for the MATSIM discrete demands write, e.g., plans
@@ -31,6 +33,12 @@ public class MatsimDiscreteDemandsWriterSettings extends PlanitMatsimWriterModeM
   /** Rule for mode chain collapsing. Only relevant when useDisaggregateTransitModes is set to false */
   private Map<PredefinedModeType, ModeChainCollapseRule> modeCollapseRules = new TreeMap<>(DEFAULT_MODE_COLLAPSE_RULES);
 
+  /** Whether a person taking part in a tour they do not own travels in the plan at all */
+  private boolean writeAccompanyingParticipants = DEFAULT_WRITE_ACCOMPANYING_PARTICIPANTS;
+
+  /** Modes on which a participant who does not own the tour is carried rather than travelling under their own steam */
+  private Set<PredefinedModeType> carriedPassengerModes = new TreeSet<>(DEFAULT_CARRIED_PASSENGER_MODES);
+
 
   /** default used =  LocationGeneratorType.ZONE_LINKS_DISTANCE_WEIGHTED */
   public static LocationGeneratorType DEFAULT_LOCATION_GENERATOR_TYPE =
@@ -45,6 +53,15 @@ public class MatsimDiscreteDemandsWriterSettings extends PlanitMatsimWriterModeM
       TRAIN, new ModeChainCollapseRule(TRAIN, List.of(PEDESTRIAN), List.of(PEDESTRIAN))
   );
 
+  /** default is true, so a shared tour is travelled by all of its participants */
+  public static final boolean DEFAULT_WRITE_ACCOMPANYING_PARTICIPANTS = true;
+
+  /** Default modes on which a participant not owning the tour is carried, being the car modes. On any other mode,
+   * a walk or public transport tour for instance, each participant travels by that mode in their own right, a
+   * pedestrian is nobody's passenger and a public transport passenger already holds their own ticket */
+  public static final Set<PredefinedModeType> DEFAULT_CARRIED_PASSENGER_MODES =
+      Set.of(CAR, CAR_HIGH_OCCUPANCY, CAR_SHARE);
+
 
   /**
    * Convenience method to log all the current settings
@@ -56,6 +73,11 @@ public class MatsimDiscreteDemandsWriterSettings extends PlanitMatsimWriterModeM
     LOGGER.info(LoggingUtils.settingsHeader("MATSim Plans (Discrete Demands) Writer Settings"));
     super.logSettings(referenceNetwork, level);
     LOGGER.info(LoggingUtils.settingsValue("Location generation type", getLocationGeneratorType(), level));
+    LOGGER.info(LoggingUtils.settingsValue(
+        "Write accompanying participants", isWriteAccompanyingParticipants(), level));
+    if (isWriteAccompanyingParticipants()) {
+      LOGGER.info(LoggingUtils.settingsValue("Carried as passenger on modes", getCarriedPassengerModes(), level));
+    }
 
     if (!isUseDisaggregateTransitModes() && modeCollapseRules != null && !modeCollapseRules.isEmpty()) {
       LOGGER.info(LoggingUtils.settingsSection("Mode Chain Collapse Rules", level));
@@ -212,6 +234,53 @@ public class MatsimDiscreteDemandsWriterSettings extends PlanitMatsimWriterModeM
   }
 
   /**
+   * Whether a person taking part in a tour they do not own travels in the plan. When false such a participation is
+   * left out entirely, so a shared tour is travelled by its primary participant alone
+   *
+   * @return true when accompanying participants travel
+   */
+  public boolean isWriteAccompanyingParticipants() {
+    return writeAccompanyingParticipants;
+  }
+
+  /**
+   * Set whether a person taking part in a tour they do not own travels in the plan
+   *
+   * @param writeAccompanyingParticipants to set
+   */
+  public void setWriteAccompanyingParticipants(boolean writeAccompanyingParticipants) {
+    this.writeAccompanyingParticipants = writeAccompanyingParticipants;
+  }
+
+  /**
+   * The modes on which a participant not owning the tour is carried by whoever does, rather than travelling by that
+   * mode in their own right
+   *
+   * @return the modes on which such a participant is a passenger
+   */
+  public Set<PredefinedModeType> getCarriedPassengerModes() {
+    return Set.copyOf(carriedPassengerModes);
+  }
+
+  /**
+   * Treat the given mode as one on which a participant not owning the tour is carried
+   *
+   * @param modeType to add
+   */
+  public void addCarriedPassengerMode(PredefinedModeType modeType) {
+    this.carriedPassengerModes.add(modeType);
+  }
+
+  /**
+   * Stop treating the given mode as one on which a participant not owning the tour is carried
+   *
+   * @param modeType to remove
+   */
+  public void removeCarriedPassengerMode(PredefinedModeType modeType) {
+    this.carriedPassengerModes.remove(modeType);
+  }
+
+  /**
    * {@inheritDoc}
    */
   @Override
@@ -219,6 +288,8 @@ public class MatsimDiscreteDemandsWriterSettings extends PlanitMatsimWriterModeM
     super.reset();
     this.locationGeneratorType = DEFAULT_LOCATION_GENERATOR_TYPE;
     this.modeCollapseRules = DEFAULT_MODE_COLLAPSE_RULES;
-  }  
-  
+    this.writeAccompanyingParticipants = DEFAULT_WRITE_ACCOMPANYING_PARTICIPANTS;
+    this.carriedPassengerModes = new TreeSet<>(DEFAULT_CARRIED_PASSENGER_MODES);
+  }
+
 }

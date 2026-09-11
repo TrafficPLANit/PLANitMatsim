@@ -2,13 +2,16 @@ package org.goplanit.matsim.util;
 
 import org.goplanit.demands.discrete.person.Person;
 import org.goplanit.demands.discrete.tour.ActivitySchedule;
+import org.goplanit.demands.discrete.tour.ParticipantTour;
 import org.goplanit.demands.discrete.tour.ScheduleElement;
 import org.goplanit.demands.discrete.tour.Tour;
+import org.goplanit.demands.discrete.tour.TourParticipantRole;
 import org.goplanit.utils.id.IdGroupingToken;
 import org.goplanit.utils.mode.Mode;
 import org.goplanit.utils.zoning.OdZone;
 
 import java.time.LocalTime;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
 
@@ -16,6 +19,11 @@ import java.util.function.Predicate;
  * A non-destructive wrapper decorator view for a {@link Tour} instance to support
  * nested timeline schedule collapsing without mutating the underlying PLANit memory model
  * or triggering cloned tracking identity mismatches.
+ * <p>
+ * A tour is not itself a schedule element, a person's participation in it is, so this view is not placed on a
+ * schedule directly. It is reached through {@link AggregateParticipantTourView}, whose delegation to
+ * {@link ParticipantTour#getTour()} is what carries the collapsed schedule to the participation
+ * </p>
  *
  * @author markr
  * @since 1.0.0
@@ -61,7 +69,7 @@ public final class AggregateTourView implements Tour {
   }
 
   // --- Read-Only Functional Interface Implementations Delegated to Source ---
-  @Override public Person getPerson() { return underlyingTour.getPerson(); }
+  @Override public List<ParticipantTour> getParticipantTours() { return underlyingTour.getParticipantTours(); }
   @Override public OdZone getOrigin() { return underlyingTour.getOrigin(); }
   @Override public OdZone getDestination() { return underlyingTour.getDestination(); }
   @Override public String getPurpose() { return underlyingTour.getPurpose(); }
@@ -72,8 +80,18 @@ public final class AggregateTourView implements Tour {
   @Override public Class<? extends Tour> getIdClass() { return Tour.TOUR_ID_CLASS; }
   @Override public String getExternalId() { return underlyingTour.getExternalId(); }
   @Override public String getXmlId() { return underlyingTour.getXmlId(); }
-  @Override public boolean testNested(Predicate<ScheduleElement> predicate) {
-    return collapsedSchedule.testNested(predicate); }
+
+  /**
+   * Test the collapsed schedule against the given predicate. A tour is no longer a schedule element, so this no
+   * longer overrides {@link ScheduleElement#testNested}, but it is kept for callers holding this view directly
+   *
+   * @param predicate to test against
+   * @return true when the predicate holds for the collapsed schedule or anything nested in it
+   */
+  public boolean testNested(Predicate<ScheduleElement> predicate) {
+    return collapsedSchedule.testNested(predicate);
+  }
+
   @Override
   public Mode getOutboundMode() {
     return collapsedSchedule.getOutboundMode(); }
@@ -81,7 +99,9 @@ public final class AggregateTourView implements Tour {
   public Mode getInboundMode() { return collapsedSchedule.getInboundMode(); }
 
   // --- Mutator Safety Exceptions for Immutable Mock Views ---
-  @Override public void setPerson(Person person) {
+  @Override public ParticipantTour addParticipant(Person person, TourParticipantRole role) {
+    throw new UnsupportedOperationException("Mutations forbidden on aggregate mock view layers"); }
+  @Override public boolean removeParticipant(ParticipantTour participantTour) {
     throw new UnsupportedOperationException("Mutations forbidden on aggregate mock view layers"); }
   @Override public void setOrigin(OdZone origin) {
     throw new UnsupportedOperationException("Mutations forbidden on aggregate mock view layers"); }

@@ -30,8 +30,14 @@ public enum MatsimBuiltInMode {
   /** Standard freight or heavy goods vehicle mode */
   FREIGHT("freight"),
 
-  /** Specialized ride-sharing or demand-responsive transport mode */
-  DRT("drt");
+  /** Specialized ride-sharing or demand-responsive transport mode. Its vehicles are drawn from a fleet
+   * specification and driven by agents the simulation creates rather than persons in the population, so they occupy
+   * the network and add to congestion. Suited to a commercial service whose driver is not among the travellers */
+  DRT("drt"),
+
+  /** Passenger in a vehicle driven by another person in the population. Teleported using car travel times by
+   * default, placing no vehicle of its own on the network, so the driver's vehicle is the only one counted */
+  RIDE("ride");
 
   private final String value;
 
