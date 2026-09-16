@@ -7,6 +7,7 @@ import java.util.logging.Logger;
 import org.goplanit.matsim.util.PlanitMatsimWriterSettings;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.utils.locale.CountryNames;
+import org.goplanit.utils.misc.LoggingUtils;
 
 /**
  * Settings specific to writing the zoning related output in MATSim format (pt)
@@ -18,12 +19,11 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
   
   /** settings to use */
   private static final Logger LOGGER = Logger.getLogger(MatsimZoningWriterSettings.class.getCanonicalName());
-  
-  /** the reference network this zoning is supposed to be compatible with */
-  protected MacroscopicNetwork referenceNetwork;  
-  
+
   /**
-   * While persisting generate the input files for the MATSim PtMatrixRouter contribution as per <a href="https://github.com/matsim-org/matsim-libs/tree/master/contribs/matrixbasedptrouter">MATSim matrix based Pt router</a> 
+   * While persisting generate the input files for the MATSim PtMatrixRouter contribution as per
+   * <a href="https://github.com/matsim-org/matsim-libs/tree/master/contribs/matrixbasedptrouter">MATSim matrix
+   * based Pt router</a>
    */
   protected boolean generateMatrixBasedPtRouterFiles = DEFAULT_GENERATE_MATRIX_BASED_PT_ROUTER_FILES;
 
@@ -34,19 +34,12 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
    * Log settings
    */
   @Override
-  public void logSettings() {
-    Path matsimZoningPath =  Paths.get(getOutputDirectory(), getFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
-    LOGGER.info(String.format("Persisting MATSIM public transport to: %s", matsimZoningPath));
-    LOGGER.info(String.format("MATSim Matrix based PT routing file are %s generated",isGenerateMatrixBasedPtRouterFiles() ? "" : "not"));
-  }    
-  
-  /** Collect the reference network used
-   * 
-   * @return reference network
-   */
-  protected MacroscopicNetwork getReferenceNetwork() {
-    return referenceNetwork;
-  }      
+  public void logSettings(int level) {
+    LOGGER.info(LoggingUtils.settingsHeader("MATSim zoning writer settings"));
+    super.logSettings(level);
+    LOGGER.info(LoggingUtils.settingsValue(
+        "Generate MATSim Matrix based PT routing file", isGenerateMatrixBasedPtRouterFiles(), level));
+  }
 
   /**
    * Default setting for generating files required to run MATSim matrix based pt router
@@ -64,12 +57,16 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
   }
   
   /**
-   * Default constructor 
+   * Partial Copy constructor
    * 
-   *@param countryName to use
+   *@param matsimWriterSettings to copy shared content from, e.g. a Network or Zoning writer settings
    */
-  public MatsimZoningWriterSettings(final String countryName) {
-    this(null, DEFAULT_TRANSIT_SCHEDULE_FILE_NAME, countryName);
+  public MatsimZoningWriterSettings(final PlanitMatsimWriterSettings matsimWriterSettings) {
+    this(matsimWriterSettings.getOutputDirectory(),
+        DEFAULT_TRANSIT_SCHEDULE_FILE_NAME,
+        matsimWriterSettings.getCountry());
+    this.setDestinationCoordinateReferenceSystem(matsimWriterSettings.getDestinationCoordinateReferenceSystem());
+    this.setDecimalFormat(matsimWriterSettings.getDecimalFormat());
   }   
      
   
@@ -81,40 +78,31 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
    */
   public MatsimZoningWriterSettings(final String outputDirectory, final String countryName) {
     super(outputDirectory, DEFAULT_TRANSIT_SCHEDULE_FILE_NAME, countryName);
-  }  
-  
+  }
+
   /**
    * Constructor
    * 
    * @param outputDirectory to use
    * @param outputFileName to use
    * @param countryName to use
-   */
-  public MatsimZoningWriterSettings(final String outputDirectory, final String outputFileName, final String countryName) {
-    this(outputDirectory, outputFileName, countryName, null);
-  }  
-  
-  /**
-   * Constructor
-   * 
-   * @param outputDirectory to use
-   * @param outputFileName to use
-   * @param countryName to use
-   * @param referenceNetwork to use
    */
   public MatsimZoningWriterSettings(
-      final String outputDirectory, final String outputFileName, final String countryName, final MacroscopicNetwork referenceNetwork) {
+      final String outputDirectory,
+      final String outputFileName,
+      final String countryName) {
     super(outputDirectory, outputFileName, countryName);
-    setReferenceNetwork(referenceNetwork);
-  }  
-  
-  /** Set the reference network to use when mapping zoning entities to network entities
-   * @param referenceNetwork to use
-   */
-  public void setReferenceNetwork(MacroscopicNetwork referenceNetwork) {
-    this.referenceNetwork = referenceNetwork;
   }
-  
+
+  /**
+   * Default constructor
+   *
+   *@param countryName to use
+   */
+  public MatsimZoningWriterSettings(final String countryName) {
+    this(null, DEFAULT_TRANSIT_SCHEDULE_FILE_NAME, countryName);
+  }
+
   /** Collect the flag indicating if MATSim matrix based pt routing is supported by generating its files
    * @return flag, when true activated when false not activated
    */
@@ -138,6 +126,7 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
   }
 
   /**
+   * flag whether pt is blocking at the stop facility
    *
    * @return is pt blocking flag
    */

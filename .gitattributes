@@ -4,6 +4,15 @@
 *.prj filter=lfs diff=lfs merge=lfs -text
 *.sbn filter=lfs diff=lfs merge=lfs -text
 *.sbx filter=lfs diff=lfs merge=lfs -text
+*.fbx filter=lfs diff=lfs merge=lfs -text
+*.qix filter=lfs diff=lfs merge=lfs -text
+*.ain filter=lfs diff=lfs merge=lfs -text
+*.fbn filter=lfs diff=lfs merge=lfs -text
+*.aih filter=lfs diff=lfs merge=lfs -text
+*.ixs filter=lfs diff=lfs merge=lfs -text
+*.mxs filter=lfs diff=lfs merge=lfs -text
+*.atx filter=lfs diff=lfs merge=lfs -text
+*.cpg filter=lfs diff=lfs merge=lfs -text
 *.gpkg filter=lfs diff=lfs merge=lfs -text
 *.parquet filter=lfs diff=lfs merge=lfs -text
 *.xml filter=lfs diff=lfs merge=lfs -text
