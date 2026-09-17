@@ -52,6 +52,9 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter, M
   /** the zoning writer settings used for the MATSim pt component*/
   private final MatsimZoningWriterSettings zoningWriterSettings;
 
+  /** track stats */
+  private final MatsimZoningWriterStats writerStats = new MatsimZoningWriterStats();
+
   /** describes the transfer zone access to contribute to a MATSim network file, null when there is none to write */
   private TransferAccessBuilder transferAccessBuilder;
 
@@ -318,8 +321,8 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter, M
     var stopFacilityIdMapper = new MatsimStopFacilityIdHelper(zoning.getTransferConnectoids());
 
     /* results in writing stops only*/
-    new MatsimPtXmlWriter(this, stopFacilityIdMapper).writeXmlTransitScheduleFileStopsOnly(
-        zoning, getZoningWriterSettings());
+    new MatsimPtXmlWriter(this, stopFacilityIdMapper, writerStats.getPtWriterStats())
+        .writeXmlTransitScheduleFileStopsOnly(zoning, getZoningWriterSettings());
 
     if(getSettings().isGenerateMatrixBasedPtRouterFiles()) {
       new MatsimPtMatrixBasedRouterWriter(this, stopFacilityIdMapper).write(zoning);
@@ -333,7 +336,16 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter, M
    */
   @Override
   public void reset() {
-    //TODO:
+    // the statistics of the last write are deliberately kept, they hold no more than a handful of counts
+  }
+
+  /**
+   * The statistics collected over the most recent write, covering the public transport infrastructure written
+   *
+   * @return the statistics of the most recent write
+   */
+  public MatsimZoningWriterStats getWriterStats() {
+    return writerStats;
   }
 
   /** Collect the zoning writer settings

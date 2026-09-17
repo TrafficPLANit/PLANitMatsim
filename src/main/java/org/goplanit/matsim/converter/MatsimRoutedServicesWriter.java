@@ -27,6 +27,9 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
   /** the routed services writer settings used for the MATSim pt component*/
   private final MatsimPtServicesWriterSettings routedServicesWriterSettings;
 
+  /** track stats */
+  private final MatsimRoutedServicesWriterStats writerStats = new MatsimRoutedServicesWriterStats();
+
   /** the network settings to use required to sync our services references to zoning information */
   protected final MatsimNetworkWriterSettings networkSettings;
 
@@ -123,7 +126,7 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
     var stopFacilityIdMapper = new MatsimStopFacilityIdHelper(referenceZoning.getTransferConnectoids());
 
     /* write stops */
-    new MatsimPtXmlWriter(this, stopFacilityIdMapper).writeXmlTransitScheduleFile(
+    new MatsimPtXmlWriter(this, stopFacilityIdMapper, writerStats.getPtWriterStats()).writeXmlTransitScheduleFile(
         referenceZoning, zoningSettings, routedServices, getSettings(), networkSettings);
 
   }
@@ -133,6 +136,16 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
    */
   @Override
   public void reset() {
+    // the statistics of the last write are deliberately kept, they hold no more than a handful of counts
+  }
+
+  /**
+   * The statistics collected over the most recent write, covering the transit schedule written
+   *
+   * @return the statistics of the most recent write
+   */
+  public MatsimRoutedServicesWriterStats getWriterStats() {
+    return writerStats;
   }
 
   /** Collect the settings

@@ -59,14 +59,8 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
    * map to track for duplicates, if found, we append unique identifier */
   private Map<String,LongAdder> usedExternalMatsimLinkIds = new HashMap<>();
   
-  /** track number of MATSim nodes persisted */
-  private final LongAdder matsimNodeCounter = new LongAdder();
-  
-  /** track number of MATSim links persisted */
-  private final LongAdder matsimLinkCounter = new LongAdder();
-
-  /** track number of MATSim turn restrictions persisted */
-  private final LongAdder matsimTurnRestrictionCounter = new LongAdder();
+  /** track stats */
+  private final MatsimNetworkWriterStats writerStats = new MatsimNetworkWriterStats();
 
   /** contributes the transfer zone access to this network file, null when there is nothing to contribute. Wired up by
    * the intermodal writer rather than by a user, since only a combined network and zoning write has transfer zones in
@@ -144,6 +138,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
 
     if(Collections.disjoint(planitModeToMatsimModeMapping.keySet(), linkSegment.getAllowedModes())) {
       /* link segment has no modes that are activated on the MATSIM network -> ignore */
+      writerStats.incrementLinkSegmentsSkippedNoActivatedMode();
       return;
     }
 
@@ -156,7 +151,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
       }else {
         PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimAttributes.LINK, getIndentLevel());
       }
-      matsimLinkCounter.increment();
+      writerStats.incrementLinkSegmentsWritten();
       
       /* attributes  of element*/
       {
@@ -282,7 +277,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
           xmlWriter.writeEndElement();
           decreaseIndentation();
           PlanitXmlWriterUtils.writeNewLine(xmlWriter);
-          matsimTurnRestrictionCounter.add(bannedMovementsOfFromSegment.size());
+          writerStats.addTurnRestrictionsWritten(bannedMovementsOfFromSegment.size());
         }
         // </ATTRIBUTES>
         writeEndElementNewLine(xmlWriter, true /*--indent*/);
@@ -378,7 +373,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
   private void writeMatsimNode(XMLStreamWriter xmlWriter, Node node){
     try {
       PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimNetworkElements.NODE, getIndentLevel());           
-      matsimNodeCounter.increment();
+      writerStats.incrementNodesWritten();
       
       /* attributes  of element*/
       {
@@ -480,9 +475,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
    * Log some aggregate stats on the MATSim writer regarding the number of elements persisted
    */
   private void logWriterStats() {
-    LOGGER.info(String.format("[STATS] created %d nodes",matsimNodeCounter.longValue()));
-    LOGGER.info(String.format("[STATS] created %d links",matsimLinkCounter.longValue()));
-    LOGGER.info(String.format("[STATS] created %d turn restrictions",matsimTurnRestrictionCounter.longValue()));
+    LOGGER.info(this.writerStats.toString());
   }
 
   /**
@@ -621,7 +614,10 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
   public void write(LayeredNetwork<?,?> network) {
     PlanItRunTimeException.throwIfNull(network,
         "network is null, cannot write undefined network to MATSIM format");
-    
+
+    /* the statistics describe the write about to happen rather than every write this instance has performed */
+    writerStats.reset();
+
     boolean networkValid = validateNetwork(network);
     if(!networkValid) {
       return;
@@ -664,9 +660,16 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
    */
   @Override
   public void reset() {
-    matsimNodeCounter.reset();
-    matsimLinkCounter.reset();
-    matsimTurnRestrictionCounter.reset();
+    // the statistics of the last write are deliberately kept, they hold no more than a handful of counts
+  }
+
+  /**
+   * The statistics collected over the most recent write, covering what was written and what was left out
+   *
+   * @return the statistics of the most recent write
+   */
+  public MatsimNetworkWriterStats getWriterStats() {
+    return writerStats;
   }
 
   /**

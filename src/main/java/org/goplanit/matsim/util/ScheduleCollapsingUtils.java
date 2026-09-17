@@ -83,17 +83,21 @@ public class ScheduleCollapsingUtils {
   }
 
   /**
-   * Retrieves the absolute final leaf trip component of a schedule element.
+   * Retrieves the absolute final leaf trip component of a schedule element. A tour taken as part of the schedule is
+   * travel of its own rather than a leg of the schedule holding it, so it has no leaf to contribute.
    *
    * @param element the element to inspect
-   * @return the final trip leaf
+   * @return the final trip leaf, null when the element is not travel within this schedule
    */
   private static Trip getLastLeafTrip(ScheduleElement element) {
     if (element instanceof AggregateTripView) {
       List<Trip> collapsed = ((AggregateTripView) element).getCollapsedTrips();
       return collapsed.get(collapsed.size() - 1);
     }
-    return (Trip) element;
+    if (element instanceof Trip) {
+      return (Trip) element;
+    }
+    return null;
   }
 
   /**
@@ -137,7 +141,8 @@ public class ScheduleCollapsingUtils {
           var historyElement = buffer.get(historyIndex);
           Trip lastLeaf = getLastLeafTrip(historyElement);
 
-          if (lastLeaf.getMode().getPredefinedModeType() == expectedFromMode &&
+          if (lastLeaf != null &&
+              lastLeaf.getMode().getPredefinedModeType() == expectedFromMode &&
               lastLeaf.getDirection() == activeTrip.getDirection()) {
             if (historyElement instanceof AggregateTripView) {
               tempBorrows = true;

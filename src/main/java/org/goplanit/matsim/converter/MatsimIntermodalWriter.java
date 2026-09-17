@@ -6,6 +6,7 @@ import org.goplanit.converter.idmapping.NetworkIdMapper;
 import org.goplanit.converter.intermodal.IntermodalWriter;
 import org.goplanit.matsim.converter.network.MatsimNetworkWriter;
 import org.goplanit.matsim.converter.network.MatsimNetworkWriterFactory;
+import org.goplanit.matsim.converter.network.MatsimNetworkWriterStats;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.network.ServiceNetwork;
 import org.goplanit.utils.network.layer.MacroscopicNetworkLayer;
@@ -39,6 +40,19 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
    */
   protected IdMapperType idMapper;
 
+  /* the writers doing the work are held only for the duration of a write, since they carry the indexes and mappings
+   * built up along the way. Their statistics are plucked from them before they are let go, being small and the
+   * record of what the write produced */
+
+  /** statistics of the network written, null until a write has taken place */
+  private MatsimNetworkWriterStats networkWriterStats;
+
+  /** statistics of the zoning written, null when the write had no transfer zones to contribute */
+  private MatsimZoningWriterStats zoningWriterStats;
+
+  /** statistics of the routed services written, null when no services were written */
+  private MatsimRoutedServicesWriterStats routedServicesWriterStats;
+
   /**
    * Persist the PLANit network as a MATSIM network to disk
    *
@@ -54,6 +68,7 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
     networkWriter.setIdMapperType(idMapper);
     networkWriter.setTransferAccessWriter(transferAccessWriter);
     networkWriter.write(infrastructureNetwork);
+    this.networkWriterStats = networkWriter.getWriterStats();
     return networkWriter;
   }
 
@@ -103,6 +118,7 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
 
     /* write routed services */
     routedServicesWriter.write(routedServices);
+    this.routedServicesWriterStats = routedServicesWriter.getWriterStats();
   }
 
   /** Constructor
@@ -149,6 +165,7 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
       /* only obtainable now, the network writer establishes its id mappers as it writes */
       zoningWriter.setParentIdMappers(networkWriter.getPrimaryIdMapper());
       zoningWriter.write(zoning);
+      this.zoningWriterStats = zoningWriter.getWriterStats();
     }
   }
 
@@ -210,6 +227,34 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
   @Override
   public void reset() {
     // do not reset settings as reset is meant to clean up memory if possible on writer, not the settings
+    // the statistics of the last write are deliberately kept, they hold no more than a handful of counts
+  }
+
+  /**
+   * The statistics of the network written during the most recent write
+   *
+   * @return network writer statistics, null when no network has been written
+   */
+  public MatsimNetworkWriterStats getNetworkWriterStats() {
+    return networkWriterStats;
+  }
+
+  /**
+   * The statistics of the public transport infrastructure written from the zoning during the most recent write
+   *
+   * @return zoning writer statistics, null when the write had no transfer zones to contribute
+   */
+  public MatsimZoningWriterStats getZoningWriterStats() {
+    return zoningWriterStats;
+  }
+
+  /**
+   * The statistics of the transit schedule written during the most recent write
+   *
+   * @return routed services writer statistics, null when no services have been written
+   */
+  public MatsimRoutedServicesWriterStats getRoutedServicesWriterStats() {
+    return routedServicesWriterStats;
   }
 
   /**

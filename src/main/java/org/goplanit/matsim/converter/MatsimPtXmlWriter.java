@@ -5,7 +5,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalTime;
 import java.util.*;
-import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -61,14 +60,8 @@ class MatsimPtXmlWriter {
   /** the zoning writer used for the MATSim pt component*/
   private final MatsimWriter<?> matsimWriter;
   
-  /** track number of MATSim stop facilities persisted */
-  private final LongAdder matsimStopFacilityCounter = new LongAdder();
-
-  /** track number of MATSim transit lines persisted */
-  private final LongAdder matsimTransitLineCounter = new LongAdder();
-
-  /** track transit routes persisted by mapped MAtsim mode */
-  private final Map<String, LongAdder> transitRouteCountersByMode = new HashMap<>();
+  /** track stats, owned by the writer this one writes for */
+  private final MatsimPtWriterStats writerStats;
 
   /** track all id mappings by type of PLANit entity */
   private final PlanitComponentIdMappers componentIdMappers = new PlanitComponentIdMappers();
@@ -363,7 +356,7 @@ class MatsimPtXmlWriter {
       /* transportMode */
       PlanitXmlWriterUtils.writeElementWithValueWithNewLine(
           xmlWriter, MatsimTransitElements.TRANSPORT_MODE, mappedMode ,matsimWriter.getIndentLevel());
-      transitRouteCountersByMode.get(mappedMode).increment();
+      writerStats.incrementTransitRoutesWritten(mappedMode);
 
       /* description */
       if(routedService.hasName()) {
@@ -428,7 +421,7 @@ class MatsimPtXmlWriter {
     try {
       /* transitLine*/
       matsimWriter.writeStartElement(xmlWriter, MatsimTransitElements.TRANSIT_LINE, true);
-      matsimTransitLineCounter.increment();
+      writerStats.incrementTransitLinesWritten();
 
       /*id */
       xmlWriter.writeAttribute(MatsimAttributes.ID,
@@ -477,12 +470,12 @@ class MatsimPtXmlWriter {
       RoutedServices routedServices,
       MatsimPtServicesWriterSettings servicesSettings) {
 
-    transitRouteCountersByMode.clear();
-    /* reset counters per mapped mode */
+    /* make every activated mapped mode countable, so one carrying no routes is still reported */
+    var activatedMatsimModes = new TreeSet<String>();
     routedServices.getLayers().forEach( layer ->
-        networkSettings.collectActivatedPlanitModeToMatsimModeMapping(
-            (MacroscopicNetworkLayerImpl) layer.getParentLayer().getParentNetworkLayer()).entrySet().forEach(
-            e -> transitRouteCountersByMode.put(e.getValue(), new LongAdder())));
+        activatedMatsimModes.addAll(networkSettings.collectActivatedPlanitModeToMatsimModeMapping(
+            (MacroscopicNetworkLayerImpl) layer.getParentLayer().getParentNetworkLayer()).values()));
+    writerStats.prepareRouteModes(activatedMatsimModes);
 
     routedServices.getLayers().streamSortedBy(RoutedServicesLayer::getId).forEach(routedServicesLayer -> {
 
@@ -548,7 +541,7 @@ class MatsimPtXmlWriter {
       transferConnectoid.getAccessZoneEntriesStream(ZoneConnectoidType.PT_VEHICLE_STOP).forEach(ae -> {
         writeMatsimStopFacilitiesForAccessZoneEntry(
             xmlWriter, transferConnectoid, (DirectedConnectoidAccessZoneEntry) ae, zoningWriterSettings);
-        matsimStopFacilityCounter.increment();
+        writerStats.incrementStopFacilitiesWritten();
       });
     });
 
@@ -640,12 +633,7 @@ class MatsimPtXmlWriter {
    * Log some aggregate stats on the MATSim writer regarding the number of elements persisted
    */
   private void logWriterStats() {
-    LOGGER.info(String.format("[STATS] created %d stop facilities",matsimStopFacilityCounter.longValue()));
-    LOGGER.info(String.format("[STATS] created %d transit lines", matsimTransitLineCounter.longValue()));
-    for(var entry : transitRouteCountersByMode.entrySet()) {
-      LOGGER.info(String.format(
-          "[STATS] created %d transit routes for mode: %s", entry.getValue().longValue(), entry.getKey()));
-    }
+    LOGGER.info(this.writerStats.toString());
   }
 
   /**
@@ -681,9 +669,7 @@ class MatsimPtXmlWriter {
 
     /* prep */
     componentIdMappers.populateMissingIdMappers(matsimWriter.getIdMapperType());
-    transitRouteCountersByMode.clear();
-    matsimStopFacilityCounter.reset();
-    matsimTransitLineCounter.reset();
+    writerStats.reset();
 
     Path matsimNetworkPath =
         Paths.get(matsimWriter.getSettings().getOutputDirectory(),
@@ -761,13 +747,17 @@ class MatsimPtXmlWriter {
   }
 
   /**
-   * Constructor 
-   * 
+   * Constructor
+   *
    * @param matsimWriter to use
+   * @param stopFacilityIdHelper to use
+   * @param writerStats to collect the statistics of this write on, owned by the writer this one writes for
    */
   public MatsimPtXmlWriter(
-      final MatsimWriter<?> matsimWriter, MatsimStopFacilityIdHelper stopFacilityIdHelper) {
+      final MatsimWriter<?> matsimWriter, MatsimStopFacilityIdHelper stopFacilityIdHelper,
+      MatsimPtWriterStats writerStats) {
     this.matsimWriter = matsimWriter;
     this.stopFacilityIdHelper = stopFacilityIdHelper;
+    this.writerStats = writerStats;
   }
 }

@@ -106,23 +106,18 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   /** persons left without anything to write once the tours they only accompany are set aside, reported at the end */
   private Set<Person> personsOnlyAccompanying;
 
-  /** participations left out because the person only accompanies the tour, reported once at the end */
-  private int accompanyingParticipationsSkipped;
+  /** whether the element written last within the plan being written is an activity, so that an activity written
+   * straight after another, which leaves the plan without the movement reaching the second, can be spotted */
+  private boolean lastWrittenElementIsActivity;
 
-  /** legs written for a person carried by another rather than travelling themselves, reported once at the end */
-  private int passengerLegsWritten;
-
-  /** The location drawn for a person pursuing a purpose in a zone, keyed on exactly that. A person has one
+  /** The location established for a person pursuing a purpose in a zone, keyed on exactly that. A person has one
    * workplace, one school, so returning to any of them during the day returns them to where they were before rather
    * than to a freshly drawn point in the same zone */
-  private Map<Triple<Long, String, Long>, MacroscopicLinkSegment> drawnActivityLocations;
+  private Map<Triple<Long, String, Long>, MatsimPinnedActivityLocation> drawnActivityLocations;
 
-  /** The dwelling drawn for a household, keyed on the household, which has a single zone and therefore a single
+  /** The dwelling established for a household, keyed on the household, which has a single zone and therefore a single
    * home. Everyone living there comes home to the same address rather than to their own point in the shared zone */
-  private Map<Long, MacroscopicLinkSegment> drawnHomeLocations;
-
-  /** number of activities written without a description, reported once at the end */
-  private int activitiesWithoutDescriptionCount;
+  private Map<Long, MatsimPinnedActivityLocation> drawnHomeLocations;
 
   /** maximum number of entities listed individually when reporting an issue affecting many of them */
   private static final int MAX_LOGGED_ENTITIES = 10;
@@ -575,6 +570,86 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     return household;
   }
 
+  /**
+   * The place an activity is performed, being a point and, where one carries it, the link segment it sits on
+   */
+  private static class MatsimPinnedActivityLocation {
+
+    /** the point the activity is performed at */
+    private final double x;
+
+    /** the point the activity is performed at */
+    private final double y;
+
+    /** the link segment carrying the point, null when the point is not on one */
+    private final MacroscopicLinkSegment linkSegment;
+
+    /**
+     * Constructor
+     *
+     * @param x of the point
+     * @param y of the point
+     * @param linkSegment carrying it, may be null
+     */
+    private MatsimPinnedActivityLocation(double x, double y, MacroscopicLinkSegment linkSegment) {
+      this.x = x;
+      this.y = y;
+      this.linkSegment = linkSegment;
+    }
+  }
+
+  /**
+   * Establish where an activity reached by one mode and left by another is performed within its zone, by drawing a
+   * link segment weighted by length. Where the zone offers nothing to draw from, the given fallback point stands in
+   *
+   * @param activeZone the activity takes place in
+   * @param arrivalMode the activity is reached by
+   * @param departureMode the activity is left by
+   * @param fallbackX to use when the zone offers no link to place on
+   * @param fallbackY to use when the zone offers no link to place on
+   * @return the location established, never null
+   */
+  private MatsimPinnedActivityLocation resolveActivityLocation(
+      OdZone activeZone, Mode arrivalMode, Mode departureMode, double fallbackX, double fallbackY) {
+
+    Mode placementArrivalMode = resolvePlacementMode(arrivalMode);
+    Mode placementDepartureMode = resolvePlacementMode(departureMode);
+
+    var modeWeights = placementArrivalMode != null ?
+        this.zoneLinkWeightsIndexByMode.get(placementArrivalMode) : null;
+    LocationGeneratorUtils.ZoneLinkWeights weights =
+        modeWeights != null ? modeWeights.get(activeZone.getId()) : null;
+
+    if (weights != null) {
+      var selectedSegment =
+          drawSegmentAllowingDeparture(weights, activeZone, placementArrivalMode, placementDepartureMode);
+      if (selectedSegment == null) {
+        /* deliberately not dereferenced, the draw itself yielding nothing is a defect in the weight index rather
+         * than a property of a segment, and reporting it must not depend on having one */
+        LOGGER.severe(String.format(
+            "Drawn link segment for zone (%s) is null, falling back on centroid location",
+            activeZone.getIdsAsString()));
+      } else if (selectedSegment.getDownstreamVertex() == null ||
+          selectedSegment.getDownstreamVertex().getPosition() == null) {
+        LOGGER.severe(String.format("Drawn link segment (%s) has no downstream vertex, ignore",
+            selectedSegment.getIdsAsString()));
+      } else {
+        /* the downstream end, since MATSim places an agent performing an activity at the end of its link: the
+         * arriving leg terminates by traversing the segment, and the departing leg continues from that same point */
+        Coordinate activityPoint = selectedSegment.getDownstreamVertex().getPosition().getCoordinate();
+        return new MatsimPinnedActivityLocation(activityPoint.x, activityPoint.y, selectedSegment);
+      }
+    } else if (activeZone.hasGeometry()) {
+      this.centroidFallbackZoneIds.add(activeZone.getId());
+      var startPoint = PlanitJtsUtils.extractPolygonCentre(activeZone.getGeometry());
+      if (startPoint != null) {
+        return new MatsimPinnedActivityLocation(startPoint.getX(), startPoint.getY(), null);
+      }
+    }
+
+    return new MatsimPinnedActivityLocation(fallbackX, fallbackY, null);
+  }
+
   private void writeActivityElement(
       XMLStreamWriter xmlWriter,
       Person person,
@@ -586,7 +661,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       boolean atHomeAnchor)
       throws XMLStreamException {
     if(activityDescription == null || activityDescription.isBlank()){
-      ++activitiesWithoutDescriptionCount;
+      writerStats.incrementActivitiesWithoutDescription();
     }
 
     // Default coordinates sourced directly from centroid definitions
@@ -599,64 +674,36 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     if (getSettings().getLocationGeneratorType() == LocationGeneratorType.ZONE_LINKS_DISTANCE_WEIGHTED
         && this.zoneLinkWeightsIndexByMode != null) {
 
-      Mode placementArrivalMode = resolvePlacementMode(arrivalMode);
-      Mode placementDepartureMode = resolvePlacementMode(departureMode);
+      /* a purpose pursued in a zone happens in one place, so where it is is settled on the first visit and stood by
+       * for the rest of the day. The modes of the visit steer only that first resolution, a later visit arriving or
+       * departing by some other mode still goes to the place the person already knows, whether that place was drawn
+       * from the zone's links or fell back on its centroid. Home is the dwelling of the whole household rather than
+       * of the person, so it is shared by everyone living there. Where a person has no household to speak of, their
+       * home is theirs alone like any other of their locations */
+      var homeHousehold = collectHouseholdAtHome(person, atHomeAnchor, activeZone);
+      var locationKey = Triple.of(
+          person.getId(), activityDescription != null ? activityDescription : "", activeZone.getId());
 
-      var modeWeights = placementArrivalMode != null ?
-          this.zoneLinkWeightsIndexByMode.get(placementArrivalMode) : null;
-      LocationGeneratorUtils.ZoneLinkWeights weights =
-          modeWeights != null ? modeWeights.get(activeZone.getId()) : null;
-      if (weights != null) {
-        /* a purpose pursued in a zone happens in one place, so the draw is made once and stood by for the rest of
-         * the day. The modes of the visit steer only the initial draw, a later visit arriving or departing by some
-         * other mode still goes to the place the person already knows. Home is the dwelling of the whole household
-         * rather than of the person, so it is shared by everyone living there. Where a person has no household to
-         * speak of, their home is theirs alone like any other of their locations */
-        var homeHousehold = collectHouseholdAtHome(person, atHomeAnchor, activeZone);
-        var locationKey = Triple.of(
-            person.getId(), activityDescription != null ? activityDescription : "", activeZone.getId());
+      var activityLocation = homeHousehold != null
+          ? drawnHomeLocations.get(homeHousehold.getId()) : drawnActivityLocations.get(locationKey);
+      if (activityLocation == null) {
+        activityLocation = resolveActivityLocation(activeZone, arrivalMode, departureMode, finalX, finalY);
+        if (homeHousehold != null) {
+          drawnHomeLocations.put(homeHousehold.getId(), activityLocation);
+          writerStats.incrementDwellingsPinned();
+        } else {
+          drawnActivityLocations.put(locationKey, activityLocation);
+          writerStats.incrementActivityLocationsPinned();
+        }
+      }
 
-        var selectedSegment = homeHousehold != null
-            ? drawnHomeLocations.get(homeHousehold.getId()) : drawnActivityLocations.get(locationKey);
-        if (selectedSegment == null) {
-          selectedSegment =
-              drawSegmentAllowingDeparture(weights, activeZone, placementArrivalMode, placementDepartureMode);
-          if (selectedSegment != null) {
-            if (homeHousehold != null) {
-              drawnHomeLocations.put(homeHousehold.getId(), selectedSegment);
-            } else {
-              drawnActivityLocations.put(locationKey, selectedSegment);
-            }
-          }
-        }
-
-        if (selectedSegment == null) {
-          /* deliberately not dereferenced, the draw itself yielding nothing is a defect in the weight index rather
-           * than a property of a segment, and reporting it must not depend on having one */
-          LOGGER.severe(String.format(
-              "Drawn link segment for zone (%s) is null, falling back on centroid location",
-              activeZone.getIdsAsString()));
-        } else if (selectedSegment.getDownstreamVertex() == null ||
-            selectedSegment.getDownstreamVertex().getPosition() == null) {
-          LOGGER.severe(String.format("Drawn link segment (%s) has no downstream vertex, ignore",
-              selectedSegment.getIdsAsString()));
-        }else {
-          matchedLinkSegmentId =
-              getComponentIdMappers().getNetworkIdMappers().getMacroscopicLinkSegmentIdMapper().apply(selectedSegment);
-          /* the downstream end, since MATSim places an agent performing an activity at the end of its link: the
-           * arriving leg terminates by traversing the segment, and the departing leg continues from that same point */
-          Coordinate activityPoint = selectedSegment.getDownstreamVertex().getPosition().getCoordinate();
-          finalX = activityPoint.x;
-          finalY = activityPoint.y;
-        }
-      } else if(activeZone.hasGeometry()){
-        // fallback use centroid derived location
-        this.centroidFallbackZoneIds.add(activeZone.getId());
-        var startPoint = PlanitJtsUtils.extractPolygonCentre(activeZone.getGeometry());
-        if(startPoint != null){
-          finalX = startPoint.getX();
-          finalY = startPoint.getY();
-        }
+      finalX = activityLocation.x;
+      finalY = activityLocation.y;
+      if (activityLocation.linkSegment != null) {
+        matchedLinkSegmentId = getComponentIdMappers().getNetworkIdMappers().getMacroscopicLinkSegmentIdMapper().apply(
+            activityLocation.linkSegment);
+      } else {
+        writerStats.incrementCentroidFallbackActivities();
       }
     }else if(getSettings().getLocationGeneratorType().equals(LocationGeneratorType.ZONE_CENTROID)){
       //auto-populated already
@@ -685,6 +732,10 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
 
     writeNewLine(xmlWriter);
 
+    if (this.lastWrittenElementIsActivity) {
+      writerStats.incrementActivitiesFollowingAnActivity();
+    }
+    this.lastWrittenElementIsActivity = true;
     writerStats.incrementActivitiesWritten();
   }
 
@@ -710,7 +761,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   private String collectLegMode(Trip trip, boolean asPassenger, Map<Mode, String> modeMapping) {
     if(asPassenger && getSettings().getCarriedPassengerModes().contains(
         trip.getMode().getPredefinedModeType())){
-      ++passengerLegsWritten;
+      writerStats.incrementPassengerLegsWritten();
       return MatsimBuiltInMode.RIDE.getValue();
     }
     return modeMapping.get(trip.getMode());
@@ -734,7 +785,8 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
 
     writeNewLine(xmlWriter);
 
-    writerStats.incrementLegsWritten();
+    this.lastWrittenElementIsActivity = false;
+    writerStats.incrementLegsWritten(matsimMode);
   }
 
   /**
@@ -783,7 +835,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     var scheduleToWrite = new ActivitySchedule();
     for(var element : schedule){
       if(element instanceof ParticipantTour && !((ParticipantTour) element).isPrimary()){
-        ++accompanyingParticipationsSkipped;
+        writerStats.incrementAccompanyingParticipationsSkipped();
         continue;
       }
       scheduleToWrite.add(element);
@@ -801,6 +853,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     OdZone homeZone = person.getHousehold().getZone();
 
     try{
+      this.lastWrittenElementIsActivity = false;
       // plan
       writeStartElement(xmlWriter, MatsimPlansElements.PLAN, true /* add indentation*/);
       // selected=yes
@@ -1082,17 +1135,17 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
           LoggingUtils.countWithPercentage(personsWithoutHomeZone.size(), totalPersonCount),
           ExternalIdAbleUtils.toIdsAsString(personsWithoutHomeZone, MAX_LOGGED_ENTITIES)));
     }
-    if (passengerLegsWritten > 0) {
+    if (writerStats.getPassengerLegsWritten() > 0) {
       LOGGER.info(String.format(
           "Wrote %d legs as MATSim mode (%s) for persons carried on a tour owned by another, these are teleported " +
               "and place no vehicle of their own on the network",
-          passengerLegsWritten, MatsimBuiltInMode.RIDE.getValue()));
+          writerStats.getPassengerLegsWritten(), MatsimBuiltInMode.RIDE.getValue()));
     }
-    if (accompanyingParticipationsSkipped > 0) {
+    if (writerStats.getAccompanyingParticipationsSkipped() > 0) {
       LOGGER.info(String.format(
           "Left out %d participations in tours the person only accompanies, the tour is written once for the " +
               "participant owning it so that a shared tour yields a single vehicle rather than one per participant",
-          accompanyingParticipationsSkipped));
+          writerStats.getAccompanyingParticipationsSkipped()));
     }
     if (!personsOnlyAccompanying.isEmpty()) {
       LOGGER.warning(String.format(
@@ -1106,9 +1159,15 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
           toursWithoutSchedule.size(),
           ExternalIdAbleUtils.toIdsAsString(toursWithoutSchedule, MAX_LOGGED_ENTITIES)));
     }
-    if (activitiesWithoutDescriptionCount > 0) {
+    if (writerStats.getActivitiesWithoutDescription() > 0) {
       LOGGER.warning(String.format(
-          "Wrote %d activities without a description", activitiesWithoutDescriptionCount));
+          "Wrote %d activities without a description", writerStats.getActivitiesWithoutDescription()));
+    }
+    if (writerStats.getActivitiesFollowingAnActivity() > 0) {
+      LOGGER.warning(String.format(
+          "Wrote %d activities directly after another activity, leaving no leg between the two, which leaves the " +
+              "plan without the movement that reaches the second",
+          writerStats.getActivitiesFollowingAnActivity()));
     }
   }
 
@@ -1127,11 +1186,9 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     this.personsWithoutHomeZone = new LinkedHashSet<>();
     this.toursWithoutSchedule = new LinkedHashSet<>();
     this.personsOnlyAccompanying = new LinkedHashSet<>();
-    this.accompanyingParticipationsSkipped = 0;
-    this.passengerLegsWritten = 0;
     this.drawnActivityLocations = new HashMap<>();
     this.drawnHomeLocations = new HashMap<>();
-    this.activitiesWithoutDescriptionCount = 0;
+    this.writerStats.reset();
 
     /* CRS - we allow for conversion but this requires source crs of both zoning and network to be known and set*/
     LOGGER.info(String.format("Network CRS set to     : %s",referenceNetwork.getCoordinateReferenceSystem().getName()));
@@ -1261,7 +1318,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    */
   @Override
   public void reset() {
-    writerStats.reset();
+    // the statistics of the last write are deliberately kept, they hold no more than a handful of counts
     zoneLinkWeightsIndexByMode.clear();
     publicModePlacementMode = null;
     centroidFallbackZoneIds = null;
@@ -1274,7 +1331,16 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     personsOnlyAccompanying = null;
     drawnActivityLocations = null;
     drawnHomeLocations = null;
-    activitiesWithoutDescriptionCount = 0;
+  }
+
+  /**
+   * The statistics collected over the most recent write, covering what was written, what was left out, and how
+   * activities were placed
+   *
+   * @return the statistics of the most recent write
+   */
+  public MatsimPlansWriterStats getWriterStats() {
+    return writerStats;
   }
 
   /**

@@ -14,9 +14,17 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import org.goplanit.matsim.util.MatsimBuiltInMode;
+import org.goplanit.utils.misc.UrlUtils;
+import org.goplanit.utils.zip.ZipUtils;
+
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.List;
 import java.util.logging.Logger;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
@@ -34,13 +42,46 @@ public class MatsimLargeConversionWriterTest {
 
   private static final Path RESOURCE_PATH = Path.of("src", "test", "resources");
 
-  private static final Path PLANIT_INPUT_PATH = Path.of("src", "test", "resources", "planit","sydneygma");
+  /** the PLANit inputs as held in the repository, each XML kept zipped to keep it a fraction of its raw size */
+  private static final Path PLANIT_ZIPPED_INPUT_PATH = Path.of("src", "test", "resources", "planit","sydneygma");
+
+  /** where the PLANit inputs are unpacked to before reading, the readers expecting plain files */
+  private static final Path PLANIT_INPUT_PATH = Path.of("target", "testinput", "planit", "sydneygma");
+
+  /** the PLANit inputs the conversion reads, each held zipped under the name of the file it contains */
+  private static final List<String> ZIPPED_INPUT_FILE_NAMES =
+      List.of("network.xml", "zoning.xml", "discrete_demands.xml");
+
+  /**
+   * Unpack the zipped PLANit inputs so the readers can be pointed at plain files. A file already unpacked and no
+   * older than its archive is left alone, so the cost is paid once rather than on every run
+   *
+   * @throws Exception when an archive cannot be read or its content not written
+   */
+  private static void unpackPlanitInputs() throws Exception {
+    Files.createDirectories(PLANIT_INPUT_PATH);
+    for (var fileName : ZIPPED_INPUT_FILE_NAMES) {
+      var zipFile = PLANIT_ZIPPED_INPUT_PATH.resolve(fileName.replace(".xml", ".zip"));
+      var unpackedFile = PLANIT_INPUT_PATH.resolve(fileName);
+      if (Files.isRegularFile(unpackedFile) &&
+          Files.getLastModifiedTime(unpackedFile).compareTo(Files.getLastModifiedTime(zipFile)) >= 0) {
+        continue;
+      }
+      LOGGER.info(String.format("Unpacking PLANit input %s", zipFile));
+      try (var inputStream =
+               ZipUtils.createZipEntryInputStream(
+                   UrlUtils.createFromLocalAbsoluteOrRelativePath(zipFile.toAbsolutePath()), fileName, false)) {
+        Files.copy(inputStream, unpackedFile, StandardCopyOption.REPLACE_EXISTING);
+      }
+    }
+  }
 
   @BeforeAll
   public static void setUp() throws Exception {
     if (LOGGER == null) {
       LOGGER = Logging.createLogger(MatsimLargeConversionWriterTest.class);
     }
+    unpackPlanitInputs();
   }
 
   /**
@@ -118,6 +159,45 @@ public class MatsimLargeConversionWriterTest {
           PredefinedModeType.TRAIN, false, false);
 
       plansWriter.write(planitDiscreteDemands);
+
+      /* network */
+      var networkStats = matsimInfraWriter.getNetworkWriterStats();
+      assertEquals(415_372, networkStats.getNodesWritten());
+      assertEquals(1_009_612, networkStats.getLinkSegmentsWritten());
+      assertEquals(0, networkStats.getLinkSegmentsSkippedNoActivatedMode());
+      assertEquals(12_127, networkStats.getTurnRestrictionsWritten());
+
+      /* plans */
+      var plansStats = plansWriter.getWriterStats();
+      assertEquals(26_192, plansStats.getPersonsProcessed());
+      assertEquals(21_228, plansStats.getPersonsWritten());
+      assertEquals(4_964, plansStats.getPersonsSkippedNoTours());
+      assertEquals(103_443, plansStats.getActivitiesWritten());
+      assertEquals(82_215, plansStats.getLegsWritten());
+
+      /* legs carry the mode the trip was made by */
+      assertEquals(59_019, plansStats.getLegsWritten(MatsimBuiltInMode.CAR.getValue()));
+      assertEquals(15_022, plansStats.getLegsWritten(MatsimBuiltInMode.WALK.getValue()));
+      assertEquals(2_584, plansStats.getLegsWritten(MatsimBuiltInMode.PT.getValue()));
+      assertEquals(669, plansStats.getLegsWritten(MatsimBuiltInMode.BIKE.getValue()));
+      assertEquals(537, plansStats.getLegsWritten(MatsimBuiltInMode.DRT.getValue()));
+
+      /* a participant carried on a tour owned by another is a passenger, which MATSim expresses as its ride mode,
+       * so every such leg is teleported rather than placing a second vehicle on the network alongside the driver */
+      assertEquals(4_384, plansStats.getLegsWritten(MatsimBuiltInMode.RIDE.getValue()));
+      assertEquals(4_384, plansStats.getPassengerLegsWritten());
+      assertEquals(0, plansStats.getAccompanyingParticipationsSkipped());
+
+      /* a plan alternates activity and leg, an activity following another leaves out the movement reaching it */
+      assertEquals(0, plansStats.getActivitiesFollowingAnActivity(),
+          "plans must alternate activity and leg throughout");
+      assertEquals(0, plansStats.getActivitiesWithoutDescription());
+
+      /* a household lives in one dwelling and a purpose pursued in a zone happens in one place, so the number of
+       * locations established is a property of the population rather than of the number of visits made to them */
+      assertEquals(9_099, plansStats.getDwellingsPinned());
+      assertEquals(48_869, plansStats.getActivityLocationsPinned());
+      assertEquals(214, plansStats.getCentroidFallbackActivities());
 
     } catch (final Exception e) {
       e.printStackTrace();
