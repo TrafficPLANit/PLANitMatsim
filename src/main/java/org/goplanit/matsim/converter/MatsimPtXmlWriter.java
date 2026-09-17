@@ -4,9 +4,7 @@ import java.io.Writer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -15,6 +13,9 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 
 import org.goplanit.converter.idmapping.PlanitComponentIdMappers;
+import org.goplanit.matsim.converter.network.MatsimNetworkWriterSettings;
+import org.goplanit.matsim.util.MatsimStopFacilityIdHelper;
+import org.goplanit.matsim.xml.MatsimAttributes;
 import org.goplanit.matsim.xml.MatsimTransitAttributes;
 import org.goplanit.matsim.xml.MatsimTransitElements;
 import org.goplanit.network.layer.macroscopic.MacroscopicNetworkLayerImpl;
@@ -28,13 +29,13 @@ import org.goplanit.utils.misc.StringUtils;
 import org.goplanit.utils.mode.Mode;
 import org.goplanit.utils.mode.TrackModeType;
 import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
-import org.goplanit.utils.network.layer.physical.LinkSegment;
 import org.goplanit.utils.service.routed.*;
 import org.goplanit.utils.time.ExtendedLocalTime;
 import org.goplanit.utils.xml.PlanitXmlWriterUtils;
-import org.goplanit.utils.zoning.DirectedConnectoid;
-import org.goplanit.utils.zoning.DirectedConnectoids;
-import org.goplanit.utils.zoning.Zone;
+import org.goplanit.utils.zoning.connectoid.DirectedConnectoidAccessZoneEntry;
+import org.goplanit.utils.zoning.connectoid.TransferConnectoid;
+import org.goplanit.utils.zoning.connectoid.TransferConnectoids;
+import org.goplanit.utils.zoning.connectoid.ZoneConnectoidType;
 import org.goplanit.zoning.Zoning;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Point;
@@ -59,54 +60,17 @@ class MatsimPtXmlWriter {
   /** the zoning writer used for the MATSim pt component*/
   private final MatsimWriter<?> matsimWriter;
   
-  /** track number of MATSim stop facilities persisted */
-  private final LongAdder matsimStopFacilityCounter = new LongAdder();
-
-  /** track number of MATSim transit lines persisted */
-  private final LongAdder matsimTransitLineCounter = new LongAdder();
-
-  /** track transit routes persisted by mapped MAtsim mode */
-  private Map<String, LongAdder> transitRouteCountersByMode = new HashMap<>();
+  /** track stats, owned by the writer this one writes for */
+  private final MatsimPtWriterStats writerStats;
 
   /** track all id mappings by type of PLANit entity */
-  private PlanitComponentIdMappers componentIdMappers = new PlanitComponentIdMappers();
+  private final PlanitComponentIdMappers componentIdMappers = new PlanitComponentIdMappers();
 
-  /** track stop facility ids via this map */
-  private Map<Integer, Integer> stopFacilityIdTracking = new HashMap<>();
+  /** has mapping from PLANit to MATSim stop facility ids */
+  private final MatsimStopFacilityIdHelper stopFacilityIdHelper;
 
   /* internal flag to avoid unnecessary repeat of warnings */
   private boolean loggedFrequencyTripWarning;
-
-  private static final DateTimeFormatter HHmmssFormat = DateTimeFormatter.ofPattern("HH:mm:ss");
-
-  /** based on access link segment and whether the stop is up or downstream determine the stop facility id (which internally we create and track).
-   * This is needed because only the combination of link segment and node determines a unique stop facility as we might have two stops on the same link segment (one up and one downstream)
-   *
-   * @param accessLinkSegment to use
-   * @param nodeAccessDownstream to use
-   */
-  private int getStopFacilityId(LinkSegment accessLinkSegment, boolean nodeAccessDownstream) {
-    int key = Math.toIntExact(nodeAccessDownstream ? accessLinkSegment.getId() : -accessLinkSegment.getId());
-    Integer stopFacilityId = stopFacilityIdTracking.get(key);
-    if(stopFacilityId == null){
-      stopFacilityIdTracking.put(key, stopFacilityIdTracking.values().size());
-      return stopFacilityIdTracking.get(key);
-    }
-    return stopFacilityId;
-  }
-
-  /**
-   * Verify if stop facility id has been generated before based on given information
-   *
-   * @param accessLinkSegment to use
-   * @param nodeAccessDownstream to use
-   * @return true when already registered, false otherwise
-   */
-  private boolean hasStopFacilityId(LinkSegment accessLinkSegment, boolean nodeAccessDownstream){
-    int key = Math.toIntExact(nodeAccessDownstream ? accessLinkSegment.getId() : -accessLinkSegment.getId());
-    Integer stopFacilityId = stopFacilityIdTracking.get(key);
-    return stopFacilityId != null;
-  }
 
   /**
    * persisting MATSim transit route's route profile stop
@@ -129,26 +93,45 @@ class MatsimPtXmlWriter {
       final MatsimPtServicesWriterSettings servicesSettings) throws XMLStreamException {
 
     if(!relLegTiming.hasParentLegSegment() || !relLegTiming.getParentLegSegment().hasPhysicalParentSegments()){
-      LOGGER.warning("IGNORE: Found PLANit relative leg timing with missing service leg segment or missing underlying physical link segments, unable to create stop XML Element, should not happen");
+      LOGGER.warning("IGNORE: Found PLANit relative leg timing with missing service leg segment or " +
+          "missing underlying physical link segments, unable to create stop XML Element, should not happen");
       return false;
     }
 
-    /* ref id <-- stop facility ref id is based on macroscopic link segment and node location, see #writeMatsimStopFacility */
+    /* ref id <-- stop facility ref id is based on macroscopic link segment and node location, see
+    #writeMatsimStopFacility */
     var physicalLinkSegmentsOfLeg = relLegTiming.getParentLegSegment().getPhysicalParentSegments();
-    var accessLinkSegment = upstreamStop ? ListUtils.getFirstValue(physicalLinkSegmentsOfLeg) : ListUtils.getLastValue(physicalLinkSegmentsOfLeg);
+    var accessLinkSegment =
+        upstreamStop ? ListUtils.getFirstValue(physicalLinkSegmentsOfLeg) :
+            ListUtils.getLastValue(physicalLinkSegmentsOfLeg);
+    var accessNode = upstreamStop ? accessLinkSegment.getUpstreamNode() : accessLinkSegment.getDownstreamNode();
 
-    boolean stopFacilityFound = hasStopFacilityId(accessLinkSegment, !upstreamStop) ;
+    //todo: how do we connect this to transfer zones/connectoids?
+    // answer, probably we do not need to, zone is irrelevant it is about the access point and the mode and link, what
+    // zones no longer matters --> remove zoning from the key
+    // naming of pt facility is a problem if not related to zone
+
+    boolean stopFacilityFound = stopFacilityIdHelper.hasStopFacilityId(
+        accessNode, accessLinkSegment, routedService.getMode());
     if(!stopFacilityFound && upstreamStop){
-      // if it is an upstream stop it might be the beginning of a route, in which case the connectoid is expected to be attached to the upstream node, however, in that case
-      // the access link segment is likely to be an upstream link of that node, and not an exit link. Therefore, search the incoming link segments instead in that case, as this is still a valid
-      // mapping if we find it (as long as it is not the directly opposing link segment, since transit vehicles are expected to not make u-turns (unless it is a ferry or train)
-      boolean allowStopFacilityUTurn = routedService.getMode().hasPhysicalFeatures() && routedService.getMode().getPhysicalFeatures().getTrackType() != TrackModeType.ROAD;
+      // if it is an upstream stop it might be the beginning of a route, in which case the connectoid is expected to
+      // be attached to the upstream node, however, in that case the access link segment is likely to be an
+      // upstream link of that node, and not an exit link. Therefore, search the incoming link segments instead in
+      // that case, as this is still a valid mapping if we find it (as long as it is not the directly opposing
+      // link segment, since transit vehicles are expected to not make u-turns (unless it is a ferry or train)
+      // todo: check if this can still happen with new connectoid implementation in PLANit
+      boolean allowStopFacilityUTurn =
+          routedService.getMode().hasPhysicalFeatures() &&
+              routedService.getMode().getPhysicalFeatures().getTrackType() != TrackModeType.ROAD;
       final var originalAccessLinkSegment = accessLinkSegment;
       Function<EdgeSegment, Boolean> oppDirAccessLinkSegmentAllowed = oppositeDirLinkSegment -> (
-          oppositeDirLinkSegment==null || !oppositeDirLinkSegment.equals(originalAccessLinkSegment) || allowStopFacilityUTurn);
+          oppositeDirLinkSegment==null ||
+              !oppositeDirLinkSegment.equals(originalAccessLinkSegment) || allowStopFacilityUTurn);
 
-      var stopFacilityAccessLinkSegment = IterableUtils.asStream(accessLinkSegment.getUpstreamNode().<MacroscopicLinkSegment>getEntryLinkSegments()).filter(
-          ls -> oppDirAccessLinkSegmentAllowed.apply(ls.getOppositeDirectionSegment()) && hasStopFacilityId(ls, true)).findFirst();
+      var stopFacilityAccessLinkSegment = IterableUtils.asStream(accessNode.<MacroscopicLinkSegment>getEntryLinkSegments()).filter(
+          ls -> oppDirAccessLinkSegmentAllowed.apply(
+              ls.getOppositeDirectionSegment()) &&
+              stopFacilityIdHelper.hasStopFacilityId(accessNode, ls, routedService.getMode())).findFirst();
       if(stopFacilityAccessLinkSegment.isPresent()){
         // update
         accessLinkSegment = stopFacilityAccessLinkSegment.get();
@@ -159,7 +142,8 @@ class MatsimPtXmlWriter {
     }
 
     if(!stopFacilityFound){
-      LOGGER.severe(String.format("IGNORE No stop facility id registered for PLANit leg timing stop, utilising access link segment %s, on RouteProfile, this shouldn't happen", accessLinkSegment.getXmlId()));
+      LOGGER.severe(String.format("IGNORE No stop facility id registered for PLANit leg timing stop, " +
+          "utilising access link segment %s, on RouteProfile, this shouldn't happen", accessLinkSegment.getXmlId()));
       return false;
     }
 
@@ -167,19 +151,26 @@ class MatsimPtXmlWriter {
     PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimTransitElements.STOP, matsimWriter.getIndentLevel());
 
     /* top ref id */
-    xmlWriter.writeAttribute(MatsimTransitAttributes.REF_ID, String.valueOf(getStopFacilityId(accessLinkSegment, !upstreamStop)));
+    xmlWriter.writeAttribute(MatsimTransitAttributes.REF_ID,
+        String.valueOf(stopFacilityIdHelper.getStopFacilityId(accessNode, accessLinkSegment, routedService.getMode())));
 
     /* arrivalOffset */
     if(!upstreamStop){
-      /* only relevant for NOT the very first leg (first leg we assume is the only one corresponding to an upstream stop)*/
-      xmlWriter.writeAttribute(MatsimTransitAttributes.ARRIVAL_OFFSET, cumulativeTravelTime.format(HHmmssFormat));
+      /* only relevant for NOT the very first leg (first leg we assume is the only one corresponding
+      to an upstream stop)*/
+      // todo: time should be using seconds of day and then use LocalTimeUtils.formatHhMmSs to support beyond 24h format
+      xmlWriter.writeAttribute(
+          MatsimTransitAttributes.ARRIVAL_OFFSET, cumulativeTravelTime.format(MatsimWriter.HHmmssFormat));
     }
 
     /* departureOffset */
-    xmlWriter.writeAttribute(MatsimTransitAttributes.DEPARTURE_OFFSET, cumulativeTravelTime.plusNanos(relLegTiming.getDwellTime().toNanoOfDay()).format(HHmmssFormat));
+    // todo: time should be using seconds of day and then use LocalTimeUtils.formatHhMmSs to support beyond 24h format
+    xmlWriter.writeAttribute(MatsimTransitAttributes.DEPARTURE_OFFSET,
+        cumulativeTravelTime.plusNanos(relLegTiming.getDwellTime().toNanoOfDay()).format(MatsimWriter.HHmmssFormat));
 
     /* awaitDeparture */
-    xmlWriter.writeAttribute(MatsimTransitAttributes.AWAIT_DEPARTURE, String.valueOf(servicesSettings.isAwaitDepartures()));
+    xmlWriter.writeAttribute(MatsimTransitAttributes.AWAIT_DEPARTURE,
+        String.valueOf(servicesSettings.isAwaitDepartures()));
     PlanitXmlWriterUtils.writeNewLine(xmlWriter);
     return true;
   }
@@ -194,9 +185,14 @@ class MatsimPtXmlWriter {
    * @throws XMLStreamException when error
    */
   private boolean writeMatsimRouteProfile(
-      XMLStreamWriter xmlWriter, RoutedService routedService, RoutedTripSchedule tripSchedule, MatsimPtServicesWriterSettings servicesSettings) throws XMLStreamException {
+      XMLStreamWriter xmlWriter,
+      RoutedService routedService,
+      RoutedTripSchedule tripSchedule,
+      MatsimPtServicesWriterSettings servicesSettings) throws XMLStreamException {
+
     if(!tripSchedule.hasRelativeLegTimings()){
-      LOGGER.warning("IGNORE: Found PLANit trip schedule without leg timings, unable to create routeProfile XML Element, should not happen");
+      LOGGER.warning("IGNORE: Found PLANit trip schedule without leg timings, unable to create " +
+          "routeProfile XML Element, should not happen");
       return false;
     }
 
@@ -208,11 +204,15 @@ class MatsimPtXmlWriter {
     LocalTime cumulativeTravelTime = LocalTime.MIN;
     for(var timing : tripSchedule){
       if(first){
-        success = writeMatsimRouteProfileStop(xmlWriter, routedService, timing, cumulativeTravelTime, first, servicesSettings);
+        success = writeMatsimRouteProfileStop(
+            xmlWriter, routedService, timing, cumulativeTravelTime, first, servicesSettings);
         first = false;
       }
-      cumulativeTravelTime = cumulativeTravelTime.plusNanos(timing.getDwellTime().toNanoOfDay()).plusNanos(timing.getDuration().toNanoOfDay());
-      success = success && writeMatsimRouteProfileStop(xmlWriter, routedService, timing, cumulativeTravelTime, first, servicesSettings);
+      cumulativeTravelTime =
+          cumulativeTravelTime.plusNanos(
+              timing.getDwellTime().toNanoOfDay()).plusNanos(timing.getDuration().toNanoOfDay());
+      success = success && writeMatsimRouteProfileStop(
+          xmlWriter, routedService, timing, cumulativeTravelTime, first, servicesSettings);
       if(!success){
         break;
       }
@@ -223,16 +223,21 @@ class MatsimPtXmlWriter {
   }
 
   /**
-   * persisting MATSim transit route's route links ( PLANit trip schedule legs underlying physical link segments of a routed service)
+   * persisting MATSim transit route's route links ( PLANit trip schedule legs underlying physical link
+   * segments of a routed service)
    *
    * @param xmlWriter        to use
    * @param tripSchedule     to persist
    * @param servicesSettings to use
    * @throws XMLStreamException when error
    */
-  private boolean writeMatsimRouteLinkRefs(XMLStreamWriter xmlWriter, RoutedTripSchedule tripSchedule, MatsimPtServicesWriterSettings servicesSettings) throws XMLStreamException {
+  private boolean writeMatsimRouteLinkRefs(
+      XMLStreamWriter xmlWriter, RoutedTripSchedule tripSchedule, MatsimPtServicesWriterSettings servicesSettings)
+      throws XMLStreamException {
+
     if(!tripSchedule.hasRelativeLegTimings()){
-      LOGGER.warning("IGNORE: Found PLANit trip schedule without leg timings, unable to create route XML Element, should not happen");
+      LOGGER.warning("IGNORE: Found PLANit trip schedule without leg timings, unable to create route XML " +
+          "Element, should not happen");
       return false;
     }
 
@@ -245,7 +250,8 @@ class MatsimPtXmlWriter {
         PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimTransitElements.LINK, matsimWriter.getIndentLevel());
         xmlWriter.writeAttribute(
                 MatsimTransitAttributes.REF_ID,
-                componentIdMappers.getNetworkIdMappers().getLinkSegmentIdMapper().apply((MacroscopicLinkSegment) physicalSegment));
+                componentIdMappers.getNetworkIdMappers().getMacroscopicLinkSegmentIdMapper().apply(
+                    (MacroscopicLinkSegment) physicalSegment));
         PlanitXmlWriterUtils.writeNewLine(xmlWriter);
       }
     }
@@ -266,7 +272,7 @@ class MatsimPtXmlWriter {
     /* departure*/
     try{
       PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimTransitElements.DEPARTURE, matsimWriter.getIndentLevel());
-      xmlWriter.writeAttribute(MatsimTransitAttributes.ID, String.valueOf(departureIndex));
+      xmlWriter.writeAttribute(MatsimAttributes.ID, String.valueOf(departureIndex));
       xmlWriter.writeAttribute(MatsimTransitAttributes.DEPARTURE_TIME, departureTime.toString());
       PlanitXmlWriterUtils.writeNewLine(xmlWriter);
       //todo: vehicleRefId --> based on settings we should be able to map thiscatch
@@ -297,35 +303,46 @@ class MatsimPtXmlWriter {
 
     var modeMapping = networkSettings.collectActivatedPlanitModeToMatsimModeMapping(
         (MacroscopicNetworkLayerImpl) routedServicesLayer.getParentLayer().getParentNetworkLayer());
-    String routedServiceId = componentIdMappers.getRoutedServicesIdMapper().getRoutedServiceRefIdMapper().apply(routedService);
+    String routedServiceId =
+        componentIdMappers.getRoutedServicesIdMapper().getRoutedServiceRefIdMapper().apply(routedService);
 
     var mappedMode = modeMapping.get(routedService.getMode());
     if(StringUtils.isNullOrBlank(mappedMode)){
-      LOGGER.warning(String.format("no mapped MATSim mode found for PLANit mode %s, ignore",routedService.getMode().getName()));
+      LOGGER.warning(String.format("no mapped MATSim mode found for PLANit mode %s, ignore",
+          routedService.getMode().getName()));
       return false;
     }
 
-    /* in MATSim we cannot have a single schedule with different underlying physical routes or stop timings, so we must group schedules differently, namely group by the same
-     * physical routing and leg timings.
+    /* in MATSim we cannot have a single schedule with different underlying physical routes or stop timings,
+     * so we must group schedules differently, namely group by the same physical routing and leg timings.
      */
-    Map<List<RelativeLegTiming>, List<RoutedTripSchedule>> tripScheduleGroupedByLegTimings = tripsSchedule.groupByRelativeLegTimings();
+    Map<List<RelativeLegTiming>, List<RoutedTripSchedule>> tripScheduleGroupedByLegTimings =
+        tripsSchedule.groupByRelativeLegTimings();
 
     int uniqueReltimingSeqCounter = 0; // serves as id for MATSim routes within the service
     boolean success = true;
     for(var tripScheduleList : tripScheduleGroupedByLegTimings.values()){
       ++uniqueReltimingSeqCounter;
 
-      /* group by departure time, which one should hope leads to exactly a SINGLE entry per departure times key, if not then, there duplicate entries in the PLANit memory model */
-      var scheduleByDepartureTimes = tripScheduleList.stream().collect(Collectors.groupingBy( rts -> rts.getDepartures().stream().map( rtd -> rtd.getDepartureTime()).collect(Collectors.toList())));
+      /* group by departure time, which one should hope leads to exactly a SINGLE entry per departure times key,
+       * if not then, there duplicate entries in the PLANit memory model */
+      var scheduleByDepartureTimes =
+          tripScheduleList.stream().collect(Collectors.groupingBy(
+              rts -> rts.getDepartures().stream().map(
+                  RoutedTripDeparture::getDepartureTime).collect(Collectors.toList())));
+
       /* now order by departure time and unpack the groupby list, so we can process them in order */
       TreeSet<ExtendedLocalTime> orderedDepartureTimes = new TreeSet<>();
       for(var entry : scheduleByDepartureTimes.entrySet()) {
         entry.getKey().forEach( depTime -> {
           var added = orderedDepartureTimes.add(depTime);
           if(entry.getValue().size()>1) LOGGER.warning(
-              String.format("Multiple routedTripSchedules with identical servicelegs-departure time (%s), routed service %s (ext id: %s, %s) trips [%s]. Ignoring duplicates (pre-filter by day, or invalid GTFS source?)",
+              String.format("Multiple routedTripSchedules with identical servicelegs-departure time (%s), " +
+                      "routed service %s (ext id: %s, %s) trips [%s]. Ignoring duplicates (pre-filter by day, " +
+                      "or invalid GTFS source?)",
                   depTime.toString(), routedServiceId, routedService.getExternalId(), routedService.getMode().getName(),
-                  entry.getValue().stream().map( e -> e.hasExternalId() ? e.getExternalId() : "").collect(Collectors.joining(","))));
+                  entry.getValue().stream().map(
+                      e -> e.hasExternalId() ? e.getExternalId() : "").collect(Collectors.joining(","))));
         });
       }
 
@@ -333,19 +350,22 @@ class MatsimPtXmlWriter {
       matsimWriter.writeStartElement(xmlWriter, MatsimTransitElements.TRANSIT_ROUTE, true);
 
       /*id */
-      xmlWriter.writeAttribute(MatsimTransitAttributes.ID, String.valueOf(uniqueReltimingSeqCounter)); // we can't use schedule id because a PLANit schedule might occur in multiple places due to its higher flexibility
+      xmlWriter.writeAttribute(MatsimAttributes.ID, String.valueOf(uniqueReltimingSeqCounter)); // we can't use schedule id because a PLANit schedule might occur in multiple places due to its higher flexibility
       PlanitXmlWriterUtils.writeNewLine(xmlWriter);
 
       /* transportMode */
-      PlanitXmlWriterUtils.writeElementWithValueWithNewLine(xmlWriter, MatsimTransitElements.TRANSPORT_MODE, mappedMode ,matsimWriter.getIndentLevel());
-      transitRouteCountersByMode.get(mappedMode).increment();
+      PlanitXmlWriterUtils.writeElementWithValueWithNewLine(
+          xmlWriter, MatsimTransitElements.TRANSPORT_MODE, mappedMode ,matsimWriter.getIndentLevel());
+      writerStats.incrementTransitRoutesWritten(mappedMode);
 
       /* description */
       if(routedService.hasName()) {
-        PlanitXmlWriterUtils.writeElementWithValueWithNewLine(xmlWriter, MatsimTransitElements.DESCRIPTION, routedService.getName(), matsimWriter.getIndentLevel());
+        PlanitXmlWriterUtils.writeElementWithValueWithNewLine(
+            xmlWriter, MatsimTransitElements.DESCRIPTION, routedService.getName(), matsimWriter.getIndentLevel());
       }
 
-      /* in MATSim we now create a new route for all transit schedules with #departure times and THE EXACT SAME LEG TIMINGS*/
+      /* in MATSim we now create a new route for all transit schedules with #departure times and THE
+       * EXACT SAME LEG TIMINGS*/
       var referenceSchedule = scheduleByDepartureTimes.values().stream().findFirst().get().get(0);
 
       /* routeProfile */
@@ -384,9 +404,16 @@ class MatsimPtXmlWriter {
    * @param routedService       to persist
    * @param servicesSettings    to use
    */
-  private void writeMatsimTransitLine(XMLStreamWriter xmlWriter, MatsimNetworkWriterSettings networkSettings, RoutedServicesLayer routedServicesLayer, RoutedService routedService, MatsimPtServicesWriterSettings servicesSettings) {
+  private void writeMatsimTransitLine(
+      XMLStreamWriter xmlWriter,
+      MatsimNetworkWriterSettings networkSettings,
+      RoutedServicesLayer routedServicesLayer,
+      RoutedService routedService,
+      MatsimPtServicesWriterSettings servicesSettings) {
+
     if(!routedService.getTripInfo().hasScheduleBasedTrips() && !loggedFrequencyTripWarning){
-      LOGGER.warning("Found frequency based PLANit routed services. These are ignored in persisting MATSim transit lines due to absence of schedule");
+      LOGGER.warning("Found frequency based PLANit routed services. These are ignored in persisting " +
+          "MATSim transit lines due to absence of schedule");
       loggedFrequencyTripWarning = true;
       return;
     }
@@ -394,27 +421,33 @@ class MatsimPtXmlWriter {
     try {
       /* transitLine*/
       matsimWriter.writeStartElement(xmlWriter, MatsimTransitElements.TRANSIT_LINE, true);
-      matsimTransitLineCounter.increment();
+      writerStats.incrementTransitLinesWritten();
 
       /*id */
-      xmlWriter.writeAttribute(MatsimTransitAttributes.ID,
+      xmlWriter.writeAttribute(MatsimAttributes.ID,
               componentIdMappers.getRoutedServicesIdMapper().getRoutedServiceRefIdMapper().apply(routedService));
 
       /* name */
       if(routedService.hasName() || routedService.hasNameDescription()){
         var name = routedService.hasName() ? routedService.getName() : routedService.getNameDescription();
-        xmlWriter.writeAttribute(MatsimTransitAttributes.NAME, name);
+        xmlWriter.writeAttribute(MatsimAttributes.NAME, name);
       }
 
       PlanitXmlWriterUtils.writeNewLine(xmlWriter);
 
       /* transitRoute (PLANit trip schedule) */
       boolean success = writeMatsimTransitRoute(
-          xmlWriter, networkSettings, routedServicesLayer, routedService, routedService.getTripInfo().getScheduleBasedTrips(), servicesSettings);
+          xmlWriter,
+          networkSettings,
+          routedServicesLayer,
+          routedService,
+          routedService.getTripInfo().getScheduleBasedTrips(),
+          servicesSettings);
 
       matsimWriter.writeEndElementNewLine(xmlWriter, true /* undo indentation */ ); // transit schedule
       if(!success){
-        LOGGER.warning(String.format("Unable to complete a transit route part transitLine %s as expected, XML likely incomplete or corrupted for this entry",
+        LOGGER.warning(String.format("Unable to complete a transit route part transitLine %s as expected, " +
+                "XML likely incomplete or corrupted for this entry",
                 componentIdMappers.getRoutedServicesIdMapper().getRoutedServiceRefIdMapper().apply(routedService)));
       }
     } catch (XMLStreamException e) {
@@ -431,19 +464,25 @@ class MatsimPtXmlWriter {
    * @param routedServices   to use
    * @param servicesSettings to use
    */
-  private void writeMatsimTransitLines(XMLStreamWriter xmlWriter, MatsimNetworkWriterSettings networkSettings, RoutedServices routedServices, MatsimPtServicesWriterSettings servicesSettings) {
-    transitRouteCountersByMode.clear();
-    /* reset counters per mapped mode */
+  private void writeMatsimTransitLines(
+      XMLStreamWriter xmlWriter,
+      MatsimNetworkWriterSettings networkSettings,
+      RoutedServices routedServices,
+      MatsimPtServicesWriterSettings servicesSettings) {
+
+    /* make every activated mapped mode countable, so one carrying no routes is still reported */
+    var activatedMatsimModes = new TreeSet<String>();
     routedServices.getLayers().forEach( layer ->
-        networkSettings.collectActivatedPlanitModeToMatsimModeMapping(
-            (MacroscopicNetworkLayerImpl) layer.getParentLayer().getParentNetworkLayer()).entrySet().forEach(
-            e -> transitRouteCountersByMode.put(e.getValue(), new LongAdder())));
+        activatedMatsimModes.addAll(networkSettings.collectActivatedPlanitModeToMatsimModeMapping(
+            (MacroscopicNetworkLayerImpl) layer.getParentLayer().getParentNetworkLayer()).values()));
+    writerStats.prepareRouteModes(activatedMatsimModes);
 
     routedServices.getLayers().streamSortedBy(RoutedServicesLayer::getId).forEach(routedServicesLayer -> {
 
       var supportedModes = routedServicesLayer.getSupportedModes();
       if(supportedModes == null){
-        LOGGER.warning(String.format("IGNORE routed service layer %s has no supported modes", routedServicesLayer.getXmlId()));
+        LOGGER.warning(String.format("IGNORE routed service layer %s has no supported modes",
+            routedServicesLayer.getXmlId()));
         return;
       }
 
@@ -471,7 +510,8 @@ class MatsimPtXmlWriter {
    * @param zoning               to use
    * @param zoningWriterSettings to use
    */
-  private void writeMatsimTransitStops(XMLStreamWriter xmlWriter, Zoning zoning, MatsimZoningWriterSettings zoningWriterSettings) {
+  private void writeMatsimTransitStops(
+      XMLStreamWriter xmlWriter, Zoning zoning, MatsimZoningWriterSettings zoningWriterSettings) {
     try {
       matsimWriter.writeStartElementNewLine(xmlWriter,MatsimTransitElements.TRANSIT_STOPS, true /* add indentation*/);
            
@@ -493,11 +533,16 @@ class MatsimPtXmlWriter {
    * @param zoningWriterSettings to use
    */
   private void writeMatsimStopFacilities(
-      XMLStreamWriter xmlWriter, DirectedConnectoids transferConnectoids, MatsimZoningWriterSettings zoningWriterSettings){
+      XMLStreamWriter xmlWriter,
+      TransferConnectoids transferConnectoids,
+      MatsimZoningWriterSettings zoningWriterSettings){
 
-    transferConnectoids.streamSortedBy(DirectedConnectoid::getId).forEach( transferConnectoid -> {
-      writeMatsimStopFacility(xmlWriter, transferConnectoid, zoningWriterSettings);
-      matsimStopFacilityCounter.increment();
+    transferConnectoids.streamSortedBy(TransferConnectoid::getId).forEach( transferConnectoid -> {
+      transferConnectoid.getAccessZoneEntriesStream(ZoneConnectoidType.PT_VEHICLE_STOP).forEach(ae -> {
+        writeMatsimStopFacilitiesForAccessZoneEntry(
+            xmlWriter, transferConnectoid, (DirectedConnectoidAccessZoneEntry) ae, zoningWriterSettings);
+        writerStats.incrementStopFacilitiesWritten();
+      });
     });
 
   }
@@ -507,69 +552,80 @@ class MatsimPtXmlWriter {
    *
    * @param xmlWriter            to use
    * @param transferConnectoid   to convert to stop facility
+   * @param stopLocationEntry    of connectoid that is the stop facility
    * @param zoningWriterSettings to use
    */
-  private void writeMatsimStopFacility(XMLStreamWriter xmlWriter, DirectedConnectoid transferConnectoid, MatsimZoningWriterSettings zoningWriterSettings) {
-    try {
-      PlanitXmlWriterUtils.writeEmptyElement(xmlWriter, MatsimTransitElements.STOP_FACILITY, matsimWriter.getIndentLevel());
-            
-      /* attributes  of element*/
-      {
-        MacroscopicLinkSegment accessLinkSegment = (MacroscopicLinkSegment) transferConnectoid.getAccessLinkSegment();
-        if(accessLinkSegment == null) {
-          LOGGER.severe(String.format("DISCARD: stop facility represented by directed connectoid (%d) has no access link segment available",transferConnectoid.getId()));
-          return;
-        }
+  private void writeMatsimStopFacilitiesForAccessZoneEntry(
+      XMLStreamWriter xmlWriter,
+      TransferConnectoid transferConnectoid,
+      DirectedConnectoidAccessZoneEntry stopLocationEntry,
+      MatsimZoningWriterSettings zoningWriterSettings) {
 
-        /* ID:
-         * We map to tracked stop facility id based on link segment+node location. We can't use connectoid ids because multiple connectoids
-         * might map to the same access link segment. We also cannot use transfer zone ids because there, the same id might access multiple stop facilities (connectoids).
-         * We also cannot use a service network node because either we might not have those (in case we are persisting without services), or if we do, then we can have multiple
-         * incoming link segments leading to a non-unique mapping to the underlying physical network which is required in a MATSim context. The only option is to use combination
-         * of link segment + physical node location
-         */
-        xmlWriter.writeAttribute(MatsimTransitAttributes.ID, String.valueOf(getStopFacilityId(accessLinkSegment, transferConnectoid.isNodeAccessDownstream())));
+    if(!stopLocationEntry.hasExplicitlyAllowedModes()){
+      LOGGER.warning(String.format("Expected explicitly listed mode for PLANit pt stop location, but found none for" +
+          " connectoid (%s), skip and verify correctness", transferConnectoid.getIdsAsString()));
+      return;
+    }
 
-        /* We use the indicated vertex of the access link segment as the stop location */
-        var stopFacilityPhysicalReferenceNode = transferConnectoid.isNodeAccessDownstream() ? transferConnectoid.getAccessLinkSegment().getDownstreamNode() : transferConnectoid.getAccessLinkSegment().getUpstreamNode();
-        Point stopFacilityLocation = stopFacilityPhysicalReferenceNode.getPosition();
-        
-        Coordinate nodeCoordinate = matsimWriter.extractDestinationCrsCompatibleCoordinate(stopFacilityLocation);
-        if(nodeCoordinate != null) {        
-          /* X */
-          xmlWriter.writeAttribute(MatsimTransitAttributes.X, matsimWriter.getSettings().getDecimalFormat().format(nodeCoordinate.x));
-          /* Y */
-          xmlWriter.writeAttribute(MatsimTransitAttributes.Y, matsimWriter.getSettings().getDecimalFormat().format(nodeCoordinate.y));
-          /* Z coordinate (v2) not supported */
-        }
-        
-        /* LINK REF ID */
-        xmlWriter.writeAttribute(
-                MatsimTransitAttributes.LINK_REF_ID, componentIdMappers.getNetworkIdMappers().getLinkSegmentIdMapper().apply(accessLinkSegment));
-        
-        /* NAME - based on the transfer zone names if any */
-        String stopFacilityName = "";
-        for(Zone transferZone : transferConnectoid.getAccessZones())
-          if(transferZone.hasName()) {
-            if(!stopFacilityName.isBlank()) {
-              stopFacilityName.concat("-");
+    for(var mode : stopLocationEntry.getExplicitlyAllowedModes()){
+      for(var accessSegment : stopLocationEntry.getAccessLinkSegments()){
+
+        long stopFacilityId = stopFacilityIdHelper.getStopFacilityId(
+            transferConnectoid.getReferenceVertex(), accessSegment, mode);
+        try {
+          PlanitXmlWriterUtils.writeEmptyElement(
+              xmlWriter, MatsimTransitElements.STOP_FACILITY, matsimWriter.getIndentLevel());
+
+          /* attributes  of element*/
+          {
+
+            xmlWriter.writeAttribute(MatsimAttributes.ID, String.valueOf(stopFacilityId));
+
+            /* We use the indicated vertex of the access link segment as the stop location */
+            var stopFacilityPhysicalReferenceNode = transferConnectoid.getReferenceVertex();
+            Point stopFacilityLocation = stopFacilityPhysicalReferenceNode.getPosition();
+
+            Coordinate nodeCoordinate = matsimWriter.extractDestinationCrsCompatibleCoordinate(stopFacilityLocation);
+            if(nodeCoordinate != null) {
+              /* X */
+              xmlWriter.writeAttribute(
+                  MatsimTransitAttributes.X, matsimWriter.getSettings().getDecimalFormat().format(nodeCoordinate.x));
+              /* Y */
+              xmlWriter.writeAttribute(
+                  MatsimTransitAttributes.Y, matsimWriter.getSettings().getDecimalFormat().format(nodeCoordinate.y));
+              /* Z coordinate (v2) not supported */
             }
-            stopFacilityName = stopFacilityName.concat(transferZone.getName());
+
+            /* LINK REF ID */
+            xmlWriter.writeAttribute( MatsimTransitAttributes.LINK_REF_ID,
+                componentIdMappers.getNetworkIdMappers().getMacroscopicLinkSegmentIdMapper().apply(
+                    (MacroscopicLinkSegment) accessSegment));
+
+            /* NAME - based on the transfer zone names if any */
+            String stopFacilityName = null;
+            if(stopLocationEntry.getAccessZone().hasName()) {
+              stopFacilityName = stopLocationEntry.getAccessZone().getName();
+            }
+            if(stopFacilityName != null) {
+              xmlWriter.writeAttribute(MatsimAttributes.NAME, stopFacilityName);
+            }
+
+            /* STOP_AREA_ID (v2) - not supported yet in MATSIM I believe, when it is, we can use our transfer zone
+            groups to map these */
+
+            /* IS_BLOCKING - unknown information in PLANit at this point */
+            xmlWriter.writeAttribute(MatsimTransitAttributes.IS_BLOCKING,
+                String.valueOf(zoningWriterSettings.isPtBlockingAtStopFacility()));
+          }
+
+          PlanitXmlWriterUtils.writeNewLine(xmlWriter);
+        } catch (XMLStreamException e) {
+          LOGGER.severe(e.getMessage());
+          throw new PlanItRunTimeException("error while writing MATSim stopFacility element id:%d",
+              transferConnectoid.getId());
         }
-        if(!stopFacilityName.isBlank()) {
-          xmlWriter.writeAttribute(MatsimTransitAttributes.NAME, stopFacilityName);
-        }
-        
-        /* STOP_AREA_ID (v2) - not supported yet in MATSIM I believe, when it is, we can use our transfer zone groups to map these */
-        
-        /* IS_BLOCKING - unknown information in PLANit at this point */
-        xmlWriter.writeAttribute(MatsimTransitAttributes.IS_BLOCKING, String.valueOf(zoningWriterSettings.isPtBlockingAtStopFacility()));
+
       }
-      
-      PlanitXmlWriterUtils.writeNewLine(xmlWriter);
-    } catch (XMLStreamException e) {
-      LOGGER.severe(e.getMessage());
-      throw new PlanItRunTimeException("error while writing MATSim stopFacility element id:%d",transferConnectoid.getId());
     }
   }
 
@@ -577,12 +633,21 @@ class MatsimPtXmlWriter {
    * Log some aggregate stats on the MATSim writer regarding the number of elements persisted
    */
   private void logWriterStats() {
-    LOGGER.info(String.format("[STATS] created %d stop facilities",matsimStopFacilityCounter.longValue()));
-    LOGGER.info(String.format("[STATS] created %d transit lines", matsimTransitLineCounter.longValue()));
-    for(var entry : transitRouteCountersByMode.entrySet()) {
-      LOGGER.info(String.format("[STATS] created %d transit routes for mode: %s", entry.getValue().longValue(), entry.getKey()));
-    }
-  }   
+    LOGGER.info(this.writerStats.toString());
+  }
+
+  /**
+   * Write transit schedule file, but only with the stops for reference
+   *
+   * @param zoning to collect stops from
+   * @param zoningWriterSettings to use
+   */
+  protected void writeXmlTransitScheduleFileStopsOnly(
+      Zoning zoning,
+      MatsimZoningWriterSettings zoningWriterSettings) {
+    writeXmlTransitScheduleFile(
+        zoning, zoningWriterSettings, null, null, null);
+  }
 
   /** Starting point for persisting the MATSim transit schedule file (infrastructure, e.g., stops and stations, only)
    *
@@ -590,7 +655,8 @@ class MatsimPtXmlWriter {
    * @param zoningWriterSettings to use
    * @param routedServices to extract information to persist from (if not null)
    * @param routedServicesSettings to use
-   * @param networkSettings to use, containing for example the mode mapping information required when writing schedules (may be null if no reouted services are provided)
+   * @param networkSettings to use, containing for example the mode mapping information required when writing
+   *                        schedules
    */
   protected void writeXmlTransitScheduleFile(
       Zoning zoning,
@@ -598,17 +664,18 @@ class MatsimPtXmlWriter {
       RoutedServices routedServices,
       MatsimPtServicesWriterSettings routedServicesSettings,
       MatsimNetworkWriterSettings networkSettings) {
-    PlanItRunTimeException.throwIfNull(zoning,"Unable to persist MATSim transit schedule file when PLANit zoning object is null");
+    PlanItRunTimeException.throwIfNull(zoning,
+        "Unable to persist MATSim transit schedule file when PLANit zoning object is null");
 
     /* prep */
     componentIdMappers.populateMissingIdMappers(matsimWriter.getIdMapperType());
-    transitRouteCountersByMode.clear();
-    matsimStopFacilityCounter.reset();
-    matsimTransitLineCounter.reset();
-    stopFacilityIdTracking.clear();
+    writerStats.reset();
 
-    Path matsimNetworkPath =  Paths.get(matsimWriter.getSettings().getOutputDirectory(), matsimWriter.getSettings().getFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
-    Pair<XMLStreamWriter,Writer> xmlFileWriterPair = PlanitXmlWriterUtils.createXMLWriter(matsimNetworkPath);
+    Path matsimNetworkPath =
+        Paths.get(matsimWriter.getSettings().getOutputDirectory(),
+            matsimWriter.getSettings().getFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
+    Pair<XMLStreamWriter,Writer> xmlFileWriterPair = PlanitXmlWriterUtils.createXMLWriter(
+        matsimNetworkPath, zoningWriterSettings.isWriteAsGZip());
 
     try {
       /* start */
@@ -616,11 +683,18 @@ class MatsimPtXmlWriter {
       
       /* body */
       loggedFrequencyTripWarning = false;
-      writeTransitScheduleXML(xmlFileWriterPair.first(), networkSettings, zoning, zoningWriterSettings, routedServices, routedServicesSettings);
+      writeTransitScheduleXML(
+          xmlFileWriterPair.first(),
+          networkSettings,
+          zoning,
+          zoningWriterSettings,
+          routedServices,
+          routedServicesSettings);
       
     }catch (Exception e) {
       LOGGER.severe(e.getMessage());
-      throw new PlanItRunTimeException(String.format("Error while persisting MATSIM public transit schedule to %s", matsimNetworkPath));
+      throw new PlanItRunTimeException(
+          String.format("Error while persisting MATSIM public transit schedule to %s", matsimNetworkPath));
     }finally {
       
       /* end */
@@ -645,9 +719,17 @@ class MatsimPtXmlWriter {
    * @param servicesSettings     to use
    */
   protected void writeTransitScheduleXML(
-      XMLStreamWriter xmlWriter, MatsimNetworkWriterSettings networkSettings, Zoning zoning, MatsimZoningWriterSettings zoningWriterSettings, RoutedServices routedServices, MatsimPtServicesWriterSettings servicesSettings) {
+      XMLStreamWriter xmlWriter,
+      MatsimNetworkWriterSettings
+          networkSettings,
+      Zoning zoning,
+      MatsimZoningWriterSettings zoningWriterSettings,
+      RoutedServices routedServices,
+      MatsimPtServicesWriterSettings servicesSettings) {
+
     try {
-      matsimWriter.writeStartElementNewLine(xmlWriter,MatsimTransitElements.TRANSIT_SCHEDULE, true /* add indentation*/);
+      matsimWriter.writeStartElementNewLine(
+          xmlWriter,MatsimTransitElements.TRANSIT_SCHEDULE, true /* add indentation*/);
       
 
       /* directed connectoids as stop facilities */
@@ -665,11 +747,17 @@ class MatsimPtXmlWriter {
   }
 
   /**
-   * Constructor 
-   * 
+   * Constructor
+   *
    * @param matsimWriter to use
+   * @param stopFacilityIdHelper to use
+   * @param writerStats to collect the statistics of this write on, owned by the writer this one writes for
    */
-  public MatsimPtXmlWriter(final MatsimWriter<?> matsimWriter) {
+  public MatsimPtXmlWriter(
+      final MatsimWriter<?> matsimWriter, MatsimStopFacilityIdHelper stopFacilityIdHelper,
+      MatsimPtWriterStats writerStats) {
     this.matsimWriter = matsimWriter;
+    this.stopFacilityIdHelper = stopFacilityIdHelper;
+    this.writerStats = writerStats;
   }
 }

@@ -1,0 +1,1393 @@
+package org.goplanit.matsim.converter.demand;
+
+import org.goplanit.converter.demands.DiscreteDemandsWriter;
+import org.goplanit.converter.idmapping.DiscreteDemandsIdMapper;
+import org.goplanit.demands.discrete.DiscreteDemands;
+import org.goplanit.demands.discrete.household.Household;
+import org.goplanit.demands.discrete.person.Person;
+import org.goplanit.demands.discrete.person.PersonUtils;
+import org.goplanit.demands.discrete.tour.ActivitySchedule;
+import org.goplanit.demands.discrete.tour.ScheduleElement;
+import org.goplanit.demands.discrete.tour.ParticipantTour;
+import org.goplanit.demands.discrete.tour.Tour;
+import org.goplanit.demands.discrete.trip.Trip;
+import org.goplanit.demands.discrete.util.DirectionBound;
+import org.goplanit.matsim.converter.MatsimWriter;
+import org.goplanit.matsim.util.MatsimBuiltInMode;
+import org.goplanit.matsim.util.ScheduleCollapsingUtils;
+import org.goplanit.matsim.xml.*;
+import org.goplanit.network.MacroscopicNetwork;
+import org.goplanit.utils.exceptions.PlanItRunTimeException;
+import org.goplanit.utils.geo.PlanitJtsUtils;
+import org.goplanit.utils.graph.directed.DirectedVertex;
+import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
+import org.goplanit.utils.id.ExternalIdAbleUtils;
+import org.goplanit.utils.id.IdMapperType;
+import org.goplanit.utils.misc.LoggingUtils;
+import org.goplanit.utils.misc.Pair;
+import org.goplanit.utils.misc.Triple;
+import org.goplanit.utils.misc.StringUtils;
+import org.goplanit.utils.mode.Mode;
+import org.goplanit.utils.mode.PredefinedModeType;
+import org.goplanit.utils.mode.UseOfModeType;
+import org.goplanit.utils.time.LocalTimeUtils;
+import org.goplanit.utils.xml.PlanitXmlWriterUtils;
+import org.goplanit.utils.zoning.OdZone;
+import org.goplanit.zoning.Zoning;
+import org.locationtech.jts.geom.Coordinate;
+
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamWriter;
+import java.io.Writer;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.*;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
+
+import static org.goplanit.utils.time.LocalTimeUtils.SECONDS_IN_DAY;
+
+/**
+ * A class that takes a PLANit DiscreteDemands and writes it as a MATSIM plans (v5) file.
+ *
+ * @author markr
+ */
+public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> implements DiscreteDemandsWriter{
+
+  /** the logger to use */
+  private static final Logger LOGGER = Logger.getLogger(MatsimDiscreteDemandsWriter.class.getCanonicalName());
+
+  /** ref network */
+  private MacroscopicNetwork referenceNetwork;
+
+  /** ref zoning */
+  private Zoning referenceZoning;
+
+  /** track stats */
+  private MatsimPlansWriterStats writerStats = new MatsimPlansWriterStats();
+
+  /** Default simulation seed for reproducible allocations */
+  private static final long DEFAULT_SIMULATION_SEED = 42L;
+
+  /** LocationGenerator:ZONE_LINKS_DISTANCE_WEIGHTED requires
+   * Pre-indexed mapping of zone weights by mode for sampling (if we use link weighted sampling within zone) */
+  private Map<Mode, Map<Long, LocationGeneratorUtils.ZoneLinkWeights>> zoneLinkWeightsIndexByMode;
+
+  /** the mode whose links stand in for a public mode when placing an activity, null when none is available */
+  private Mode publicModePlacementMode;
+
+  /** zones that yielded no drawable location and so fell back on their centroid, reported once at the end */
+  private Set<Long> centroidFallbackZoneIds;
+
+  /** cached outcome of searching a zone in full for a location reachable by one mode and departable by another, keyed
+   * on that combination. A null value marks a combination known to have no such location */
+  private Map<Triple<Long, Mode, Mode>, LocationGeneratorUtils.ZoneLinkWeights> departureCompatibleWeightsCache;
+
+  /** number of draws allowed when looking for an activity location that can also be departed from */
+  private static final int MAX_ACTIVITY_LOCATION_DRAWS = 10;
+
+  /** LocationGenerator:ZONE_LINKS_DISTANCE_WEIGHTED requires
+   * Reproducible random generation stream */
+  private SplittableRandom randomEngine;
+
+  /** contains the Persons' schedules that we will ignore. This is populated based on having schedules that are not
+   * based on the settings provided, e.g., contains modes deactivated in the mapping for example */
+  private Set<Person> personSchedulesToIgnore;
+
+  /** persons skipped because they have no household, reported once at the end */
+  private Set<Person> personsWithoutHousehold;
+
+  /** persons skipped because their household has no home zone, reported once at the end */
+  private Set<Person> personsWithoutHomeZone;
+
+  /** tours encountered without any schedule of their own, reported once at the end */
+  private Set<Tour> toursWithoutSchedule;
+
+  /** persons left without anything to write once the tours they only accompany are set aside, reported at the end */
+  private Set<Person> personsOnlyAccompanying;
+
+  /** whether the element written last within the plan being written is an activity, so that an activity written
+   * straight after another, which leaves the plan without the movement reaching the second, can be spotted */
+  private boolean lastWrittenElementIsActivity;
+
+  /** The location established for a person pursuing a purpose in a zone, keyed on exactly that. A person has one
+   * workplace, one school, so returning to any of them during the day returns them to where they were before rather
+   * than to a freshly drawn point in the same zone */
+  private Map<Triple<Long, String, Long>, MatsimPinnedActivityLocation> drawnActivityLocations;
+
+  /** The dwelling established for a household, keyed on the household, which has a single zone and therefore a single
+   * home. Everyone living there comes home to the same address rather than to their own point in the shared zone */
+  private Map<Long, MatsimPinnedActivityLocation> drawnHomeLocations;
+
+  /** maximum number of entities listed individually when reporting an issue affecting many of them */
+  private static final int MAX_LOGGED_ENTITIES = 10;
+
+  /** an activity placed at the anchor the person's day departs from and returns to, being their household's home */
+  private static final boolean AT_HOME_ANCHOR = true;
+
+  /** an activity placed somewhere the person travelled to */
+  private static final boolean AWAY_FROM_HOME = false;
+
+  /**
+   * validate the settings making sure minimal output information is available
+   */
+  private boolean validateSettings() {
+    if(StringUtils.isNullOrBlank(getSettings().getOutputDirectory())) {
+      LOGGER.severe("Matsim plans output directory not set on settings, unable to persist demands");
+      return false;
+    }
+    if(StringUtils.isNullOrBlank(getSettings().getFileName())) {
+      LOGGER.severe("Matsim plans output file name not set on settings, unable to persist demands");
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * MATSIM writer settings
+   */
+  protected final MatsimDiscreteDemandsWriterSettings settings;
+
+  /**
+   * Check for activity to intersperse travel legs:
+   * <ul>
+   *   <li>activity in between end of outbound trips and before first inbound trip</li>
+   *   <li>activity in between start of subtour but after arrival of parent tour at destination </li>
+   *   <li>activity in between start of next tour but after arrival of previous tour back at origin </li>
+   * </ul>
+   *
+   * @param xmlWriter               to use
+   * @param currentElement          to use
+   * @param precedingElement        to use
+   * @param person                  to use
+   * @param periodStartTimeSeconds  to use
+   * @param periodEndTimeSeconds    to use
+   * @return flag indicating if we detected a pair of collapsing schedule elements (true). If so, the current
+   * element should  no longer be written out into the plan as it is already covered by the preceding element
+   * @throws XMLStreamException if error
+   */
+  private boolean checkForActivityElementBetweenScheduleElements(
+      XMLStreamWriter xmlWriter,
+      ScheduleElement currentElement,
+      ScheduleElement precedingElement,
+      Person person,
+      long periodStartTimeSeconds,
+      long periodEndTimeSeconds)
+      throws XMLStreamException {
+
+    final boolean COLLAPSE = true;
+    final boolean DO_NOT_COLLAPSE = false;
+    OdZone homeZone = person.getHousehold().getZone();
+
+    // in MATSim 24h+ format
+    long startTimeSecondsUnbounded = currentElement.getStartTime().toSecondOfDay();
+    if (startTimeSecondsUnbounded < periodStartTimeSeconds) {
+      startTimeSecondsUnbounded += SECONDS_IN_DAY;
+    }
+
+    // Case 1: outbound trip followed by inbound trip --> activity occurs in between the two trips now
+    //         NOTE: we check this in this way to allow for chained outbound trips
+    //         this exhausts the use of the trip's tour purpose in one go - no further nesting
+    if ((currentElement instanceof Trip) && (precedingElement instanceof Trip) &&
+        ((Trip) precedingElement).getDirection() == DirectionBound.OUTBOUND &&
+        ((Trip) currentElement).getDirection() == DirectionBound.INBOUND) {
+      var upcomingTrip = ((Trip) currentElement);
+      var precedingTrip = ((Trip) precedingElement);
+      var thePurpose = upcomingTrip.getTour().getPurpose();
+
+      // activity @ tour destination
+      writeActivityElement(
+          xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
+          precedingTrip.getTour().getDestination(), precedingTrip.getMode(), upcomingTrip.getMode(), AWAY_FROM_HOME);
+      writeIndentation(xmlWriter);
+      return DO_NOT_COLLAPSE;
+    }
+
+    // Case 2a: multiple consecutive Inbound or Outbound legs of trips of the same mode, either we collapse them into
+    //         a single activity or we intersperse them with activities based on the trip purpose rather than the
+    //         tour purpose
+    // Case 2b: same only now different modes between the chain of InBound/Outbound (pt walk access for example). In
+    //          that case we also either collapse or not depending on configuration
+    if ((currentElement instanceof Trip) && (precedingElement instanceof Trip)) {
+      Trip prevTrip = (Trip) precedingElement;
+      Trip currTrip = (Trip) currentElement;
+
+      if (prevTrip.getDirection() == currTrip.getDirection()) {
+
+        // Resolve both the underlying PLANit types and the target MATSim destination strings
+        PredefinedModeType prevPlanitMode = prevTrip.getMode().getPredefinedModeType();
+        PredefinedModeType currPlanitMode = currTrip.getMode().getPredefinedModeType();
+
+        String prevMatsimMode = getSettings().getMappedMatsimMode(prevPlanitMode);
+        String currMatsimMode = getSettings().getMappedMatsimMode(currPlanitMode);
+
+        // Identify if the current travel segments belong to the Public Transport network layer
+        boolean isPrevPt = MatsimBuiltInMode.fromValue(prevMatsimMode).map(
+            MatsimBuiltInMode::isTypeOfPt).orElse(false);
+        boolean isCurrPt = MatsimBuiltInMode.fromValue(currMatsimMode).map(
+            MatsimBuiltInMode::isTypeOfPt).orElse(false);
+
+        // =====================================================================
+        // OPTION A: DISAGGREGATE SIMULATION LAYOUT (Detailed physical routing)
+        // =====================================================================
+        String thePurpose = prevTrip.getPurpose();
+        if (getSettings().isUseDisaggregateTransitModes()) {
+
+          // Every single public transport segment swap or mode shift requires an explicit interaction facility marker
+          if (isPrevPt || isCurrPt || prevPlanitMode != currPlanitMode) {
+
+            // more specific, MATSim compliant
+            if (isCurrPt || isPrevPt) {
+              thePurpose = MatsimPredefinedActivityTypes.PT_INTERACTION;
+            }
+
+            writeActivityElement(
+                xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
+                prevTrip.getDestination(true), prevTrip.getMode(), currTrip.getMode(), AWAY_FROM_HOME);
+            writeIndentation(xmlWriter);
+            return DO_NOT_COLLAPSE;
+          }
+
+          writeActivityElement(
+              xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
+              prevTrip.getDestination(true), prevTrip.getMode(), currTrip.getMode(), AWAY_FROM_HOME);
+          writeIndentation(xmlWriter);
+          return DO_NOT_COLLAPSE;
+        }else {
+          // AGGREGATE - so collapse if needed
+
+          // Transit Transfers: Any consecutive public transport legs collapse completely into a single block
+          if (isPrevPt && isCurrPt) {
+            // Collapse (Write Nothing) - activity will be picked up after the last one in chain
+            // flag to skip trip leg writing until chain ends
+            return COLLAPSE;
+          }
+
+          writeActivityElement(
+              xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
+              prevTrip.getDestination(true), prevTrip.getMode(), currTrip.getMode(), AWAY_FROM_HOME);
+          writeIndentation(xmlWriter);
+          return DO_NOT_COLLAPSE;
+        }
+      }
+    }
+
+    // Case 3: sub tour: activity from preceding tour occurs in between arrival from inbound trip and
+    //                   start of this tour. Arrival at this location is based on
+    //                   parent tour (this is interspersed), the location resides at the parent tour's
+    //                   destination so use that purpose
+    if((currentElement instanceof ParticipantTour) && (precedingElement instanceof Trip) &&
+        ((Trip)precedingElement).getDirection() == DirectionBound.OUTBOUND){
+      var currTour = ((ParticipantTour)currentElement).getTour();
+      // purpose from parent, if no parent, we have to assume this is the op level tour, so locale is person's initial
+      // purpose instead
+      boolean hasParent = currTour.hasParentTour();
+      var thePurpose = hasParent ? currTour.getParentTour().getPurpose() : person.getInitialPurpose();
+      writeActivityElement(xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
+          hasParent ? currTour.getParentTour().getDestination() : homeZone,
+          ((Trip) precedingElement).getMode(), currTour.getOutboundMode(), !hasParent);
+      writeIndentation(xmlWriter);
+      return DO_NOT_COLLAPSE;
+    }
+
+    // Case 4: returning back to origin from destination location AFTER just coming back to destination location from
+    //         subtour --> purpose is inbound trip's tour purpose, and end time of activity at tour's destination is
+    //         the trip's start time, location is the destination location of the trip it's tour (or its preceding
+    //         tour's origin)
+    if((currentElement instanceof Trip) && ((Trip)currentElement).getDirection() == DirectionBound.INBOUND
+        && (precedingElement instanceof ParticipantTour)){
+      var inboundTripItsTour = ((Trip) currentElement).getTour();
+      var thePurpose = inboundTripItsTour.getPurpose();
+      // purpose from inbound trip its tour
+      writeActivityElement(xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
+          inboundTripItsTour.getDestination(), precedingElement.getInboundMode(), currentElement.getOutboundMode(), AWAY_FROM_HOME); // zone @ trip tour's origin
+      writeIndentation(xmlWriter);
+      return DO_NOT_COLLAPSE;
+    }
+
+    // Case 5: starting a new tour after a preceding tour has finished fully and we have spent time waiting
+    //         in between. In that case, the purpose is that of the parent, and the end time of the activity is the
+    //         start time of the outbound trip
+    if((currentElement instanceof ParticipantTour) && (precedingElement instanceof ParticipantTour)){
+      var currTour = ((ParticipantTour)currentElement).getTour();
+      var thePurpose = currTour.hasParentTour() ?
+          currTour.getParentTour().getPurpose() : person.getInitialPurpose();
+      writeActivityElement(
+          xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
+          currTour.getOrigin(), precedingElement.getInboundMode(), currTour.getOutboundMode(), !currTour.hasParentTour());
+      writeIndentation(xmlWriter);
+      return DO_NOT_COLLAPSE;
+    }
+
+    return DO_NOT_COLLAPSE;
+  }
+
+  /**
+   * Process a schedule element
+   *
+   * @param xmlWriter              to use
+   * @param scheduleElement        to process
+   * @param person                 for this element
+   * @param asPassenger            whether the person is carried on this element rather than travelling it themselves,
+   *                               which holds for everything within a tour they take part in without owning it
+   * @param modeMapping            to use
+   * @param periodStartTimeSeconds period start time
+   * @param periodEndTimeSeconds   period end time
+   */
+  private void processScheduleElement(
+      XMLStreamWriter xmlWriter,
+      ScheduleElement scheduleElement,
+      Person person,
+      boolean asPassenger,
+      Map<Mode, String> modeMapping,
+      long periodStartTimeSeconds,
+      long periodEndTimeSeconds) {
+    if(scheduleElement.getStartTime() == null){
+      throw new PlanItRunTimeException(
+          "Start time of schedule element is null for person (%s), this should not happen",
+          person.getIdsAsString());
+    }
+
+    /* a period may run past midnight, where a time of day of its own carries no indication of which side of it the
+     * element falls on. A time before the period starts is therefore one that has wrapped, and belongs to the
+     * continuation of the period on the following day, exactly as the activities around it are placed */
+    var startTimeSeconds = scheduleElement.getStartTime().toSecondOfDay();
+    if(startTimeSeconds < periodStartTimeSeconds){
+      startTimeSeconds += (int) SECONDS_IN_DAY;
+    }
+
+    // ignore outside of the time period
+    if(startTimeSeconds < periodStartTimeSeconds || startTimeSeconds > periodEndTimeSeconds){
+      return;
+    }
+
+    try{
+
+      if(scheduleElement instanceof Trip){
+        // trips are always a travel leg, the activities come from the tours
+        writeLegElement(xmlWriter, (Trip) scheduleElement, asPassenger, modeMapping);
+        writeIndentation(xmlWriter);
+
+      }else if(scheduleElement instanceof ParticipantTour){
+        // nest, the participation is what sits on the schedule, the tour it is in carries the elements to write
+        var participation = (ParticipantTour) scheduleElement;
+        var currTour = participation.getTour();
+
+        /* the trips of a tour belong to whoever owns it, so anyone else taking part in it is carried along, and that
+         * holds for everything nested within it as well */
+        boolean carriedOnThisTour = asPassenger || !participation.isPrimary();
+
+        if(!currTour.hasSchedule()){
+          toursWithoutSchedule.add(currTour);
+          return;
+        }else{
+
+          ScheduleElement prevTourScheduleElement = null;
+          for(var tourScheduleElement : currTour.getSchedule()){
+
+            // add in activity, or in case trips collapse due to mode/trip chain aggregation, flag skip
+            boolean currentElementCollapsed = checkForActivityElementBetweenScheduleElements(
+                xmlWriter,
+                tourScheduleElement,
+                prevTourScheduleElement,
+                person,
+                periodStartTimeSeconds,
+                periodEndTimeSeconds);
+
+            // delegate one level deeper
+            if(!currentElementCollapsed) {
+              processScheduleElement(
+                  xmlWriter, tourScheduleElement, person, carriedOnThisTour, modeMapping, periodStartTimeSeconds,
+                  periodEndTimeSeconds);
+            }
+
+            prevTourScheduleElement = tourScheduleElement;
+
+          }
+
+        }
+
+      }else{
+        throw new PlanItRunTimeException(
+            "Unsupported person schedule element type (%s) encountered when writing the plan of person (%s)",
+            scheduleElement.getClass().getCanonicalName(), person.getIdsAsString());
+      }
+
+    } catch (XMLStreamException e) {
+      LOGGER.severe(e.getMessage());
+      throw new PlanItRunTimeException("Error while writing MATSim person (%s) plan XML element",
+          person.getIdsAsString());
+    }
+  }
+
+
+  /**
+   * Write an activity element
+   * @param xmlWriter writer
+   * @param person the person doing the activity
+   * @param activityDescription description of activity
+   * @param endTime MATSim formatted end time of activity
+   * @param activeZone the zone the activity relates to
+   * @param arrivalMode mode by which the arrival occurs (may be null if first)
+   * @param departureMode mode by which the departure occurs (may be null if last)
+   * @throws XMLStreamException if error
+   */
+  /**
+   * Draw a link segment for an activity that can also be departed from by the given mode.
+   * <p>
+   * The weight index only guarantees the arrival mode, since it is built per mode, whereas MATSim gives an activity a
+   * single link serving both its arrival and its departure. Where the drawn segment offers no way out for the
+   * departing mode, MATSim silently relocates the activity to the nearest link that does, which discards the
+   * length weighted placement this sampling exists to provide. Redrawing is enough to avoid that in nearly every
+   * case, the eligible share of segments being high, so no filtered index is maintained.
+   * </p>
+   * <p>
+   * Departure is judged on the segments leaving the drawn segment's downstream vertex, that being where the activity
+   * is placed, rather than on the drawn segment itself which is the one arrived on.
+   * </p>
+   *
+   * @param weights to draw from
+   * @param activeZone the draw relates to, for reporting
+   * @param arrivalMode the activity is reached by, for reporting
+   * @param departureMode the activity is left by, may be null in which case any draw will do
+   * @return drawn segment, the last attempt when none allowing departure was found, null when the draw yields nothing
+   */
+  private MacroscopicLinkSegment drawSegmentAllowingDeparture(
+      LocationGeneratorUtils.ZoneLinkWeights weights, OdZone activeZone, Mode arrivalMode, Mode departureMode) {
+
+    MacroscopicLinkSegment selectedSegment = null;
+    for (int attempt = 0; attempt < MAX_ACTIVITY_LOCATION_DRAWS; ++attempt) {
+      selectedSegment = weights.drawRandomSegment(this.randomEngine);
+      if (selectedSegment == null || departureMode == null ||
+          hasExitSegmentAllowingMode(selectedSegment.getDownstreamVertex(), departureMode)) {
+        return selectedSegment;
+      }
+    }
+
+    /* the eligible share of segments is normally high, so ten draws failing suggests it is genuinely low rather than
+     * that we were unlucky. Settle it by inspecting the zone in full, affordable precisely because it is rare, and
+     * remember the outcome so a zone that keeps coming up is only walked once */
+    var cacheKey = Triple.of(activeZone.getId(), arrivalMode, departureMode);
+    if (!departureCompatibleWeightsCache.containsKey(cacheKey)) {
+      var searchedWeights = weights.createFilteredCopy(
+          segment -> hasExitSegmentAllowingMode(segment.getDownstreamVertex(), departureMode));
+      departureCompatibleWeightsCache.put(cacheKey, searchedWeights);
+      if (searchedWeights == null) {
+        LOGGER.warning(String.format(
+            "No location in zone (%s) reachable by (%s) can also be departed by (%s), using the drawn location, " +
+                "MATSim will relocate the departure to the nearest link allowing it",
+            activeZone.getIdsAsString(), arrivalMode != null ? arrivalMode.getName() : "n/a",
+            departureMode.getName()));
+      }
+    }
+
+    var compatibleWeights = departureCompatibleWeightsCache.get(cacheKey);
+    return compatibleWeights != null ? compatibleWeights.drawRandomSegment(this.randomEngine) : selectedSegment;
+  }
+
+  /**
+   * Verify whether any segment leaving the given vertex allows the given mode
+   *
+   * @param vertex to check the exits of
+   * @param mode to check for
+   * @return true when at least one exit allows the mode
+   */
+  private static boolean hasExitSegmentAllowingMode(DirectedVertex vertex, Mode mode) {
+    if (vertex == null) {
+      return false;
+    }
+    for (var exitSegment : vertex.getExitEdgeSegments()) {
+      if (exitSegment instanceof MacroscopicLinkSegment &&
+          ((MacroscopicLinkSegment) exitSegment).isModeAllowed(mode)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Determine the mode whose links place an activity reached or left by a public mode. A public mode has stops rather
+   * than activity locations, so placing on its own links puts people on the track itself, where no activity belongs
+   * and from where nothing but the same public mode can leave. Walking is what a passenger does at either end of a
+   * public leg, so the pedestrian network is the natural stand-in, the transfer links written into the network
+   * carrying them on to the stop from there. Where no active mode is modelled the road network is the next best
+   * thing, being connected to the stops rather than being them.
+   *
+   * @param activatedAvailableModes to choose from
+   * @return the mode to place with, null when neither is available, in which case the zone centroid remains
+   */
+  private static Mode resolvePublicModePlacementMode(Set<Mode> activatedAvailableModes) {
+    var substitute = activatedAvailableModes.stream().filter(
+        m -> m.getPredefinedModeType() == PredefinedModeType.PEDESTRIAN).findFirst();
+    if (substitute.isEmpty()) {
+      substitute = activatedAvailableModes.stream().filter(
+          m -> m.getPredefinedModeType() == PredefinedModeType.CAR).findFirst();
+      substitute.ifPresent(m -> LOGGER.info(
+          "No pedestrian mode activated, placing activities of public mode legs on car links instead"));
+    }
+    if (substitute.isEmpty()) {
+      LOGGER.warning(
+          "Neither pedestrian nor car activated, activities of public mode legs fall back on their zone centroid");
+    }
+    return substitute.orElse(null);
+  }
+
+  /**
+   * The mode to place an activity with, being the mode itself unless it is public, see
+   * {@link #resolvePublicModePlacementMode(Set)}
+   *
+   * @param mode to resolve, may be null
+   * @return mode to place with, null when there is nothing to place with
+   */
+  private Mode resolvePlacementMode(Mode mode) {
+    if (mode == null || mode.getUseFeatures().getUseOfType() != UseOfModeType.PUBLIC) {
+      return mode;
+    }
+    return this.publicModePlacementMode;
+  }
+
+  /**
+   * The household whose dwelling this activity takes place in, being the household of the person when the activity
+   * sits at the anchor their day departs from and returns to, in the zone their household lives in. Anything else is
+   * a location of the person rather than of the household, and a person without a household, without a zone to live
+   * in, or anchored somewhere other than that zone has no dwelling to share
+   *
+   * @param person performing the activity
+   * @param atHomeAnchor whether the caller is placing the anchor of the person's day rather than somewhere they
+   *                     travelled to
+   * @param activeZone the activity takes place in
+   * @return the household at home here, null when this activity is not one
+   */
+  private static Household collectHouseholdAtHome(Person person, boolean atHomeAnchor, OdZone activeZone) {
+    if (!atHomeAnchor) {
+      return null;
+    }
+    var household = person.getHousehold();
+    if (household == null || household.getZone() == null || !household.getZone().equals(activeZone)) {
+      return null;
+    }
+    return household;
+  }
+
+  /**
+   * The place an activity is performed, being a point and, where one carries it, the link segment it sits on
+   */
+  private static class MatsimPinnedActivityLocation {
+
+    /** the point the activity is performed at */
+    private final double x;
+
+    /** the point the activity is performed at */
+    private final double y;
+
+    /** the link segment carrying the point, null when the point is not on one */
+    private final MacroscopicLinkSegment linkSegment;
+
+    /**
+     * Constructor
+     *
+     * @param x of the point
+     * @param y of the point
+     * @param linkSegment carrying it, may be null
+     */
+    private MatsimPinnedActivityLocation(double x, double y, MacroscopicLinkSegment linkSegment) {
+      this.x = x;
+      this.y = y;
+      this.linkSegment = linkSegment;
+    }
+  }
+
+  /**
+   * Establish where an activity reached by one mode and left by another is performed within its zone, by drawing a
+   * link segment weighted by length. Where the zone offers nothing to draw from, the given fallback point stands in
+   *
+   * @param activeZone the activity takes place in
+   * @param arrivalMode the activity is reached by
+   * @param departureMode the activity is left by
+   * @param fallbackX to use when the zone offers no link to place on
+   * @param fallbackY to use when the zone offers no link to place on
+   * @return the location established, never null
+   */
+  private MatsimPinnedActivityLocation resolveActivityLocation(
+      OdZone activeZone, Mode arrivalMode, Mode departureMode, double fallbackX, double fallbackY) {
+
+    Mode placementArrivalMode = resolvePlacementMode(arrivalMode);
+    Mode placementDepartureMode = resolvePlacementMode(departureMode);
+
+    var modeWeights = placementArrivalMode != null ?
+        this.zoneLinkWeightsIndexByMode.get(placementArrivalMode) : null;
+    LocationGeneratorUtils.ZoneLinkWeights weights =
+        modeWeights != null ? modeWeights.get(activeZone.getId()) : null;
+
+    if (weights != null) {
+      var selectedSegment =
+          drawSegmentAllowingDeparture(weights, activeZone, placementArrivalMode, placementDepartureMode);
+      if (selectedSegment == null) {
+        /* deliberately not dereferenced, the draw itself yielding nothing is a defect in the weight index rather
+         * than a property of a segment, and reporting it must not depend on having one */
+        LOGGER.severe(String.format(
+            "Drawn link segment for zone (%s) is null, falling back on centroid location",
+            activeZone.getIdsAsString()));
+      } else if (selectedSegment.getDownstreamVertex() == null ||
+          selectedSegment.getDownstreamVertex().getPosition() == null) {
+        LOGGER.severe(String.format("Drawn link segment (%s) has no downstream vertex, ignore",
+            selectedSegment.getIdsAsString()));
+      } else {
+        /* the downstream end, since MATSim places an agent performing an activity at the end of its link: the
+         * arriving leg terminates by traversing the segment, and the departing leg continues from that same point */
+        Coordinate activityPoint = selectedSegment.getDownstreamVertex().getPosition().getCoordinate();
+        return new MatsimPinnedActivityLocation(activityPoint.x, activityPoint.y, selectedSegment);
+      }
+    } else if (activeZone.hasGeometry()) {
+      this.centroidFallbackZoneIds.add(activeZone.getId());
+      var startPoint = PlanitJtsUtils.extractPolygonCentre(activeZone.getGeometry());
+      if (startPoint != null) {
+        return new MatsimPinnedActivityLocation(startPoint.getX(), startPoint.getY(), null);
+      }
+    }
+
+    return new MatsimPinnedActivityLocation(fallbackX, fallbackY, null);
+  }
+
+  private void writeActivityElement(
+      XMLStreamWriter xmlWriter,
+      Person person,
+      String activityDescription,
+      String endTime,
+      OdZone activeZone,
+      Mode arrivalMode,
+      Mode departureMode,
+      boolean atHomeAnchor)
+      throws XMLStreamException {
+    if(activityDescription == null || activityDescription.isBlank()){
+      writerStats.incrementActivitiesWithoutDescription();
+    }
+
+    // Default coordinates sourced directly from centroid definitions
+    boolean zoneHasPos = activeZone.hasCentroid() && activeZone.getCentroid().hasPosition();
+    double finalX = zoneHasPos ? activeZone.getCentroid().getPosition().getX() : Double.NaN;
+    double finalY = zoneHasPos ? activeZone.getCentroid().getPosition().getY() : Double.NaN;
+    String matchedLinkSegmentId = null;
+
+    // Apply distance-weighted link sampling strategy if active
+    if (getSettings().getLocationGeneratorType() == LocationGeneratorType.ZONE_LINKS_DISTANCE_WEIGHTED
+        && this.zoneLinkWeightsIndexByMode != null) {
+
+      /* a purpose pursued in a zone happens in one place, so where it is is settled on the first visit and stood by
+       * for the rest of the day. The modes of the visit steer only that first resolution, a later visit arriving or
+       * departing by some other mode still goes to the place the person already knows, whether that place was drawn
+       * from the zone's links or fell back on its centroid. Home is the dwelling of the whole household rather than
+       * of the person, so it is shared by everyone living there. Where a person has no household to speak of, their
+       * home is theirs alone like any other of their locations */
+      var homeHousehold = collectHouseholdAtHome(person, atHomeAnchor, activeZone);
+      var locationKey = Triple.of(
+          person.getId(), activityDescription != null ? activityDescription : "", activeZone.getId());
+
+      var activityLocation = homeHousehold != null
+          ? drawnHomeLocations.get(homeHousehold.getId()) : drawnActivityLocations.get(locationKey);
+      if (activityLocation == null) {
+        activityLocation = resolveActivityLocation(activeZone, arrivalMode, departureMode, finalX, finalY);
+        if (homeHousehold != null) {
+          drawnHomeLocations.put(homeHousehold.getId(), activityLocation);
+          writerStats.incrementDwellingsPinned();
+        } else {
+          drawnActivityLocations.put(locationKey, activityLocation);
+          writerStats.incrementActivityLocationsPinned();
+        }
+      }
+
+      finalX = activityLocation.x;
+      finalY = activityLocation.y;
+      if (activityLocation.linkSegment != null) {
+        matchedLinkSegmentId = getComponentIdMappers().getNetworkIdMappers().getMacroscopicLinkSegmentIdMapper().apply(
+            activityLocation.linkSegment);
+      } else {
+        writerStats.incrementCentroidFallbackActivities();
+      }
+    }else if(getSettings().getLocationGeneratorType().equals(LocationGeneratorType.ZONE_CENTROID)){
+      //auto-populated already
+    }
+
+    if(Double.isNaN(finalX) || Double.isNaN(finalY)){
+      LOGGER.severe(String.format(
+          "Zone (%s) has no location to fall back on, unable to provide spatial reference for activity %s of person (%s)",
+          activeZone.getIdsAsString(), activityDescription, person.getIdsAsString()));
+    }
+
+    // activity end point
+    xmlWriter.writeEmptyElement(MatsimPlansElements.ACTIVITY);
+    // purpose -> activity type
+    xmlWriter.writeAttribute(MatsimAttributes.TYPE, activityDescription);
+    // location
+    xmlWriter.writeAttribute(MatsimAttributes.X, String.valueOf(finalX));
+    xmlWriter.writeAttribute(MatsimAttributes.Y, String.valueOf(finalY));
+
+    if (matchedLinkSegmentId != null) {
+      xmlWriter.writeAttribute(MatsimAttributes.LINK, matchedLinkSegmentId);
+    }
+
+    // end time of activity
+    xmlWriter.writeAttribute(MatsimPlansAttributes.END_TIME, endTime);
+
+    writeNewLine(xmlWriter);
+
+    if (this.lastWrittenElementIsActivity) {
+      writerStats.incrementActivitiesFollowingAnActivity();
+    }
+    this.lastWrittenElementIsActivity = true;
+    writerStats.incrementActivitiesWritten();
+  }
+
+  /**
+   * Write a leg element which corresponds one to one with a PLANit trip
+   *
+   * @param xmlWriter   to use
+   * @param trip        trip containing leg info
+   * @param modeMapping to use
+   */
+  /**
+   * The MATSim mode a leg is written with. Someone carried on the trip rather than travelling it themselves is a
+   * passenger, which MATSim expresses with its ride mode: it is teleported using car travel times and puts no
+   * vehicle of its own on the network, leaving the driver's vehicle as the only one the network sees. On a mode
+   * nobody is carried on, a walk or public transport trip for instance, a passenger travels exactly as the driver
+   * does and keeps the mapped mode
+   *
+   * @param trip to collect the mode for
+   * @param asPassenger whether the person is carried rather than travelling the trip themselves
+   * @param modeMapping to use
+   * @return the MATSim mode to write
+   */
+  private String collectLegMode(Trip trip, boolean asPassenger, Map<Mode, String> modeMapping) {
+    if(asPassenger && getSettings().getCarriedPassengerModes().contains(
+        trip.getMode().getPredefinedModeType())){
+      writerStats.incrementPassengerLegsWritten();
+      return MatsimBuiltInMode.RIDE.getValue();
+    }
+    return modeMapping.get(trip.getMode());
+  }
+
+  private void writeLegElement(
+      XMLStreamWriter xmlWriter, Trip trip, boolean asPassenger, Map<Mode, String> modeMapping)
+      throws XMLStreamException {
+
+    // leg
+    xmlWriter.writeEmptyElement(MatsimPlansElements.LEG);
+
+    String matsimMode = collectLegMode(trip, asPassenger, modeMapping);
+    if(StringUtils.isNullOrBlank(matsimMode)){
+      throw new PlanItRunTimeException(
+          "PLANit trip (%s) with PLANit mode (%s) has no mapped MATSim mode available, update mode mapping!",
+          trip.getIdsAsString(), trip.getMode());
+    }
+    // mode=
+    xmlWriter.writeAttribute(MatsimPlansAttributes.MODE, matsimMode);
+
+    writeNewLine(xmlWriter);
+
+    this.lastWrittenElementIsActivity = false;
+    writerStats.incrementLegsWritten(matsimMode);
+  }
+
+  /**
+   * Write the plan element (selected=yes) and content for a given person. We currently only write out a single
+   * assumed selected plan per person
+   *
+   * @param xmlWriter       to use
+   * @param person          to write the selected plan for, expected to have a home location available
+   * @param modeMapping     to use
+   * @param discreteDemands to use
+   */
+  /**
+   * The part of a person's schedule that is written out, being everything except the tours they take part in without
+   * owning them.
+   * <p>
+   * A tour shared by several participants is held once and carries one set of trips. When accompanying participants
+   * are not written, only its primary participant's copy is kept, so a shared tour yields a single traveller.
+   * Otherwise the schedule is left whole and the accompanying participants travel as passengers, see
+   * {@link #collectLegMode}
+   * </p>
+   *
+   * @param person whose schedule to filter
+   * @return the schedule to write, the person's own instance when nothing is left out
+   */
+  private ActivitySchedule collectScheduleToWrite(Person person) {
+    var schedule = person.getSchedule();
+    if(schedule == null){
+      return null;
+    }
+    if(getSettings().isWriteAccompanyingParticipants()){
+      return schedule;
+    }
+
+    boolean accompaniesAnything = false;
+    for(var element : schedule){
+      if(element instanceof ParticipantTour && !((ParticipantTour) element).isPrimary()){
+        accompaniesAnything = true;
+        break;
+      }
+    }
+    if(!accompaniesAnything){
+      /* nothing to leave out, so the person's own schedule is used as is */
+      return schedule;
+    }
+
+    var scheduleToWrite = new ActivitySchedule();
+    for(var element : schedule){
+      if(element instanceof ParticipantTour && !((ParticipantTour) element).isPrimary()){
+        writerStats.incrementAccompanyingParticipationsSkipped();
+        continue;
+      }
+      scheduleToWrite.add(element);
+    }
+    return scheduleToWrite;
+  }
+
+  private void writePersonPlan(
+      XMLStreamWriter xmlWriter, Person person, ActivitySchedule scheduleToWrite, Map<Mode, String> modeMapping,
+      DiscreteDemands discreteDemands) {
+    var timePeriod = discreteDemands.getTimePeriods().getFirst();
+    long periodStartTimeSeconds = timePeriod.getStartTimeSeconds();
+    long periodEndTimeSeconds = periodStartTimeSeconds + timePeriod.getDurationSeconds();
+
+    OdZone homeZone = person.getHousehold().getZone();
+
+    try{
+      this.lastWrittenElementIsActivity = false;
+      // plan
+      writeStartElement(xmlWriter, MatsimPlansElements.PLAN, true /* add indentation*/);
+      // selected=yes
+      xmlWriter.writeAttribute(MatsimPlansAttributes.SELECTED, "yes");
+      writeNewLine(xmlWriter);
+      writeIndentation(xmlWriter);
+
+      var initialActivity = scheduleToWrite.getFirst();
+      long startTimeSecondsUnbounded = initialActivity.getStartTime().toSecondOfDay();
+      if(startTimeSecondsUnbounded < periodStartTimeSeconds){
+        startTimeSecondsUnbounded += SECONDS_IN_DAY;
+      }
+
+      ActivitySchedule processedSchedule;
+      if (getSettings().isUseDisaggregateTransitModes()
+          || !ScheduleCollapsingUtils.requiresScheduleCollapsing(
+              scheduleToWrite, getSettings().getModeCollapseRules())) {
+        // pass-through: reuses the original reference
+        processedSchedule = scheduleToWrite;
+      } else {
+        // Groups complex (multi-)transfer chains non-destructively via peeking views
+        processedSchedule = ScheduleCollapsingUtils.collapseContiguousTripChainsByModeRules(
+            scheduleToWrite, getSettings().getModeCollapseRules());
+      }
+
+      writeActivityElement(
+          xmlWriter,
+          person,
+          person.getInitialPurpose(),
+          LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded) /* end time of idle activity */,
+          homeZone,
+          processedSchedule.getOutboundMode(), // initial activity as no incoming mode, simply adopt outbound one
+          processedSchedule.getOutboundMode(),
+          AT_HOME_ANCHOR);
+      writeIndentation(xmlWriter);
+
+      // track the schedule of the person to extract activities and travel leg information in MATSim format
+      ScheduleElement prevElement = null;
+      for(int index=0;index< processedSchedule.size(); index++){
+        var scheduleElement = processedSchedule.get(index);
+
+        // add in activity, or in case trips collapse due to mode/trip chain aggregation, flag skip
+        boolean currentElementCollapsed = checkForActivityElementBetweenScheduleElements(
+            xmlWriter, scheduleElement, prevElement, person, periodStartTimeSeconds, periodEndTimeSeconds);
+
+        /* now we proceed with each travel involved activity, a top level element being travelled by the person
+         * themselves unless it is a tour they take part in without owning it */
+        if(!currentElementCollapsed) {
+          boolean asPassenger = scheduleElement instanceof ParticipantTour
+              && !((ParticipantTour) scheduleElement).isPrimary();
+          processScheduleElement(
+              xmlWriter, scheduleElement, person, asPassenger, modeMapping, periodStartTimeSeconds,
+              periodEndTimeSeconds);
+        }
+
+        prevElement = scheduleElement;
+      }
+
+      var thePurpose = person.getInitialPurpose();
+      writeActivityElement(
+          xmlWriter,
+          person,
+          thePurpose,
+          LocalTimeUtils.formatHhMmSs(periodEndTimeSeconds - 1),
+          homeZone,
+          processedSchedule.getInboundMode(),
+          processedSchedule.getInboundMode(), // last activity has no departing trip, simply reuse inbound mode
+          AT_HOME_ANCHOR);
+
+      writeEndElementNewLine(xmlWriter, true /*decrease indent */);
+    } catch (XMLStreamException e) {
+      LOGGER.severe(e.getMessage());
+      throw new PlanItRunTimeException("Error while writing MATSim person (%s) plan XML element",
+          person.getIdsAsString());
+    }
+  }
+
+  /**
+   * Verify the person can be placed at a home location, i.e. it has a household and that household has a zone.
+   * Persons without one are collected so they can be reported collectively rather than one entry each
+   *
+   * @param person to verify
+   * @return true when a home location is available, false otherwise
+   */
+  private boolean hasHomeLocation(Person person) {
+    if (person.getHousehold() == null) {
+      personsWithoutHousehold.add(person);
+      return false;
+    }
+    if (person.getHousehold().getZone() == null) {
+      personsWithoutHomeZone.add(person);
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Write persons element and then trigger writing all individual persons
+   *
+   * @param xmlWriter to use
+   * @param discreteDemands to use
+   */
+  protected void writeMatsimPersons(XMLStreamWriter xmlWriter, DiscreteDemands discreteDemands) {
+    var modeMapping = getSettings().collectActivatedPlanitModeToMatsimModeMapping(
+        getReferenceNetwork().getTransportLayers().getFirst());
+
+    try{
+
+      for(var person : discreteDemands.getPersons()){
+        writerStats.incrementPersonsProcessed();
+
+        if(personSchedulesToIgnore.contains(person)){
+          continue;
+        }
+
+        if(!hasHomeLocation(person)){
+          continue;
+        }
+
+        var scheduleToWrite = collectScheduleToWrite(person);
+        var initialActivity = scheduleToWrite != null ? scheduleToWrite.getFirst() : null;
+        if(initialActivity == null){
+          writerStats.incrementPersonsSkippedNoTours();
+          /* a person whose day consists only of tours they accompany has nothing left to write once those are set
+           * aside, which is worth separating from having no travel at all */
+          if(person.getSchedule() != null && !person.getSchedule().isEmpty()){
+            personsOnlyAccompanying.add(person);
+          }
+          continue;
+        }
+
+        // person
+        writeStartElement(xmlWriter, MatsimPlansElements.PERSON, true /* add indentation*/);
+
+        // id
+        xmlWriter.writeAttribute(MatsimAttributes.ID, getPrimaryIdMapper().getPersonClassIdMapper().apply(person));
+        writeNewLine(xmlWriter);
+
+        if(person.hasExternalId()){
+          // attributes - Inside the person block right before initializing the <plan> tag
+          writeStartElementNewLine(xmlWriter, MatsimElements.ATTRIBUTES, true /* add indentation*/);
+
+          // external id
+          writeMatsimCustomAttributeEntry(
+              xmlWriter, "externalId", "java.lang.String", person.getExternalId());
+
+          writeEndElementNewLine(xmlWriter, true /* undo indentation */ );
+        }
+
+        // plan
+        writePersonPlan(xmlWriter, person, scheduleToWrite, modeMapping, discreteDemands);
+
+        writeEndElementNewLine(xmlWriter, true /* undo indentation */ );
+
+        writerStats.incrementPersonsWritten();
+      }
+    } catch (XMLStreamException e) {
+      LOGGER.severe(e.getMessage());
+      throw new PlanItRunTimeException("Error while writing MATSim population XML element");
+    }
+  }
+
+  /**
+   * Write top level population elements and then the plans per person. For now we only support a single plan per
+   * person
+   *
+   * @param xmlWriter       write to use
+   * @param discreteDemands demands to extract from
+   */
+  protected void writeMatsimPopulationXML(XMLStreamWriter xmlWriter, DiscreteDemands discreteDemands){
+
+    try{
+      // population
+      writeStartElementNewLine(xmlWriter, MatsimPlansElements.POPULATION, true /* add indentation*/);
+
+      //todo: add CRS attribute
+
+      writeMatsimPersons(xmlWriter, discreteDemands);
+
+      writeEndElementNewLine(xmlWriter, true /* undo indentation */ );
+    } catch (XMLStreamException e) {
+      LOGGER.severe(e.getMessage());
+      throw new PlanItRunTimeException("Error while writing MATSim population XML element");
+    }
+  }
+
+  /**
+   * write the xml MATSIM network
+   *
+   * @param discreteDemands to draw from
+   * @param asGZip flag indicating whether to write out as gzipped XML or not
+   */
+  protected void writeXmlPlansFile(DiscreteDemands discreteDemands, boolean asGZip){
+    Path matsimPlansPath =
+        Paths.get(getSettings().getOutputDirectory(), getSettings().getFileName().concat(DEFAULT_FILE_NAME_EXTENSION));
+    Pair<XMLStreamWriter,Writer> xmlFileWriterPair =
+        PlanitXmlWriterUtils.createXMLWriter(matsimPlansPath, asGZip);
+
+    try {
+      /* start */
+      PlanitXmlWriterUtils.startXmlDocument(xmlFileWriterPair.first(), PLANS_DOCTYPE);
+
+      /* body */
+      writeMatsimPopulationXML(xmlFileWriterPair.first(), discreteDemands);
+
+      /* end */
+      PlanitXmlWriterUtils.endXmlDocument(xmlFileWriterPair);
+    }catch (Exception e) {
+      LOGGER.severe(e.getMessage());
+      e.printStackTrace();
+      throw new PlanItRunTimeException(String.format("error while persisting MATSIM plans to %s", matsimPlansPath));
+    }
+  }
+
+  /**
+   * Validate
+   * @param demands to validate
+   * @return true when ok, false otherwise
+   */
+  private boolean validate(DiscreteDemands demands) {
+    if(getReferenceNetwork() == null){
+      LOGGER.severe("Matsim plans require a reference PLANit network, not available,  unable to persist demands");
+      return false;
+    }
+    if(getReferenceNetwork().getTransportLayers().size() != 1){
+      LOGGER.severe(String.format("Matsim plans require a PLANit network with a single layer, but found (%d), " +
+          "unable to persist demands", getReferenceNetwork().getTransportLayers().size()));
+      return false;
+    }
+
+    if(getReferenceZoning() == null){
+      LOGGER.severe("Matsim plans require a reference PLANit zoning, not available,  unable to persist demands");
+      return false;
+    }
+
+    if(demands == null){
+      LOGGER.severe("Matsim plans require PLANit discrete demands to be non-null,  " +
+          "unable to persist demands");
+      return false;
+    }
+
+    if(demands.getPersons().isEmpty()){
+      LOGGER.severe("Matsim plans require at least one person present in PLANit discrete demands,  " +
+          "unable to persist demands");
+      return false;
+    }
+
+    if(demands.getTimePeriods().isEmpty()){
+      LOGGER.severe("Matsim plans require a time period to be set in PLANit discrete demands,  " +
+          "unable to persist demands");
+      return false;
+    }
+
+    if(demands.getTimePeriods().size()>1){
+      LOGGER.severe("Matsim plans require at most one time period to be set in PLANit discrete demands,  " +
+          "unable to persist demands");
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Report the issues collected while writing, each as a single entry stating how many entities were affected, their
+   * share of the total and a capped list of the entities themselves
+   *
+   * @param totalPersonCount total number of persons considered, used to express the share affected
+   */
+  private void logCollatedWriteIssues(int totalPersonCount) {
+    if (!personsWithoutHousehold.isEmpty()) {
+      LOGGER.warning(String.format(
+          "Skipped %s persons without a household, a MATSim plan requires a home location, persons %s",
+          LoggingUtils.countWithPercentage(personsWithoutHousehold.size(), totalPersonCount),
+          ExternalIdAbleUtils.toIdsAsString(personsWithoutHousehold, MAX_LOGGED_ENTITIES)));
+    }
+    if (!personsWithoutHomeZone.isEmpty()) {
+      LOGGER.warning(String.format(
+          "Skipped %s persons whose household has no home zone, a MATSim plan requires a home location, persons %s",
+          LoggingUtils.countWithPercentage(personsWithoutHomeZone.size(), totalPersonCount),
+          ExternalIdAbleUtils.toIdsAsString(personsWithoutHomeZone, MAX_LOGGED_ENTITIES)));
+    }
+    if (writerStats.getPassengerLegsWritten() > 0) {
+      LOGGER.info(String.format(
+          "Wrote %d legs as MATSim mode (%s) for persons carried on a tour owned by another, these are teleported " +
+              "and place no vehicle of their own on the network",
+          writerStats.getPassengerLegsWritten(), MatsimBuiltInMode.RIDE.getValue()));
+    }
+    if (writerStats.getAccompanyingParticipationsSkipped() > 0) {
+      LOGGER.info(String.format(
+          "Left out %d participations in tours the person only accompanies, the tour is written once for the " +
+              "participant owning it so that a shared tour yields a single vehicle rather than one per participant",
+          writerStats.getAccompanyingParticipationsSkipped()));
+    }
+    if (!personsOnlyAccompanying.isEmpty()) {
+      LOGGER.warning(String.format(
+          "Skipped %s persons whose only travel is in tours they accompany, leaving them without a plan, persons %s",
+          LoggingUtils.countWithPercentage(personsOnlyAccompanying.size(), totalPersonCount),
+          ExternalIdAbleUtils.toIdsAsString(personsOnlyAccompanying, MAX_LOGGED_ENTITIES)));
+    }
+    if (!toursWithoutSchedule.isEmpty()) {
+      LOGGER.warning(String.format(
+          "Found %d tours without a schedule (trips, or sub-tours), these contribute no legs to the plan, tours %s",
+          toursWithoutSchedule.size(),
+          ExternalIdAbleUtils.toIdsAsString(toursWithoutSchedule, MAX_LOGGED_ENTITIES)));
+    }
+    if (writerStats.getActivitiesWithoutDescription() > 0) {
+      LOGGER.warning(String.format(
+          "Wrote %d activities without a description", writerStats.getActivitiesWithoutDescription()));
+    }
+    if (writerStats.getActivitiesFollowingAnActivity() > 0) {
+      LOGGER.warning(String.format(
+          "Wrote %d activities directly after another activity, leaving no leg between the two, which leaves the " +
+              "plan without the movement that reaches the second",
+          writerStats.getActivitiesFollowingAnActivity()));
+    }
+  }
+
+  /**
+   * Initialise before writing, prep the CRS and prep the strategy on how to map activities spatially and temporally,
+   * also identify the modes which may be present in the network but are not activated for persisting, so we can
+   * prune those schedules from the output
+   *
+   * @param demands to work with
+   */
+  private void initialise(DiscreteDemands demands) {
+
+    this.centroidFallbackZoneIds = new LinkedHashSet<>();
+    this.departureCompatibleWeightsCache = new HashMap<>();
+    this.personsWithoutHousehold = new LinkedHashSet<>();
+    this.personsWithoutHomeZone = new LinkedHashSet<>();
+    this.toursWithoutSchedule = new LinkedHashSet<>();
+    this.personsOnlyAccompanying = new LinkedHashSet<>();
+    this.drawnActivityLocations = new HashMap<>();
+    this.drawnHomeLocations = new HashMap<>();
+    this.writerStats.reset();
+
+    /* CRS - we allow for conversion but this requires source crs of both zoning and network to be known and set*/
+    LOGGER.info(String.format("Network CRS set to     : %s",referenceNetwork.getCoordinateReferenceSystem().getName()));
+    if(referenceZoning.getCoordinateReferenceSystem() == null){
+      LOGGER.warning(String.format(
+          "Zoning has no coordinate reference system set, assuming source is same as Network CRS (%s)",
+          referenceNetwork.getCoordinateReferenceSystem().getName()));
+      referenceZoning.setCoordinateReferenceSystem(referenceNetwork.getCoordinateReferenceSystem());
+    }
+    LOGGER.info(String.format("Zoning CRS set to     : %s", referenceZoning.getCoordinateReferenceSystem().getName()));
+    prepareCoordinateReferenceSystem(
+        referenceZoning.getCoordinateReferenceSystem(),
+        getSettings().getDestinationCoordinateReferenceSystem(),
+        getSettings().getCountry(),
+        true);
+
+    // identify persons to exclude based on deactivated mode legs
+    var deactivatedModes = findDeactivatedModesAvailableInNetwork();
+    if(!deactivatedModes.isEmpty()){
+      this.personSchedulesToIgnore =
+          PersonUtils.findPersonsWithScheduleElementsContaining(demands.getPersons(), deactivatedModes);
+      if(!personSchedulesToIgnore.isEmpty()) {
+        LOGGER.info(String.format("Excluding %d persons with at least one trip with a deactivated mode",
+            personSchedulesToIgnore.size()));
+      }
+    }else{
+      this.personSchedulesToIgnore = Collections.emptySet();
+    }
+
+    // Pre-populate length weights tracking if distance weighting is chosen
+    if (getSettings().getLocationGeneratorType() == LocationGeneratorType.ZONE_LINKS_DISTANCE_WEIGHTED) {
+
+      var activatedAvailableModes = findActivatedModesAvailableInNetwork();
+      if(!activatedAvailableModes.isEmpty()){
+        LOGGER.info("[START] Pre-indexing structural metric zone-to-link length arrays for random allocations...");
+        this.zoneLinkWeightsIndexByMode = LocationGeneratorUtils.populateZoneLinkWeightsIndex(
+            activatedAvailableModes, referenceNetwork, referenceZoning.getOdZones(), getGeoUtils());
+        this.randomEngine = new SplittableRandom(DEFAULT_SIMULATION_SEED);
+        this.publicModePlacementMode = resolvePublicModePlacementMode(activatedAvailableModes);
+        LOGGER.info("[DONE] Pre-indexed structural metric zone-to-link length arrays for random allocations...");
+      }
+    }
+
+  }
+
+  /**
+   * Find modes in network that are not activated for persistence
+   *
+   * @return modes not activated for persistence
+   */
+  private Set<Mode> findDeactivatedModesAvailableInNetwork() {
+    var modeMappings = getSettings().collectActivatedPlanitModeToMatsimModeMapping(
+        getReferenceNetwork().getTransportLayers().getFirst());
+    return getReferenceNetwork().getModes().stream().filter(
+        m -> m.isPredefinedModeType() && !modeMappings.containsKey(m)).collect(Collectors.toSet());
+  }
+
+  /**
+   * Find modes in network that are activated for persistence
+   *
+   * @return modes activated for persistence that are also available in the network
+   */
+  private Set<Mode> findActivatedModesAvailableInNetwork() {
+    var modeMappings = getSettings().collectActivatedPlanitModeToMatsimModeMapping(
+        getReferenceNetwork().getTransportLayers().getFirst());
+    return getReferenceNetwork().getModes().stream().filter(
+        m -> m.isPredefinedModeType() && modeMappings.containsKey(m)).collect(Collectors.toSet());
+  }
+
+  /**
+   * Constructor
+   *
+   * @param settings to use
+   * @param network network
+   * @param zoning zoning
+   */
+  protected MatsimDiscreteDemandsWriter(
+      MatsimDiscreteDemandsWriterSettings settings, final MacroscopicNetwork network, final Zoning zoning) {
+    super(IdMapperType.ID);
+
+    /* config settings for writer are found here */
+    this.settings = settings;
+    this.referenceNetwork = network;
+    this.referenceZoning = zoning;
+  }
+
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void write(DiscreteDemands demands) {
+    boolean valid = validate(demands);
+    if(!valid) {
+      return;
+    }
+    boolean settingsValid = validateSettings();
+    if(!settingsValid) {
+      return;
+    }
+
+    /* id mapping */
+    getComponentIdMappers().populateMissingIdMappers(getIdMapperType());
+
+    /* log configuration */
+    settings.logSettings(getReferenceNetwork(), 0);
+
+    /* prep */
+    initialise(demands);
+
+    /* write */
+    writeXmlPlansFile(demands, getSettings().isWriteAsGZip());
+
+    if (!this.centroidFallbackZoneIds.isEmpty()) {
+      LOGGER.warning(String.format(
+          "%d zones had no drawable link for at least one activity and fell back on their centroid location",
+          this.centroidFallbackZoneIds.size()));
+    }
+    logCollatedWriteIssues(demands.getPersons().size());
+
+    LOGGER.info(this.writerStats.toString());
+  }
+
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void reset() {
+    // the statistics of the last write are deliberately kept, they hold no more than a handful of counts
+    zoneLinkWeightsIndexByMode.clear();
+    publicModePlacementMode = null;
+    centroidFallbackZoneIds = null;
+    departureCompatibleWeightsCache = null;
+    randomEngine = null;
+    personSchedulesToIgnore.clear();
+    personsWithoutHousehold = null;
+    personsWithoutHomeZone = null;
+    toursWithoutSchedule = null;
+    personsOnlyAccompanying = null;
+    drawnActivityLocations = null;
+    drawnHomeLocations = null;
+  }
+
+  /**
+   * The statistics collected over the most recent write, covering what was written, what was left out, and how
+   * activities were placed
+   *
+   * @return the statistics of the most recent write
+   */
+  public MatsimPlansWriterStats getWriterStats() {
+    return writerStats;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public MatsimDiscreteDemandsWriterSettings getSettings() {
+    return settings;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public DiscreteDemandsIdMapper getPrimaryIdMapper() {
+    return getComponentIdMappers().getDiscreteDemandsIdMapper();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public Zoning getReferenceZoning() {
+    return referenceZoning;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void setReferenceNetwork(MacroscopicNetwork referenceNetwork) {
+    this.referenceNetwork = referenceNetwork;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public MacroscopicNetwork getReferenceNetwork() {
+    return referenceNetwork;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void setReferenceZoning(Zoning referenceZoning) {
+    this.referenceZoning = referenceZoning;
+  }
+}

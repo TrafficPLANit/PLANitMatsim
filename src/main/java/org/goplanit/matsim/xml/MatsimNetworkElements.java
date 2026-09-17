@@ -7,14 +7,22 @@ package org.goplanit.matsim.xml;
  *
  */
 public class MatsimNetworkElements {
-  
-  public static final String LINKS = "links";
-  
-  public static final String LINK = "link";  
 
+  /** links */
+  public static final String LINKS = "links";
+
+  /** network */
   public static final String NETWORK = "network";
-  
+
+  /** nodes */
   public static final String NODES = "nodes";
-  
+
+  /** node */
   public static final String NODE = "node";
+
+  /** attributes */
+  public static final String ATTRIBUTES = "attributes";
+
+  /** attribute */
+  public static final String ATTRIBUTE = "attribute";
 }

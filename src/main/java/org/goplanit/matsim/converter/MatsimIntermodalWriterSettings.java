@@ -1,25 +1,31 @@
 package org.goplanit.matsim.converter;
 
 import org.goplanit.converter.ConverterWriterSettings;
+import org.goplanit.matsim.converter.network.MatsimNetworkWriterSettings;
 import org.goplanit.matsim.util.PlanitMatsimWriterSettings;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.goplanit.network.MacroscopicNetwork;
-import org.goplanit.utils.misc.Pair;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import org.goplanit.utils.misc.LoggingUtils;
 
 import java.text.DecimalFormat;
+import java.util.logging.Logger;
 
 /**
- * Settings specific to writing the intermodal related outputs in MATSim format, i.e., network and pt infrastructure and/or services
+ * Settings specific to writing the intermodal related outputs in MATSim format, i.e., network and pt
+ * infrastructure and/or services
  * 
  * @author markr
  *
  */
 public class MatsimIntermodalWriterSettings extends PlanitMatsimWriterSettings implements ConverterWriterSettings {
+
+  private static final Logger LOGGER = Logger.getLogger(MatsimIntermodalWriterSettings.class.getCanonicalName());
   
   /** the network and zoning settings to use in case we are writing without services */
   protected final MatsimNetworkWriterSettings networkSettings;
 
-  /** zoning settings to use in case we do not have services but we do have pt infrastructure like platforms), mutually exclusive to
+  /** zoning settings to use in case we do not have services but we do have pt infrastructure like platforms),
+   * mutually exclusive to
    * ptServicesSettings */
   protected final MatsimZoningWriterSettings zoningSettings;
 
@@ -27,7 +33,8 @@ public class MatsimIntermodalWriterSettings extends PlanitMatsimWriterSettings i
   protected final MatsimPtServicesWriterSettings ptServicesSettings;
 
   /**
-   * Constructor based on settings for zoning and network from which pt services settings will be created (sharing the mode mapping from the network)
+   * Constructor based on settings for zoning and network from which pt services settings will be created
+   * (sharing the mode mapping from the network)
    *
    *  @param networkWriterSettings writer settings to use
    *  @param zoningWriterSettings writer settings to use
@@ -49,7 +56,11 @@ public class MatsimIntermodalWriterSettings extends PlanitMatsimWriterSettings i
    * @param countryName to use
    */
   public MatsimIntermodalWriterSettings(final String outputDirectory, final String countryName) {
-    this(outputDirectory, countryName, MatsimNetworkWriterSettings.DEFAULT_NETWORK_FILE_NAME, PlanitMatsimWriterSettings.DEFAULT_TRANSIT_SCHEDULE_FILE_NAME);
+    this(
+        outputDirectory,
+        countryName,
+        MatsimNetworkWriterSettings.DEFAULT_NETWORK_FILE_NAME,
+        PlanitMatsimWriterSettings.DEFAULT_TRANSIT_SCHEDULE_FILE_NAME);
   }  
   
   /**
@@ -60,11 +71,26 @@ public class MatsimIntermodalWriterSettings extends PlanitMatsimWriterSettings i
    * @param networkOutputFileName to use
    * @param ptOutputFileName to use
    */
-  public MatsimIntermodalWriterSettings(final String outputDirectory, final String countryName, final String networkOutputFileName, final String ptOutputFileName) {
+  public MatsimIntermodalWriterSettings(
+      final String outputDirectory,
+      final String countryName,
+      final String networkOutputFileName,
+      final String ptOutputFileName) {
+
       this(new MatsimNetworkWriterSettings(outputDirectory, networkOutputFileName, countryName),
           new MatsimZoningWriterSettings(outputDirectory, ptOutputFileName, countryName),
           new MatsimPtServicesWriterSettings(outputDirectory, ptOutputFileName, countryName));
-  }    
+  }
+
+  /**
+   * log settings
+   */
+  public void logSettings(MacroscopicNetwork network, int level){
+    LOGGER.info(LoggingUtils.settingsHeader("MATSim intermodal writer settings"));
+    networkSettings.logSettings(network, level);
+    zoningSettings.logSettings(level);
+    ptServicesSettings.logSettings(level);
+  }
 
   /**
    * {@inheritDoc}
@@ -98,17 +124,18 @@ public class MatsimIntermodalWriterSettings extends PlanitMatsimWriterSettings i
   }
 
 
-  /** set the output directory to use on both network and zoning settings
-   * @param outputDirectory to use
+  /**
+   * {@inheritDoc}
    */
+  @Override
   public void setOutputDirectory(String outputDirectory) {
     getNetworkSettings().setOutputDirectory(outputDirectory);
     getZoningSettings().setOutputDirectory(outputDirectory);
     getPtServicesSettings().setOutputDirectory(outputDirectory);
   }
-  
-  /** set the country to use on both network and zoning settings
-   * @param countryName to use
+
+  /**
+   * {@inheritDoc}
    */
   @Override
   public void setCountry(String countryName) {
@@ -117,24 +144,34 @@ public class MatsimIntermodalWriterSettings extends PlanitMatsimWriterSettings i
       getPtServicesSettings().setCountry(countryName);
   }
 
-  
-  /** Explicitly set a particular crs for writing geometries for both zoning and network
-   * @param destinationCoordinateReferenceSystem to use
+
+  /**
+   * {@inheritDoc}
    */
+  @Override
   public void setDestinationCoordinateReferenceSystem(CoordinateReferenceSystem destinationCoordinateReferenceSystem) {
     getNetworkSettings().setDestinationCoordinateReferenceSystem(destinationCoordinateReferenceSystem);
     getZoningSettings().setDestinationCoordinateReferenceSystem(destinationCoordinateReferenceSystem);
     getPtServicesSettings().setDestinationCoordinateReferenceSystem(destinationCoordinateReferenceSystem);
   }
 
-  /** Set number of decimals used in writing coordinates
-   *
-   * @param decimalFormat format to use
+  /**
+   * {@inheritDoc}
    */
+  @Override
   public void setDecimalFormat(DecimalFormat decimalFormat) {
     getNetworkSettings().setDecimalFormat(decimalFormat);
     getZoningSettings().setDecimalFormat(decimalFormat);
     getPtServicesSettings().setDecimalFormat(decimalFormat);
   }
 
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void setWriteAsGZip(boolean flag) {
+    getNetworkSettings().setWriteAsGZip(flag);
+    getZoningSettings().setWriteAsGZip(flag);
+    getPtServicesSettings().setWriteAsGZip(flag);
+  }
 }
