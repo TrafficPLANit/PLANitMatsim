@@ -46,8 +46,8 @@ public class MatsimDiscreteDemandsWriterSettings extends PlanitMatsimWriterModeM
 
   /** Default Rule hierarchy to collapse multi-stage public transport loops for aggregate modeling.
    * Default is that bus and train allow for walk access/egress and we collapse that into bus and train as a single
-   * leg, the PLANit to MATSim mode mapping may then collapse that further into pt if it detects adjacent bus/train
-   * legs that go in the same direction (if configure as such) */
+   * leg. Consecutive bus/train legs are not merged, as the activity between them may be a stop rather than a
+   * transfer */
   public static final Map<PredefinedModeType, ModeChainCollapseRule> DEFAULT_MODE_COLLAPSE_RULES = Map.of(
       BUS, new ModeChainCollapseRule(BUS, List.of(PEDESTRIAN), List.of(PEDESTRIAN)),
       TRAIN, new ModeChainCollapseRule(TRAIN, List.of(PEDESTRIAN), List.of(PEDESTRIAN))

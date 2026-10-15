@@ -172,13 +172,15 @@ public class MatsimLargeConversionWriterTest {
       assertEquals(26_192, plansStats.getPersonsProcessed());
       assertEquals(21_228, plansStats.getPersonsWritten());
       assertEquals(4_964, plansStats.getPersonsSkippedNoTours());
-      assertEquals(103_443, plansStats.getActivitiesWritten());
-      assertEquals(82_215, plansStats.getLegsWritten());
+      assertEquals(103_584, plansStats.getActivitiesWritten());
+      assertEquals(82_356, plansStats.getLegsWritten());
+      /* only the walk access and egress of bus and train is merged into their legs, by the collapse rules */
+      assertEquals(24, plansStats.getTripsCollapsedByModeChainRules());
 
       /* legs carry the mode the trip was made by */
       assertEquals(59_019, plansStats.getLegsWritten(MatsimBuiltInMode.CAR.getValue()));
       assertEquals(15_022, plansStats.getLegsWritten(MatsimBuiltInMode.WALK.getValue()));
-      assertEquals(2_584, plansStats.getLegsWritten(MatsimBuiltInMode.PT.getValue()));
+      assertEquals(2_725, plansStats.getLegsWritten(MatsimBuiltInMode.PT.getValue()));
       assertEquals(669, plansStats.getLegsWritten(MatsimBuiltInMode.BIKE.getValue()));
       assertEquals(537, plansStats.getLegsWritten(MatsimBuiltInMode.DRT.getValue()));
 
@@ -196,7 +198,7 @@ public class MatsimLargeConversionWriterTest {
       /* a household lives in one dwelling and a purpose pursued in a zone happens in one place, so the number of
        * locations established is a property of the population rather than of the number of visits made to them */
       assertEquals(9_099, plansStats.getDwellingsPinned());
-      assertEquals(48_869, plansStats.getActivityLocationsPinned());
+      assertEquals(49_006, plansStats.getActivityLocationsPinned());
       assertEquals(214, plansStats.getCentroidFallbackActivities());
 
     } catch (final Exception e) {

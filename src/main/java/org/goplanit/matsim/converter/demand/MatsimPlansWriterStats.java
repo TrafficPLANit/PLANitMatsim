@@ -76,6 +76,11 @@ public class MatsimPlansWriterStats {
   private long activitiesFollowingAnActivity;
 
   /**
+   * Number of trips merged into the leg of another trip by the mode chain collapse rules.
+   */
+  private long tripsCollapsedByModeChainRules;
+
+  /**
    * Number of legs written per MATSim mode.
    */
   private Map<String, Long> legsWrittenByMode = new TreeMap<>();
@@ -167,6 +172,15 @@ public class MatsimPlansWriterStats {
    */
   public void incrementActivitiesFollowingAnActivity() {
     activitiesFollowingAnActivity++;
+  }
+
+  /**
+   * Add to the number of trips merged into the leg of another trip by the mode chain collapse rules.
+   *
+   * @param numberOfTrips merged
+   */
+  public void addTripsCollapsedByModeChainRules(long numberOfTrips) {
+    tripsCollapsedByModeChainRules += numberOfTrips;
   }
 
   /**
@@ -278,6 +292,15 @@ public class MatsimPlansWriterStats {
   }
 
   /**
+   * Get the value of tripsCollapsedByModeChainRules.
+   *
+   * @return value of tripsCollapsedByModeChainRules
+   */
+  public long getTripsCollapsedByModeChainRules() {
+    return tripsCollapsedByModeChainRules;
+  }
+
+  /**
    * Get the number of legs written for the given MATSim mode.
    *
    * @param matsimMode to collect the number of legs for
@@ -322,6 +345,7 @@ public class MatsimPlansWriterStats {
     }
     builder.append(String.format("  - as a carried passenger       : %s%n",
         LoggingUtils.countWithPercentage(getPassengerLegsWritten(), getLegsWritten())));
+    builder.append(String.format("  Trips merged by collapse rules : %d%n", getTripsCollapsedByModeChainRules()));
     builder.append(String.format("  Accompanying participations left out : %d%n",
         getAccompanyingParticipationsSkipped()));
     builder.append(String.format("  Dwellings established          : %s%n",
@@ -347,6 +371,7 @@ public class MatsimPlansWriterStats {
     dwellingsPinned = 0;
     activityLocationsPinned = 0;
     activitiesFollowingAnActivity = 0;
+    tripsCollapsedByModeChainRules = 0;
     legsWrittenByMode = new TreeMap<>();
   }
 }

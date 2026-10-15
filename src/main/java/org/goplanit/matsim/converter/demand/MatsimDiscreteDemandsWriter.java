@@ -163,11 +163,9 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    * @param person                  to use
    * @param periodStartTimeSeconds  to use
    * @param periodEndTimeSeconds    to use
-   * @return flag indicating if we detected a pair of collapsing schedule elements (true). If so, the current
-   * element should  no longer be written out into the plan as it is already covered by the preceding element
    * @throws XMLStreamException if error
    */
-  private boolean checkForActivityElementBetweenScheduleElements(
+  private void checkForActivityElementBetweenScheduleElements(
       XMLStreamWriter xmlWriter,
       ScheduleElement currentElement,
       ScheduleElement precedingElement,
@@ -176,8 +174,6 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       long periodEndTimeSeconds)
       throws XMLStreamException {
 
-    final boolean COLLAPSE = true;
-    final boolean DO_NOT_COLLAPSE = false;
     OdZone homeZone = person.getHousehold().getZone();
 
     // in MATSim 24h+ format
@@ -201,14 +197,12 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
           xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
           precedingTrip.getTour().getDestination(), precedingTrip.getMode(), upcomingTrip.getMode(), AWAY_FROM_HOME);
       writeIndentation(xmlWriter);
-      return DO_NOT_COLLAPSE;
+      return;
     }
 
-    // Case 2a: multiple consecutive Inbound or Outbound legs of trips of the same mode, either we collapse them into
-    //         a single activity or we intersperse them with activities based on the trip purpose rather than the
-    //         tour purpose
-    // Case 2b: same only now different modes between the chain of InBound/Outbound (pt walk access for example). In
-    //          that case we also either collapse or not depending on configuration
+    // Case 2: consecutive Inbound or Outbound trips, of the same or different modes, are interspersed with an activity
+    //         based on the trip purpose rather than the tour purpose. Trips only merge through the mode chain collapse
+    //         rules, applied to the schedule before it gets here
     if ((currentElement instanceof Trip) && (precedingElement instanceof Trip)) {
       Trip prevTrip = (Trip) precedingElement;
       Trip currTrip = (Trip) currentElement;
@@ -246,29 +240,22 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
                 xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
                 prevTrip.getDestination(true), prevTrip.getMode(), currTrip.getMode(), AWAY_FROM_HOME);
             writeIndentation(xmlWriter);
-            return DO_NOT_COLLAPSE;
+            return;
           }
 
           writeActivityElement(
               xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
               prevTrip.getDestination(true), prevTrip.getMode(), currTrip.getMode(), AWAY_FROM_HOME);
           writeIndentation(xmlWriter);
-          return DO_NOT_COLLAPSE;
+          return;
         }else {
-          // AGGREGATE - so collapse if needed
-
-          // Transit Transfers: Any consecutive public transport legs collapse completely into a single block
-          if (isPrevPt && isCurrPt) {
-            // Collapse (Write Nothing) - activity will be picked up after the last one in chain
-            // flag to skip trip leg writing until chain ends
-            return COLLAPSE;
-          }
-
+          // AGGREGATE - the activity at the end of each trip stays, even between two public transport trips, as it
+          // tells a stop from a transfer. Only the mode chain collapse rules applied beforehand merge trips
           writeActivityElement(
               xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
               prevTrip.getDestination(true), prevTrip.getMode(), currTrip.getMode(), AWAY_FROM_HOME);
           writeIndentation(xmlWriter);
-          return DO_NOT_COLLAPSE;
+          return;
         }
       }
     }
@@ -288,7 +275,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
           hasParent ? currTour.getParentTour().getDestination() : homeZone,
           ((Trip) precedingElement).getMode(), currTour.getOutboundMode(), !hasParent);
       writeIndentation(xmlWriter);
-      return DO_NOT_COLLAPSE;
+      return;
     }
 
     // Case 4: returning back to origin from destination location AFTER just coming back to destination location from
@@ -303,7 +290,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       writeActivityElement(xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
           inboundTripItsTour.getDestination(), precedingElement.getInboundMode(), currentElement.getOutboundMode(), AWAY_FROM_HOME); // zone @ trip tour's origin
       writeIndentation(xmlWriter);
-      return DO_NOT_COLLAPSE;
+      return;
     }
 
     // Case 5: starting a new tour after a preceding tour has finished fully and we have spent time waiting
@@ -317,10 +304,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
           xmlWriter, person, thePurpose, LocalTimeUtils.formatHhMmSs(startTimeSecondsUnbounded),
           currTour.getOrigin(), precedingElement.getInboundMode(), currTour.getOutboundMode(), !currTour.hasParentTour());
       writeIndentation(xmlWriter);
-      return DO_NOT_COLLAPSE;
     }
-
-    return DO_NOT_COLLAPSE;
   }
 
   /**
@@ -386,8 +370,8 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
           ScheduleElement prevTourScheduleElement = null;
           for(var tourScheduleElement : currTour.getSchedule()){
 
-            // add in activity, or in case trips collapse due to mode/trip chain aggregation, flag skip
-            boolean currentElementCollapsed = checkForActivityElementBetweenScheduleElements(
+            // add in activity
+            checkForActivityElementBetweenScheduleElements(
                 xmlWriter,
                 tourScheduleElement,
                 prevTourScheduleElement,
@@ -396,11 +380,9 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
                 periodEndTimeSeconds);
 
             // delegate one level deeper
-            if(!currentElementCollapsed) {
-              processScheduleElement(
-                  xmlWriter, tourScheduleElement, person, carriedOnThisTour, modeMapping, periodStartTimeSeconds,
-                  periodEndTimeSeconds);
-            }
+            processScheduleElement(
+                xmlWriter, tourScheduleElement, person, carriedOnThisTour, modeMapping, periodStartTimeSeconds,
+                periodEndTimeSeconds);
 
             prevTourScheduleElement = tourScheduleElement;
 
@@ -519,10 +501,10 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    */
   private static Mode resolvePublicModePlacementMode(Set<Mode> activatedAvailableModes) {
     var substitute = activatedAvailableModes.stream().filter(
-        m -> m.getPredefinedModeType() == PredefinedModeType.PEDESTRIAN).findFirst();
+        m -> m.isPredefinedModeType(PredefinedModeType.PEDESTRIAN)).findFirst();
     if (substitute.isEmpty()) {
       substitute = activatedAvailableModes.stream().filter(
-          m -> m.getPredefinedModeType() == PredefinedModeType.CAR).findFirst();
+          m -> m.isPredefinedModeType(PredefinedModeType.CAR)).findFirst();
       substitute.ifPresent(m -> LOGGER.info(
           "No pedestrian mode activated, placing activities of public mode legs on car links instead"));
     }
@@ -877,6 +859,9 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
         // Groups complex (multi-)transfer chains non-destructively via peeking views
         processedSchedule = ScheduleCollapsingUtils.collapseContiguousTripChainsByModeRules(
             scheduleToWrite, getSettings().getModeCollapseRules());
+        // every trip no longer a leg of its own is merged into another's
+        writerStats.addTripsCollapsedByModeChainRules(
+            scheduleToWrite.sizeUnrolled(true) - processedSchedule.sizeUnrolled(true));
       }
 
       writeActivityElement(
@@ -895,19 +880,17 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       for(int index=0;index< processedSchedule.size(); index++){
         var scheduleElement = processedSchedule.get(index);
 
-        // add in activity, or in case trips collapse due to mode/trip chain aggregation, flag skip
-        boolean currentElementCollapsed = checkForActivityElementBetweenScheduleElements(
+        // add in activity
+        checkForActivityElementBetweenScheduleElements(
             xmlWriter, scheduleElement, prevElement, person, periodStartTimeSeconds, periodEndTimeSeconds);
 
         /* now we proceed with each travel involved activity, a top level element being travelled by the person
          * themselves unless it is a tour they take part in without owning it */
-        if(!currentElementCollapsed) {
-          boolean asPassenger = scheduleElement instanceof ParticipantTour
-              && !((ParticipantTour) scheduleElement).isPrimary();
-          processScheduleElement(
-              xmlWriter, scheduleElement, person, asPassenger, modeMapping, periodStartTimeSeconds,
-              periodEndTimeSeconds);
-        }
+        boolean asPassenger = scheduleElement instanceof ParticipantTour
+            && !((ParticipantTour) scheduleElement).isPrimary();
+        processScheduleElement(
+            xmlWriter, scheduleElement, person, asPassenger, modeMapping, periodStartTimeSeconds,
+            periodEndTimeSeconds);
 
         prevElement = scheduleElement;
       }

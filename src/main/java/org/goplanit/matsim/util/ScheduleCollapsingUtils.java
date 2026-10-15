@@ -142,7 +142,7 @@ public class ScheduleCollapsingUtils {
           Trip lastLeaf = getLastLeafTrip(historyElement);
 
           if (lastLeaf != null &&
-              lastLeaf.getMode().getPredefinedModeType() == expectedFromMode &&
+              lastLeaf.getMode().isPredefinedModeType(expectedFromMode) &&
               lastLeaf.getDirection() == activeTrip.getDirection()) {
             if (historyElement instanceof AggregateTripView) {
               tempBorrows = true;
@@ -174,7 +174,7 @@ public class ScheduleCollapsingUtils {
           break;
         }
         Trip fTrip = (Trip) forwardElement;
-        if (fTrip.getMode().getPredefinedModeType() != toReqs.get(t) ||
+        if (!fTrip.getMode().isPredefinedModeType(toReqs.get(t)) ||
             fTrip.getDirection() != activeTrip.getDirection()) {
           sequenceOk = false;
           break;
@@ -229,7 +229,7 @@ public class ScheduleCollapsingUtils {
         Trip activeTrip = (Trip) currentElement;
 
         for (var rule : collapseRules) {
-          if (activeTrip.getMode().getPredefinedModeType() != rule.getMainMode()) {
+          if (!activeTrip.getMode().isPredefinedModeType(rule.getMainMode())) {
             continue;
           }
 
@@ -286,12 +286,11 @@ public class ScheduleCollapsingUtils {
       }
 
       Trip activeTrip = (Trip) el;
-      var activeMode = activeTrip.getMode().getPredefinedModeType();
       RuleMatchResult bestMatch = null;
       int maxMatchedLen = -1;
 
       for (var rule : collapseRules) {
-        if (activeMode != rule.getMainMode()) {
+        if (!activeTrip.getMode().isPredefinedModeType(rule.getMainMode())) {
           continue;
         }
 

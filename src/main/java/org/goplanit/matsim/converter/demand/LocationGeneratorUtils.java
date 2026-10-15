@@ -208,7 +208,7 @@ public class LocationGeneratorUtils {
      * walk network being how anyone gets to what their own mode does not provide. Lacking both is what leaves a zone
      * with nothing to place on or reach from, so that is the share worth singling out */
     var pedestrianMode = eligibleModes.stream().filter(
-        m -> m.getPredefinedModeType() == PredefinedModeType.PEDESTRIAN).findFirst();
+        m -> m.isPredefinedModeType(PredefinedModeType.PEDESTRIAN)).findFirst();
     var noWalkLinkZones = pedestrianMode.isPresent()
         ? new HashSet<>(noModeCompatibleLinkZones.get(pedestrianMode.get())) : Collections.<Zone>emptySet();
 
