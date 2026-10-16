@@ -24,7 +24,7 @@ import org.goplanit.matsim.converter.MatsimWriter;
 import org.goplanit.matsim.util.MatsimNetworkWriterUtils;
 import org.goplanit.matsim.xml.*;
 import org.goplanit.utils.geo.PlanitCrsUtils;
-import org.goplanit.utils.graph.directed.BannedMovement;
+import org.goplanit.utils.graph.directed.BannedTurn;
 import org.goplanit.utils.graph.directed.EdgeSegment;
 import org.goplanit.utils.id.IdMapperType;
 import org.goplanit.converter.idmapping.NetworkIdMapper;
@@ -37,6 +37,7 @@ import org.goplanit.utils.exceptions.PlanItRunTimeException;
 import org.goplanit.utils.misc.Pair;
 import org.goplanit.utils.misc.StringUtils;
 import org.goplanit.utils.mode.Mode;
+import org.goplanit.utils.network.layer.macroscopic.MacroscopicBannedTurn;
 import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
 import org.goplanit.utils.network.layer.physical.Link;
 import org.goplanit.utils.network.layer.physical.Node;
@@ -68,31 +69,63 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
   private MatsimTransferAccessWriter transferAccessWriter;
 
   /**
-   * Construct the json type string that MATSim adopts for banned movements
+   * Verify if a banned turn bans a PLANit mode. A banned turn of a macroscopic layer names the modes it bans, or bans
+   * every mode when it names none; any other banned turn bans every mode
+   *
+   * @param bannedTurn to verify
+   * @param mode to verify
+   * @return true when banned for the mode, false otherwise
+   */
+  private static boolean isBannedFor(BannedTurn bannedTurn, Mode mode) {
+    return !(bannedTurn instanceof MacroscopicBannedTurn) || ((MacroscopicBannedTurn) bannedTurn).isModeBanned(mode);
+  }
+
+  /**
+   * Verify if a banned turn bans a PLANit mode mapped to a MATSim mode
+   *
+   * @param bannedTurn to verify
+   * @param matsimMode to verify, null for any mapped MATSim mode
+   * @param planitModeToMatsimModeMapping to use
+   * @return true when it bans a PLANit mode mapped to the MATSim mode, false otherwise
+   */
+  private static boolean isBannedForMatsimMode(
+      BannedTurn bannedTurn, String matsimMode, Map<Mode, String> planitModeToMatsimModeMapping) {
+    return planitModeToMatsimModeMapping.entrySet().stream().anyMatch(mapped ->
+        (matsimMode == null || matsimMode.equals(mapped.getValue())) && isBannedFor(bannedTurn, mapped.getKey()));
+  }
+
+  /**
+   * Construct the json type string that MATSim adopts for banned turns, per MATSim mode the banned turns that ban a
+   * PLANit mode mapped to it. A MATSim mode no banned turn applies to is left out.
    * Note that we currently only support bans with a single exit not with via setups
    *
-   * @param bannedMovementsOfFromSegment  banned movements for from segment to convert
+   * @param bannedTurnsOfFromSegment  banned turns for from segment to convert
    * @param planitModeToMatsimModeMapping to use
    * @return json string, e.g. {"car":[["exitAId"],["exitViaDId","toExitEId"]]}
    */
-  private String constructBannedMovementJSon(
-      List<BannedMovement> bannedMovementsOfFromSegment, Map<Mode, String> planitModeToMatsimModeMapping) {
+  private String constructBannedTurnJSon(
+      List<BannedTurn> bannedTurnsOfFromSegment, Map<Mode, String> planitModeToMatsimModeMapping) {
 
     StringBuilder jsonBuilder = new StringBuilder();
     jsonBuilder.append("{");
-    // for now we ban a movement for all supported modes, as we do not support mode specific bans yet in PLANit
     planitModeToMatsimModeMapping.values().stream().distinct().forEach(matsimMode ->
     {
+      var bannedTurnsOfMatsimMode = bannedTurnsOfFromSegment.stream().filter(
+          bannedTurn -> isBannedForMatsimMode(bannedTurn, matsimMode, planitModeToMatsimModeMapping))
+          .collect(Collectors.toList());
+      if(bannedTurnsOfMatsimMode.isEmpty()){
+        return;
+      }
       jsonBuilder.append("\"").append(matsimMode).append("\":");
       jsonBuilder.append("[");
       boolean firstTo = true;
-      for(var bannedMovement : bannedMovementsOfFromSegment){
+      for(var bannedTurn : bannedTurnsOfMatsimMode){
         if(!firstTo){
           jsonBuilder.append(",");
         }
         jsonBuilder.append("[");
         var matsimToSegmentId = MatsimNetworkWriterUtils.produceMappedMatsimLinkId(
-            (MacroscopicLinkSegment) bannedMovement.getSegmentTo(),
+            (MacroscopicLinkSegment) bannedTurn.getSegmentTo(),
             getIdMapperType(),
             getComponentIdMappers().getNetworkIdMappers(),
             usedExternalMatsimLinkIds);
@@ -128,13 +161,13 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
    * @param xmlWriter to use
    * @param linkSegment link segment to write
    * @param planitModeToMatsimModeMapping quick mapping from PLANit mode to MATSIM mode string
-   * @param bannedMovementsOfFromSegment the banned movements for this from segment (can be null)
+   * @param bannedTurnsOfFromSegment the banned turns for this from segment (can be null)
    */
   private void writeMatsimLink(
       XMLStreamWriter xmlWriter, 
       MacroscopicLinkSegment linkSegment, 
       Map<Mode, String> planitModeToMatsimModeMapping,
-      List<BannedMovement> bannedMovementsOfFromSegment){
+      List<BannedTurn> bannedTurnsOfFromSegment){
 
     if(Collections.disjoint(planitModeToMatsimModeMapping.keySet(), linkSegment.getAllowedModes())) {
       /* link segment has no modes that are activated on the MATSIM network -> ignore */
@@ -142,8 +175,14 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
       return;
     }
 
+    /* only the banned turns that apply to a mode written to MATSim */
+    if(bannedTurnsOfFromSegment != null){
+      bannedTurnsOfFromSegment = bannedTurnsOfFromSegment.stream().filter(
+          bannedTurn -> isBannedForMatsimMode(bannedTurn, null, planitModeToMatsimModeMapping))
+          .collect(Collectors.toList());
+    }
     boolean hasInteralAttributeElements =
-        bannedMovementsOfFromSegment != null && !bannedMovementsOfFromSegment.isEmpty();
+        bannedTurnsOfFromSegment != null && !bannedTurnsOfFromSegment.isEmpty();
     
     try {
       if(hasInteralAttributeElements){
@@ -263,7 +302,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
         writeStartElementNewLine(xmlWriter, MatsimNetworkElements.ATTRIBUTES, true /*++indent*/);
 
         // add in attributes for this type
-        if(bannedMovementsOfFromSegment != null && !bannedMovementsOfFromSegment.isEmpty()){
+        if(bannedTurnsOfFromSegment != null && !bannedTurnsOfFromSegment.isEmpty()){
           writeStartElement(xmlWriter, MatsimNetworkElements.ATTRIBUTE, true /*++indent*/);
           xmlWriter.writeAttribute(
               MatsimAttributes.NAME, MatsimNetworkAttributes.DISALLOWED_NEXT_LINKS);
@@ -272,12 +311,12 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
           //PlanitXmlWriterUtils.writeNewLine(xmlWriter);
           //PlanitXmlWriterUtils.writeValueWithIndentationPrefix(
           xmlWriter.writeCharacters(
-              constructBannedMovementJSon(bannedMovementsOfFromSegment, planitModeToMatsimModeMapping));
+              constructBannedTurnJSon(bannedTurnsOfFromSegment, planitModeToMatsimModeMapping));
           //PlanitXmlWriterUtils.writeNewLine(xmlWriter);
           xmlWriter.writeEndElement();
           decreaseIndentation();
           PlanitXmlWriterUtils.writeNewLine(xmlWriter);
-          writerStats.addTurnRestrictionsWritten(bannedMovementsOfFromSegment.size());
+          writerStats.addTurnRestrictionsWritten(bannedTurnsOfFromSegment.size());
         }
         // </ATTRIBUTES>
         writeEndElementNewLine(xmlWriter, true /*--indent*/);
@@ -299,32 +338,32 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
    * @param xmlWriter                     to use
    * @param link                          to extract MATSIM link(s) from
    * @param planitModeToMatsimModeMapping quick mapping from PLANit mode to MATSIM mode string
-   * @param bannedMovementsByFromSegment banned movements by from segment
+   * @param bannedTurnsByFromSegment banned turns by from segment
    */
   private void writeMatsimLink(
       XMLStreamWriter xmlWriter,
       Link link,
       Map<Mode, String> planitModeToMatsimModeMapping,
-      Map<EdgeSegment, List<BannedMovement>> bannedMovementsByFromSegment){
+      Map<EdgeSegment, List<BannedTurn>> bannedTurnsByFromSegment){
     
     /* A --> B */
     if(link.hasEdgeSegmentAb()) {
-      var bannedMovementsOnLinkSegment = bannedMovementsByFromSegment.get(link.getEdgeSegmentAb());
+      var bannedTurnsOnLinkSegment = bannedTurnsByFromSegment.get(link.getEdgeSegmentAb());
       writeMatsimLink(
           xmlWriter,
           (MacroscopicLinkSegment) link.getEdgeSegmentAb(),
           planitModeToMatsimModeMapping,
-          bannedMovementsOnLinkSegment);
+          bannedTurnsOnLinkSegment);
     }
     
     /* A <-- B */
     if(link.hasEdgeSegmentBa()) {
-      var bannedMovementsOnLinkSegment = bannedMovementsByFromSegment.get(link.getEdgeSegmentBa());
+      var bannedTurnsOnLinkSegment = bannedTurnsByFromSegment.get(link.getEdgeSegmentBa());
       writeMatsimLink(
           xmlWriter,
           (MacroscopicLinkSegment) link.getEdgeSegmentBa(),
           planitModeToMatsimModeMapping,
-          bannedMovementsOnLinkSegment);
+          bannedTurnsOnLinkSegment);
     }
     
   }  
@@ -343,12 +382,12 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
       Map<Mode, String> planitModeToMatsimModeMapping =
           settings.collectActivatedPlanitModeToMatsimModeMapping(networkLayer);
 
-      var bannedMovementsByFromSegment =
-          networkLayer.getBannedMovements().stream().collect(Collectors.groupingBy(BannedMovement::getSegmentFrom));
+      var bannedTurnsByFromSegment =
+          networkLayer.getBannedTurns().stream().collect(Collectors.groupingBy(BannedTurn::getSegmentFrom));
 
       /* write link(segments) one by one */
       for(Link link: networkLayer.getLinks()) {
-        writeMatsimLink(xmlWriter, link, planitModeToMatsimModeMapping, bannedMovementsByFromSegment);
+        writeMatsimLink(xmlWriter, link, planitModeToMatsimModeMapping, bannedTurnsByFromSegment);
       }
 
       /* the connections to the stops, every node they refer to having been written already */
