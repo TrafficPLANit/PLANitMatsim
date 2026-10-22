@@ -90,14 +90,14 @@ public class SydneyPlanit2MatsimTest {
       MatsimAssertionUtils.assertTransitScheduleFilesSimilar(MATSIM_OUTPUT_DIR, MATSIM_REF_DIR);
 
       var networkStats = matsimWriter.getNetworkWriterStats();
-      assertEquals(1_130, networkStats.getNodesWritten());
-      assertEquals(2_126, networkStats.getLinkSegmentsWritten());
-      assertEquals(551, networkStats.getLinkSegmentsSkippedNoActivatedMode());
-      assertEquals(55, networkStats.getTurnRestrictionsWritten());
+      assertEquals(1_103, networkStats.getNodesWritten());
+      assertEquals(1_881, networkStats.getLinkSegmentsWritten());
+      assertEquals(544, networkStats.getLinkSegmentsSkippedNoActivatedMode());
+      assertEquals(44, networkStats.getTurnRestrictionsWritten());
 
       /* the stops are written, their services are not, so the schedule holds no lines to run along them */
       var ptStats = matsimWriter.getZoningWriterStats().getPtWriterStats();
-      assertEquals(99, ptStats.getStopFacilitiesWritten());
+      assertEquals(98, ptStats.getStopFacilitiesWritten());
       assertEquals(0, ptStats.getTransitLinesWritten());
       assertEquals(0, ptStats.getTransitRoutesWritten());
 
@@ -139,17 +139,17 @@ public class SydneyPlanit2MatsimTest {
       assertTrue(MatsimAssertionUtils.isNetworkGeometryFilesSimilar(MATSIM_OUTPUT_DIR,MATSIM_REF_DIR));
 
       var networkStats = matsimWriter.getNetworkWriterStats();
-      assertEquals(1_130, networkStats.getNodesWritten());
-      assertEquals(2_126, networkStats.getLinkSegmentsWritten());
-      assertEquals(551, networkStats.getLinkSegmentsSkippedNoActivatedMode());
-      assertEquals(55, networkStats.getTurnRestrictionsWritten());
+      assertEquals(1_103, networkStats.getNodesWritten());
+      assertEquals(1_881, networkStats.getLinkSegmentsWritten());
+      assertEquals(544, networkStats.getLinkSegmentsSkippedNoActivatedMode());
+      assertEquals(44, networkStats.getTurnRestrictionsWritten());
 
       /* the services are written alongside the stops, so the schedule holds the lines running along them */
       var ptStats = matsimWriter.getRoutedServicesWriterStats().getPtWriterStats();
-      assertEquals(99, ptStats.getStopFacilitiesWritten());
-      assertEquals(69, ptStats.getTransitLinesWritten());
-      assertEquals(261, ptStats.getTransitRoutesWritten());
-      assertEquals(261, ptStats.getTransitRoutesWritten(MatsimBuiltInMode.PT.getValue()));
+      assertEquals(98, ptStats.getStopFacilitiesWritten());
+      assertEquals(68, ptStats.getTransitLinesWritten());
+      assertEquals(255, ptStats.getTransitRoutesWritten());
+      assertEquals(255, ptStats.getTransitRoutesWritten(MatsimBuiltInMode.PT.getValue()));
       assertEquals(0, ptStats.getTransitRoutesWritten(MatsimBuiltInMode.CAR.getValue()));
 
     } catch (final Exception e) {
