@@ -4,10 +4,12 @@ import org.goplanit.converter.intermodal.IntermodalConverterFactory;
 import org.goplanit.io.converter.intermodal.PlanitIntermodalReaderFactory;
 import org.goplanit.logging.Logging;
 import org.goplanit.matsim.converter.MatsimIntermodalWriterFactory;
+import org.goplanit.matsim.converter.network.MatsimNetworkWriterStats;
 import org.goplanit.matsim.util.MatsimAssertionUtils;
 import org.goplanit.matsim.util.MatsimBuiltInMode;
 import org.goplanit.utils.id.IdGenerator;
 import org.goplanit.utils.locale.CountryNames;
+import org.goplanit.utils.network.layer.macroscopic.intersection.IntersectionSegmentKind;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -34,7 +36,23 @@ public class SydneyPlanit2MatsimTest {
   private static final Path RESOURCE_PATH = Path.of("src","test","resources");
 
   private static final Path SYDNEYCBD_PLANIT = Path.of(RESOURCE_PATH.toString(),"planit","sydney");
- 
+
+  /**
+   * The link segments written with a reduced exit capacity, by kind: 125 junction approaches at 0.44, 39 at 0.28 and 17
+   * at 0.94, 29 approaches at a crossing only at 0.9 and 3 approaches without a signal at 0.5
+   *
+   * @param networkStats of the MATSim network writer
+   */
+  private static void assertLinkExitCapacityReductions(MatsimNetworkWriterStats networkStats) {
+    assertEquals(213, networkStats.getLinkSegmentsWithReducedExitCapacity());
+    assertEquals(181,
+        networkStats.getLinkSegmentsWithReducedExitCapacity(IntersectionSegmentKind.APPROACH_WITH_SIGNAL_AT_JUNCTION));
+    assertEquals(29, networkStats.getLinkSegmentsWithReducedExitCapacity(
+        IntersectionSegmentKind.APPROACH_WITH_SIGNAL_AT_CROSSING_ONLY));
+    assertEquals(3,
+        networkStats.getLinkSegmentsWithReducedExitCapacity(IntersectionSegmentKind.APPROACH_WITHOUT_SIGNAL, 0.5));
+  }
+
   @BeforeAll
   public static void setUp() throws Exception {
     if (LOGGER == null) {
@@ -79,6 +97,7 @@ public class SydneyPlanit2MatsimTest {
       var matsimWriter = MatsimIntermodalWriterFactory.create(
           MATSIM_OUTPUT_DIR.toAbsolutePath().toString(), CountryNames.AUSTRALIA);
       matsimWriter.getSettings().getNetworkSettings().setGenerateDetailedLinkGeometryFile(true);
+      matsimWriter.getSettings().getNetworkSettings().setReduceLinkExitCapacityByEffectiveCapacityFactor(true);
       matsimWriter.getSettings().setWriteAsGZip(false);
 
       /* perform the conversion*/
@@ -94,6 +113,7 @@ public class SydneyPlanit2MatsimTest {
       assertEquals(1_881, networkStats.getLinkSegmentsWritten());
       assertEquals(544, networkStats.getLinkSegmentsSkippedNoActivatedMode());
       assertEquals(44, networkStats.getTurnRestrictionsWritten());
+      assertLinkExitCapacityReductions(networkStats);
 
       /* the stops are written, their services are not, so the schedule holds no lines to run along them */
       var ptStats = matsimWriter.getZoningWriterStats().getPtWriterStats();
@@ -129,6 +149,7 @@ public class SydneyPlanit2MatsimTest {
       var matsimWriter = MatsimIntermodalWriterFactory.create(
               MATSIM_OUTPUT_DIR.toAbsolutePath().toString(), CountryNames.AUSTRALIA);
       matsimWriter.getSettings().getNetworkSettings().setGenerateDetailedLinkGeometryFile(true);
+      matsimWriter.getSettings().getNetworkSettings().setReduceLinkExitCapacityByEffectiveCapacityFactor(true);
       matsimWriter.getSettings().setWriteAsGZip(false);
 
       /* perform the conversion*/
@@ -143,6 +164,7 @@ public class SydneyPlanit2MatsimTest {
       assertEquals(1_881, networkStats.getLinkSegmentsWritten());
       assertEquals(544, networkStats.getLinkSegmentsSkippedNoActivatedMode());
       assertEquals(44, networkStats.getTurnRestrictionsWritten());
+      assertLinkExitCapacityReductions(networkStats);
 
       /* the services are written alongside the stops, so the schedule holds the lines running along them */
       var ptStats = matsimWriter.getRoutedServicesWriterStats().getPtWriterStats();

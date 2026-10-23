@@ -233,7 +233,7 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterModeMappingSe
   /** Set if the capacity of each MATSim link, the rate at which vehicles can leave it, is reduced by the effective
    * capacity factor of its link segment: that of its approach of an intersection, of any control type, or of its
    * internal segment with a signal, see
-   * {@link org.goplanit.utils.network.layer.macroscopic.intersection.Intersections#getEffectiveCapacityFactorOf}. For
+   * {@link org.goplanit.utils.network.layer.macroscopic.intersection.Intersection#getEffectiveCapacityFactorOf}. For
    * example an approach of 3,600 pcu/h with a green ratio of 0.44 is written with 1,584 pcu/h. Values on movements are
    * not used: a MATSim link has one capacity for all the traffic on it. Off by default
    *

@@ -1,18 +1,45 @@
 package org.goplanit.matsim.converter.network;
 
+import org.goplanit.utils.math.RoundUtils;
 import org.goplanit.utils.misc.LoggingUtils;
+import org.goplanit.utils.network.layer.macroscopic.intersection.IntersectionSegmentKind;
 
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.Map;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.stream.Collectors;
 
 /**
  * Collects statistics during MATSim network writing.
  */
 public class MatsimNetworkWriterStats {
 
+  /** number of decimals a factor is rounded to, as counted and logged */
+  private static final int FACTOR_DECIMALS = 2;
+
   /**
-   * Constructor.
+   * What a kind of intersection segment is and why its factor reduces the exit capacity, as logged
+   *
+   * @param kind to describe
+   * @return the description
    */
-  public MatsimNetworkWriterStats() {}
+  private static String describe(IntersectionSegmentKind kind) {
+    switch (kind) {
+      case APPROACH_WITH_SIGNAL_AT_JUNCTION:
+        return "approach with a signal at a junction, green for its phase only";
+      case APPROACH_WITH_SIGNAL_AT_CROSSING_ONLY:
+        return "approach with a signal at a crossing only, green unless pedestrians cross";
+      case APPROACH_WITHOUT_SIGNAL:
+        return "approach without a signal of its own, giving way to signalised traffic";
+      case INTERNAL_SEGMENT_WITH_SIGNAL:
+        return "internal segment with a signal, values set directly";
+      default:
+        return "internal segment without a signal";
+    }
+  }
 
   /**
    * Number of nodes written.
@@ -33,6 +60,18 @@ public class MatsimNetworkWriterStats {
    * Number of turn restrictions written.
    */
   private final LongAdder turnRestrictionsWritten = new LongAdder();
+
+  /**
+   * Number of link segments written with a reduced exit capacity, by the kind of intersection segment they are and by
+   * factor rounded to two decimals.
+   */
+  private final Map<IntersectionSegmentKind, SortedMap<Double, Long>> linkSegmentsWithReducedExitCapacity =
+      new EnumMap<>(IntersectionSegmentKind.class);
+
+  /**
+   * Constructor.
+   */
+  public MatsimNetworkWriterStats() {}
 
   /**
    * Increment the number of nodes written.
@@ -62,6 +101,17 @@ public class MatsimNetworkWriterStats {
    */
   public void addTurnRestrictionsWritten(long turnRestrictions) {
     turnRestrictionsWritten.add(turnRestrictions);
+  }
+
+  /**
+   * Count a link segment written with a reduced exit capacity.
+   *
+   * @param kind of intersection segment it is
+   * @param factor its capacity was multiplied by, below 1
+   */
+  public void addLinkSegmentWithReducedExitCapacity(IntersectionSegmentKind kind, double factor) {
+    linkSegmentsWithReducedExitCapacity.computeIfAbsent(kind, newKind -> new TreeMap<>())
+        .merge(RoundUtils.simpleDoubleRound(factor, FACTOR_DECIMALS), 1L, Long::sum);
   }
 
   /**
@@ -110,6 +160,66 @@ public class MatsimNetworkWriterStats {
   }
 
   /**
+   * The link segments written with a reduced exit capacity, of any kind
+   *
+   * @return number of link segments
+   */
+  public long getLinkSegmentsWithReducedExitCapacity() {
+    return linkSegmentsWithReducedExitCapacity.keySet().stream()
+        .mapToLong(this::getLinkSegmentsWithReducedExitCapacity).sum();
+  }
+
+  /**
+   * The link segments written with a reduced exit capacity that are of a kind of intersection segment
+   *
+   * @param kind of intersection segment
+   * @return number of link segments
+   */
+  public long getLinkSegmentsWithReducedExitCapacity(IntersectionSegmentKind kind) {
+    return linkSegmentsWithReducedExitCapacity.getOrDefault(kind, Collections.emptySortedMap()).values().stream()
+        .mapToLong(Long::longValue).sum();
+  }
+
+  /**
+   * The link segments written with a reduced exit capacity that are of a kind of intersection segment and had their
+   * capacity multiplied by a factor, compared rounded to two decimals
+   *
+   * @param kind of intersection segment
+   * @param factor the capacity was multiplied by
+   * @return number of link segments
+   */
+  public long getLinkSegmentsWithReducedExitCapacity(IntersectionSegmentKind kind, double factor) {
+    return linkSegmentsWithReducedExitCapacity.getOrDefault(kind, Collections.emptySortedMap())
+        .getOrDefault(RoundUtils.simpleDoubleRound(factor, FACTOR_DECIMALS), 0L);
+  }
+
+  /**
+   * The link segments written with a reduced exit capacity, one line per kind of intersection segment that can reduce
+   * it, saying what the kind means and how many got each factor, for example "approach without a signal of its own,
+   * giving way to signalised traffic: 3, factor 0.50 on 3"
+   *
+   * @return the summary
+   */
+  public String getLinkExitCapacityReductionSummary() {
+    var summary = new StringBuilder(String.format("Link exit capacity reduced by the effective capacity factor on %s%n",
+        LoggingUtils.countWithPercentage(
+            getLinkSegmentsWithReducedExitCapacity(), getLinkSegmentsWritten(), "link segments written")));
+    for (var kind : IntersectionSegmentKind.values()) {
+      if (!kind.holdsEffectiveCapacityFactor()) {
+        continue;
+      }
+      summary.append(String.format("  %s: %d", describe(kind), getLinkSegmentsWithReducedExitCapacity(kind)));
+      var byFactor = linkSegmentsWithReducedExitCapacity.getOrDefault(kind, Collections.emptySortedMap());
+      if (!byFactor.isEmpty()) {
+        summary.append(byFactor.entrySet().stream().map(entry -> String.format("%.2f on %d", entry.getKey(),
+            entry.getValue())).collect(Collectors.joining(", ", ", factor ", "")));
+      }
+      summary.append(String.format("%n"));
+    }
+    return summary.toString();
+  }
+
+  /**
    * {@inheritDoc}
    */
   @Override
@@ -137,5 +247,6 @@ public class MatsimNetworkWriterStats {
     linkSegmentsWritten.reset();
     linkSegmentsSkippedNoActivatedMode.reset();
     turnRestrictionsWritten.reset();
+    linkSegmentsWithReducedExitCapacity.clear();
   }
 }

@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.regex.Pattern;
 
+import org.goplanit.matsim.converter.network.MatsimNetworkWriter;
 import org.goplanit.matsim.converter.network.MatsimNetworkWriterFactory;
 import org.goplanit.matsim.converter.network.MatsimNetworkWriterSettings;
 import org.goplanit.network.MacroscopicNetwork;
@@ -21,6 +22,7 @@ import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
 import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegmentType;
 import org.goplanit.utils.network.layer.macroscopic.intersection.CapacityFactorOrigin;
 import org.goplanit.utils.network.layer.macroscopic.intersection.IntersectionControlType;
+import org.goplanit.utils.network.layer.macroscopic.intersection.IntersectionSegmentKind;
 import org.goplanit.utils.network.layer.macroscopic.intersection.IntersectionSignalSegment;
 import org.goplanit.utils.network.layer.macroscopic.intersection.IntersectionType;
 import org.goplanit.utils.network.layer.macroscopic.intersection.SpatialIntersection;
@@ -82,12 +84,18 @@ public class MatsimLinkExitCapacityTest {
     return segment;
   }
 
-  /** write the network, reducing link exit capacity or not, and collect the capacity written for the link segment */
-  private double capacityWrittenFor(MacroscopicLinkSegment segment, boolean reduce) throws Exception {
+  /** write the network, reducing link exit capacity or not, and return the writer with its statistics */
+  private MatsimNetworkWriter write(boolean reduce) throws Exception {
     var writer = MatsimNetworkWriterFactory.create(outputDir.toAbsolutePath().toString());
     writer.getSettings().setWriteAsGZip(false);
     writer.getSettings().setReduceLinkExitCapacityByEffectiveCapacityFactor(reduce);
     writer.write(network);
+    return writer;
+  }
+
+  /** write the network, reducing link exit capacity or not, and collect the capacity written for the link segment */
+  private double capacityWrittenFor(MacroscopicLinkSegment segment, boolean reduce) throws Exception {
+    write(reduce);
 
     var written = Files.readString(
         outputDir.resolve(MatsimNetworkWriterSettings.DEFAULT_NETWORK_FILE_NAME + ".xml"));
@@ -174,5 +182,53 @@ public class MatsimLinkExitCapacityTest {
     for (var segment : List.of(approach, approachWithoutSignal, internal, exit)) {
       assertEquals(3600, capacityWrittenFor(segment, false), 1e-6);
     }
+  }
+
+  /** Each link segment written with a reduced capacity is counted by its kind of intersection segment and its factor:
+   * the approach with a signal at 0.44, the approach without a signal at 0.5 and the internal segment, given a signal,
+   * at 0.6; the exit is not counted */
+  @Test
+  public void reducedLinkSegmentsAreCountedByKindAndFactor() throws Exception {
+    ((IntersectionSignalSegment) junction.getApproach(approach)).setGreenRatio(0.44, CapacityFactorOrigin.SET_DIRECTLY);
+    junction.getApproach(approachWithoutSignal).setSaturationFlowFactor(0.5, CapacityFactorOrigin.SET_DIRECTLY);
+    junction.addNewInternalSegmentWithSignal(internal);
+    ((IntersectionSignalSegment) junction.getIntersectionInternalSegment(internal))
+        .setGreenRatio(0.6, CapacityFactorOrigin.SET_DIRECTLY);
+
+    var stats = write(true).getWriterStats();
+
+    assertEquals(3, stats.getLinkSegmentsWithReducedExitCapacity());
+    assertEquals(1,
+        stats.getLinkSegmentsWithReducedExitCapacity(IntersectionSegmentKind.APPROACH_WITH_SIGNAL_AT_JUNCTION));
+    assertEquals(1,
+        stats.getLinkSegmentsWithReducedExitCapacity(IntersectionSegmentKind.APPROACH_WITH_SIGNAL_AT_JUNCTION, 0.44));
+    assertEquals(1, stats.getLinkSegmentsWithReducedExitCapacity(IntersectionSegmentKind.APPROACH_WITHOUT_SIGNAL, 0.5));
+    assertEquals(1,
+        stats.getLinkSegmentsWithReducedExitCapacity(IntersectionSegmentKind.INTERNAL_SEGMENT_WITH_SIGNAL, 0.6));
+    assertEquals(0,
+        stats.getLinkSegmentsWithReducedExitCapacity(IntersectionSegmentKind.APPROACH_WITH_SIGNAL_AT_CROSSING_ONLY));
+  }
+
+  /** An approach with green ratio 0.44 that allows no mode activated for MATSim is left out, and so not counted */
+  @Test
+  public void leftOutLinkSegmentIsNotCounted() throws Exception {
+    ((IntersectionSignalSegment) junction.getApproach(approach)).setGreenRatio(0.44, CapacityFactorOrigin.SET_DIRECTLY);
+    var withoutModes = layer.getLinkSegmentTypes().getFactory().registerNew("no modes", 3600, 180);
+    withoutModes.setXmlId(String.valueOf(withoutModes.getId()));
+    approach.setLinkSegmentType(withoutModes);
+
+    var stats = write(true).getWriterStats();
+
+    assertEquals(1, stats.getLinkSegmentsSkippedNoActivatedMode());
+    assertEquals(0, stats.getLinkSegmentsWithReducedExitCapacity());
+  }
+
+  /** With the setting off no link segment is counted as reduced */
+  @Test
+  public void nothingIsCountedWithTheSettingOff() throws Exception {
+    ((IntersectionSignalSegment) junction.getApproach(approach)).setGreenRatio(0.44, CapacityFactorOrigin.SET_DIRECTLY);
+    junction.getApproach(approachWithoutSignal).setSaturationFlowFactor(0.5, CapacityFactorOrigin.SET_DIRECTLY);
+
+    assertEquals(0, write(false).getWriterStats().getLinkSegmentsWithReducedExitCapacity());
   }
 }
