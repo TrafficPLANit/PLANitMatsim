@@ -8,6 +8,7 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Function;
+import java.util.function.ToDoubleFunction;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -40,6 +41,7 @@ import org.goplanit.utils.mode.Mode;
 import org.goplanit.utils.network.layer.macroscopic.MacroscopicBannedTurn;
 import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
 import org.goplanit.utils.network.layer.physical.Link;
+import org.goplanit.utils.network.layer.physical.LinkSegment;
 import org.goplanit.utils.network.layer.physical.Node;
 import org.goplanit.utils.unit.Unit;
 import org.goplanit.utils.xml.PlanitXmlWriterUtils;
@@ -162,12 +164,14 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
    * @param linkSegment link segment to write
    * @param planitModeToMatsimModeMapping quick mapping from PLANit mode to MATSIM mode string
    * @param bannedTurnsOfFromSegment the banned turns for this from segment (can be null)
+   * @param linkExitCapacityFactor the capacity written is multiplied by, 1 to write the link segment's capacity as is
    */
   private void writeMatsimLink(
-      XMLStreamWriter xmlWriter, 
-      MacroscopicLinkSegment linkSegment, 
+      XMLStreamWriter xmlWriter,
+      MacroscopicLinkSegment linkSegment,
       Map<Mode, String> planitModeToMatsimModeMapping,
-      List<BannedTurn> bannedTurnsOfFromSegment){
+      List<BannedTurn> bannedTurnsOfFromSegment,
+      double linkExitCapacityFactor){
 
     if(Collections.disjoint(planitModeToMatsimModeMapping.keySet(), linkSegment.getAllowedModes())) {
       /* link segment has no modes that are activated on the MATSIM network -> ignore */
@@ -243,8 +247,8 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
               String.format("%.2f",Unit.KM_HOUR.convertTo(Unit.METER_SECOND, linkSpeedLimit)));
           
           /* CAPACITY */
-          xmlWriter.writeAttribute(
-              MatsimNetworkAttributes.CAPACITY_HOUR, String.format("%.1f",linkSegment.getCapacityOrDefaultPcuH()));
+          xmlWriter.writeAttribute(MatsimNetworkAttributes.CAPACITY_HOUR,
+              String.format("%.1f",linkSegment.getCapacityOrDefaultPcuH() * linkExitCapacityFactor));
           
           /* PERMLANES */
           xmlWriter.writeAttribute(MatsimNetworkAttributes.PERMLANES, String.valueOf(linkSegment.getNumberOfLanes()));
@@ -339,13 +343,15 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
    * @param link                          to extract MATSIM link(s) from
    * @param planitModeToMatsimModeMapping quick mapping from PLANit mode to MATSIM mode string
    * @param bannedTurnsByFromSegment banned turns by from segment
+   * @param linkExitCapacityFactorOf the factor the capacity written for a link segment is multiplied by
    */
   private void writeMatsimLink(
       XMLStreamWriter xmlWriter,
       Link link,
       Map<Mode, String> planitModeToMatsimModeMapping,
-      Map<EdgeSegment, List<BannedTurn>> bannedTurnsByFromSegment){
-    
+      Map<EdgeSegment, List<BannedTurn>> bannedTurnsByFromSegment,
+      ToDoubleFunction<LinkSegment> linkExitCapacityFactorOf){
+
     /* A --> B */
     if(link.hasEdgeSegmentAb()) {
       var bannedTurnsOnLinkSegment = bannedTurnsByFromSegment.get(link.getEdgeSegmentAb());
@@ -353,9 +359,10 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
           xmlWriter,
           (MacroscopicLinkSegment) link.getEdgeSegmentAb(),
           planitModeToMatsimModeMapping,
-          bannedTurnsOnLinkSegment);
+          bannedTurnsOnLinkSegment,
+          linkExitCapacityFactorOf.applyAsDouble(link.getLinkSegmentAb()));
     }
-    
+
     /* A <-- B */
     if(link.hasEdgeSegmentBa()) {
       var bannedTurnsOnLinkSegment = bannedTurnsByFromSegment.get(link.getEdgeSegmentBa());
@@ -363,7 +370,8 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
           xmlWriter,
           (MacroscopicLinkSegment) link.getEdgeSegmentBa(),
           planitModeToMatsimModeMapping,
-          bannedTurnsOnLinkSegment);
+          bannedTurnsOnLinkSegment,
+          linkExitCapacityFactorOf.applyAsDouble(link.getLinkSegmentBa()));
     }
     
   }  
@@ -385,9 +393,15 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
       var bannedTurnsByFromSegment =
           networkLayer.getBannedTurns().stream().collect(Collectors.groupingBy(BannedTurn::getSegmentFrom));
 
+      /* the capacity written is the rate at which vehicles can leave the link, reduced at an intersection when asked */
+      ToDoubleFunction<LinkSegment> linkExitCapacityFactorOf =
+          getSettings().isReduceLinkExitCapacityByEffectiveCapacityFactor() ?
+              networkLayer.getIntersections()::getEffectiveCapacityFactorOf : linkSegment -> 1;
+
       /* write link(segments) one by one */
       for(Link link: networkLayer.getLinks()) {
-        writeMatsimLink(xmlWriter, link, planitModeToMatsimModeMapping, bannedTurnsByFromSegment);
+        writeMatsimLink(
+            xmlWriter, link, planitModeToMatsimModeMapping, bannedTurnsByFromSegment, linkExitCapacityFactorOf);
       }
 
       /* the connections to the stops, every node they refer to having been written already */

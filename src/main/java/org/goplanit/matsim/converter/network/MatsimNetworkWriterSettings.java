@@ -68,6 +68,17 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterModeMappingSe
    */
   protected double minimumLinkLengthMeters = DEFAULT_MINIMUM_LINK_LENGTH_METERS;
 
+  /** reduce the capacity of each MATSim link by the effective capacity factor of its link segment, see
+   * {@link #setReduceLinkExitCapacityByEffectiveCapacityFactor(boolean)} */
+  protected boolean reduceLinkExitCapacityByEffectiveCapacityFactor =
+      DEFAULT_REDUCE_LINK_EXIT_CAPACITY_BY_EFFECTIVE_CAPACITY_FACTOR;
+
+  /**
+   * Default setting for reducing the capacity of each MATSim link by the effective capacity factor of its link segment
+   * is false
+   */
+  public static final boolean DEFAULT_REDUCE_LINK_EXIT_CAPACITY_BY_EFFECTIVE_CAPACITY_FACTOR = false;
+
   /**
    * Convenience method to log all the current settings
    * 
@@ -83,6 +94,8 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterModeMappingSe
     LOGGER.info(LoggingUtils.settingsValue(
         "Restrict link speed by supported modes", restrictLinkSpeedBySupportedModes, level));
     LOGGER.info(LoggingUtils.settingsValue("Minimum link length (m)", minimumLinkLengthMeters, level));
+    LOGGER.info(LoggingUtils.settingsValue("Reduce link exit capacity by effective capacity factor",
+        reduceLinkExitCapacityByEffectiveCapacityFactor, level));
   }
 
   /**
@@ -209,6 +222,28 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterModeMappingSe
     this.minimumLinkLengthMeters = minimumLinkLengthMeters;
   }
 
+  /** Check if the capacity of each MATSim link is reduced by the effective capacity factor of its link segment
+   *
+   * @return true when reduced, false otherwise
+   */
+  public boolean isReduceLinkExitCapacityByEffectiveCapacityFactor() {
+    return reduceLinkExitCapacityByEffectiveCapacityFactor;
+  }
+
+  /** Set if the capacity of each MATSim link, the rate at which vehicles can leave it, is reduced by the effective
+   * capacity factor of its link segment: that of its approach of an intersection, of any control type, or of its
+   * internal segment with a signal, see
+   * {@link org.goplanit.utils.network.layer.macroscopic.intersection.Intersections#getEffectiveCapacityFactorOf}. For
+   * example an approach of 3,600 pcu/h with a green ratio of 0.44 is written with 1,584 pcu/h. Values on movements are
+   * not used: a MATSim link has one capacity for all the traffic on it. Off by default
+   *
+   * @param reduceLinkExitCapacityByEffectiveCapacityFactor flag to set
+   */
+  public void setReduceLinkExitCapacityByEffectiveCapacityFactor(
+      boolean reduceLinkExitCapacityByEffectiveCapacityFactor) {
+    this.reduceLinkExitCapacityByEffectiveCapacityFactor = reduceLinkExitCapacityByEffectiveCapacityFactor;
+  }
+
   /**
    * {@inheritDoc}
    */
@@ -221,6 +256,8 @@ public class MatsimNetworkWriterSettings extends PlanitMatsimWriterModeMappingSe
     this.generateDetailedLinkGeometryFile = DEFAULT_GENERATE_DETAILED_LINK_GEOMETRY;
     this.restrictLinkSpeedBySupportedModes = DEFAULT_RESTRICT_SPEED_LIMIT_BY_SUPPORTED_MODE;
     this.minimumLinkLengthMeters = DEFAULT_MINIMUM_LINK_LENGTH_METERS;
+    this.reduceLinkExitCapacityByEffectiveCapacityFactor =
+        DEFAULT_REDUCE_LINK_EXIT_CAPACITY_BY_EFFECTIVE_CAPACITY_FACTOR;
   }
   
 }
