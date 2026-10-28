@@ -39,15 +39,17 @@ public class SydneyPlanit2MatsimTest {
 
   /**
    * The link segments written with a reduced exit capacity, by kind: 125 junction approaches at 0.44, 39 at 0.28 and 17
-   * at 0.94, 29 approaches at a crossing only at 0.9 and 3 approaches without a signal at 0.5
+   * at 0.94, 28 approaches at a crossing only at 0.9 and 3 approaches without a signal at 0.5. The road between the two
+   * crossings side by side on Castlereagh Street at Market Street is internal to their one crossing intersection, so
+   * it is not reduced
    *
    * @param networkStats of the MATSim network writer
    */
   private static void assertLinkExitCapacityReductions(MatsimNetworkWriterStats networkStats) {
-    assertEquals(213, networkStats.getLinkSegmentsWithReducedExitCapacity());
+    assertEquals(212, networkStats.getLinkSegmentsWithReducedExitCapacity());
     assertEquals(181,
         networkStats.getLinkSegmentsWithReducedExitCapacity(IntersectionSegmentKind.APPROACH_WITH_SIGNAL_AT_JUNCTION));
-    assertEquals(29, networkStats.getLinkSegmentsWithReducedExitCapacity(
+    assertEquals(28, networkStats.getLinkSegmentsWithReducedExitCapacity(
         IntersectionSegmentKind.APPROACH_WITH_SIGNAL_AT_CROSSING_ONLY));
     assertEquals(3,
         networkStats.getLinkSegmentsWithReducedExitCapacity(IntersectionSegmentKind.APPROACH_WITHOUT_SIGNAL, 0.5));
@@ -109,8 +111,8 @@ public class SydneyPlanit2MatsimTest {
       MatsimAssertionUtils.assertTransitScheduleFilesSimilar(MATSIM_OUTPUT_DIR, MATSIM_REF_DIR);
 
       var networkStats = matsimWriter.getNetworkWriterStats();
-      assertEquals(1_103, networkStats.getNodesWritten());
-      assertEquals(1_881, networkStats.getLinkSegmentsWritten());
+      assertEquals(1_107, networkStats.getNodesWritten());
+      assertEquals(1_889, networkStats.getLinkSegmentsWritten());
       assertEquals(544, networkStats.getLinkSegmentsSkippedNoActivatedMode());
       assertEquals(44, networkStats.getTurnRestrictionsWritten());
       assertLinkExitCapacityReductions(networkStats);
@@ -160,8 +162,8 @@ public class SydneyPlanit2MatsimTest {
       assertTrue(MatsimAssertionUtils.isNetworkGeometryFilesSimilar(MATSIM_OUTPUT_DIR,MATSIM_REF_DIR));
 
       var networkStats = matsimWriter.getNetworkWriterStats();
-      assertEquals(1_103, networkStats.getNodesWritten());
-      assertEquals(1_881, networkStats.getLinkSegmentsWritten());
+      assertEquals(1_107, networkStats.getNodesWritten());
+      assertEquals(1_889, networkStats.getLinkSegmentsWritten());
       assertEquals(544, networkStats.getLinkSegmentsSkippedNoActivatedMode());
       assertEquals(44, networkStats.getTurnRestrictionsWritten());
       assertLinkExitCapacityReductions(networkStats);

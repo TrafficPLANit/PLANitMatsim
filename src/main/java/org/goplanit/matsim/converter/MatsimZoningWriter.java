@@ -1,6 +1,7 @@
 package org.goplanit.matsim.converter;
 
 import java.text.DecimalFormat;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -28,7 +29,6 @@ import org.goplanit.utils.id.IdMapperType;
 import org.goplanit.converter.idmapping.ZoningIdMapper;
 import org.goplanit.converter.zoning.ZoningWriter;
 import org.goplanit.utils.exceptions.PlanItRunTimeException;
-import org.goplanit.utils.mode.TrackModeType;
 import org.goplanit.utils.zoning.TransferZone;
 import org.goplanit.utils.zoning.connectoid.TransferConnectoid;
 import org.goplanit.zoning.Zoning;
@@ -57,6 +57,10 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter, M
 
   /** describes the transfer zone access to contribute to a MATSim network file, null when there is none to write */
   private TransferAccessBuilder transferAccessBuilder;
+
+  /** whether stops must be reachable from the road network, which is not so when the modes written hold no road
+   * based mode, walking included, see {@link #prepareTransferAccess} */
+  private boolean stopsMustBeReachableByRoad = true;
 
   /**
    * validate if settings are complete and if not try to salve by adopting settings from the network where possible
@@ -134,8 +138,7 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter, M
         /* nothing is restricted, so road based modes are permitted too */
         return true;
       }
-      if(entry.getExplicitlyAllowedModes().stream().anyMatch(
-          m -> m.getPhysicalFeatures().getTrackType().equals(TrackModeType.ROAD))) {
+      if(entry.getExplicitlyAllowedModes().stream().anyMatch(Mode::isRoadMode)) {
         return true;
       }
     }
@@ -149,13 +152,26 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter, M
    * known ahead of {@link #write(Zoning)}. Calling this more than once simply rebuilds the description, it holds no
    * state beyond it.
    * </p>
+   * <p>
+   * Stops only need to be reachable from the road network when a road based mode, walking included, is written. When
+   * none is, for example a network with ferries only, nobody reaches a stop by road: no access is built, and stops
+   * without road access are neither left out nor a reason to abort.
+   * </p>
    *
    * @param zoning to derive the transfer zone access from
    * @param networkLayer the layer being written, stops attached outside of it are left out
+   * @param modesWritten the modes of the layer written to MATSim
    * @param minimumLinkLengthMeters to fall back on for a transfer link without a usable length
    */
-  void prepareTransferAccess(Zoning zoning, MacroscopicNetworkLayer networkLayer, double minimumLinkLengthMeters) {
+  void prepareTransferAccess(
+      Zoning zoning, MacroscopicNetworkLayer networkLayer, Collection<Mode> modesWritten,
+      double minimumLinkLengthMeters) {
     this.transferAccessBuilder = null;
+    this.stopsMustBeReachableByRoad = modesWritten.stream().anyMatch(Mode::isRoadMode);
+    if(!stopsMustBeReachableByRoad) {
+      LOGGER.info("No road based mode, walking included, is written, so stops need no access from the road network");
+      return;
+    }
     if(!getSettings().isWriteTransferZoneAccess()) {
       return;
     }
@@ -302,8 +318,9 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter, M
     }
 
     /* verified before writing anything, since a pt network nobody can enter is not worth persisting. Skipped when the
-     * transfer access was already prepared, as that ran the same check and reporting it twice only confuses */
-    if(transferAccessBuilder == null) {
+     * transfer access was already prepared, as that ran the same check and reporting it twice only confuses, and when
+     * no road based mode is written, as then nobody reaches a stop by road */
+    if(transferAccessBuilder == null && stopsMustBeReachableByRoad) {
       identifyTransferZonesWithoutRoadAccess(zoning);
     }
 

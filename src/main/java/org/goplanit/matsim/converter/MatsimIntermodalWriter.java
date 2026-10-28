@@ -90,9 +90,11 @@ public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, 
     MatsimZoningWriter zoningWriter =
         MatsimZoningWriterFactory.create(getSettings().getZoningSettings(), infrastructureNetwork);
     zoningWriter.setIdMapperType(idMapper);
+    var networkLayer = (MacroscopicNetworkLayer) infrastructureNetwork.getTransportLayers().getFirst();
     zoningWriter.prepareTransferAccess(
         zoning,
-        (MacroscopicNetworkLayer) infrastructureNetwork.getTransportLayers().getFirst(),
+        networkLayer,
+        getSettings().getNetworkSettings().collectActivatedPlanitModeToMatsimModeMapping(networkLayer).keySet(),
         getSettings().getNetworkSettings().getMinimumLinkLengthMeters());
     return zoningWriter;
   }

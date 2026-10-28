@@ -27,7 +27,6 @@ import org.goplanit.utils.misc.IterableUtils;
 import org.goplanit.utils.misc.Pair;
 import org.goplanit.utils.misc.StringUtils;
 import org.goplanit.utils.mode.Mode;
-import org.goplanit.utils.mode.TrackModeType;
 import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
 import org.goplanit.utils.service.routed.*;
 import org.goplanit.utils.time.ExtendedLocalTime;
@@ -121,8 +120,7 @@ class MatsimPtXmlWriter {
       // link segment, since transit vehicles are expected to not make u-turns (unless it is a ferry or train)
       // todo: check if this can still happen with new connectoid implementation in PLANit
       boolean allowStopFacilityUTurn =
-          routedService.getMode().hasPhysicalFeatures() &&
-              routedService.getMode().getPhysicalFeatures().getTrackType() != TrackModeType.ROAD;
+          routedService.getMode().hasPhysicalFeatures() && !routedService.getMode().isRoadMode();
       final var originalAccessLinkSegment = accessLinkSegment;
       Function<EdgeSegment, Boolean> oppDirAccessLinkSegmentAllowed = oppositeDirLinkSegment -> (
           oppositeDirLinkSegment==null ||
