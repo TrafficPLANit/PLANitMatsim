@@ -26,4 +26,7 @@ public class MatsimAttributes {
   public static final String Y = "y";
   /** link */
   public static final String LINK = "link";
+
+  /** class of an attribute element whose value is text */
+  public static final String STRING_CLASS_VALUE = "java.lang.String";
 }

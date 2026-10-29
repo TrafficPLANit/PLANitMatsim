@@ -981,7 +981,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
 
           // external id
           writeMatsimCustomAttributeEntry(
-              xmlWriter, "externalId", "java.lang.String", person.getExternalId());
+              xmlWriter, "externalId", MatsimAttributes.STRING_CLASS_VALUE, person.getExternalId());
 
           writeEndElementNewLine(xmlWriter, true /* undo indentation */ );
         }

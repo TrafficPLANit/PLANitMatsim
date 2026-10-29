@@ -197,8 +197,26 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
           bannedTurn -> isBannedForMatsimMode(bannedTurn, null, planitModeToMatsimModeMapping))
           .collect(Collectors.toList());
     }
+
+    /* the original id and the user defined values are text attribute elements inside the link, as MATSim writes them */
+    var textAttributeElements = new LinkedHashMap<String, String>();
+    Object originalExternalId =
+        linkSegment.getExternalId() != null ? linkSegment.getExternalId() : linkSegment.getParent().getExternalId();
+    if(originalExternalId != null) {
+      textAttributeElements.put(MatsimNetworkAttributes.ORIGID, String.valueOf(originalExternalId));
+    }
+    if(settings.linkNtCategoryfunction != null) {
+      textAttributeElements.put(MatsimNetworkAttributes.NT_CATEGORY, settings.linkNtCategoryfunction.apply(linkSegment));
+    }
+    if(settings.linkNtTypefunction != null) {
+      textAttributeElements.put(MatsimNetworkAttributes.NT_TYPE, settings.linkNtTypefunction.apply(linkSegment));
+    }
+    if(settings.linkTypefunction != null) {
+      textAttributeElements.put(MatsimAttributes.TYPE, settings.linkTypefunction.apply(linkSegment));
+    }
+
     boolean hasInteralAttributeElements =
-        bannedTurnsOfFromSegment != null && !bannedTurnsOfFromSegment.isEmpty();
+        !textAttributeElements.isEmpty() || (bannedTurnsOfFromSegment != null && !bannedTurnsOfFromSegment.isEmpty());
     
     try {
       if(hasInteralAttributeElements){
@@ -279,35 +297,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
         /* OTHER **/
         {
           /* VOLUME not yet supported */
-          
-          /* ORIG ID */
-          Object originalExternalId =
-              linkSegment.getExternalId() != null ? linkSegment.getExternalId() : linkSegment.getParent().getExternalId();
-          if(originalExternalId!= null) {
-            xmlWriter.writeAttribute(MatsimNetworkAttributes.ORIGID, String.valueOf(originalExternalId));
-          }
-          
-          /* USER DEFINED **/
-          
-          /* NT_CATEGORY */
-          if(settings.linkNtCategoryfunction != null) {
-            xmlWriter.writeAttribute(
-                MatsimNetworkAttributes.NT_CATEGORY, settings.linkNtCategoryfunction.apply(linkSegment));
-          }
-          
-          /* NT_CATEGORY */
-          if(settings.linkNtTypefunction != null) {
-            xmlWriter.writeAttribute(
-                MatsimNetworkAttributes.NT_TYPE, settings.linkNtTypefunction.apply(linkSegment));
-          }
-          
-          /* TYPE */
-          if(settings.linkTypefunction != null) {
-            xmlWriter.writeAttribute(
-                MatsimNetworkAttributes.NT_TYPE, settings.linkTypefunction.apply(linkSegment));
-          }  
-          
-        }                     
+        }
 
       }
       
@@ -318,20 +308,14 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
         writeStartElementNewLine(xmlWriter, MatsimNetworkElements.ATTRIBUTES, true /*++indent*/);
 
         // add in attributes for this type
+        for(var textAttributeElement : textAttributeElements.entrySet()){
+          writeMatsimCustomAttributeEntry(xmlWriter,
+              textAttributeElement.getKey(), MatsimAttributes.STRING_CLASS_VALUE, textAttributeElement.getValue());
+        }
         if(bannedTurnsOfFromSegment != null && !bannedTurnsOfFromSegment.isEmpty()){
-          writeStartElement(xmlWriter, MatsimNetworkElements.ATTRIBUTE, true /*++indent*/);
-          xmlWriter.writeAttribute(
-              MatsimAttributes.NAME, MatsimNetworkAttributes.DISALLOWED_NEXT_LINKS);
-          xmlWriter.writeAttribute(
-              MatsimTransitAttributes.CLASS, MatsimNetworkAttributes.DISALLOWED_NEXT_LINKS_CLASS_VALUE);
-          //PlanitXmlWriterUtils.writeNewLine(xmlWriter);
-          //PlanitXmlWriterUtils.writeValueWithIndentationPrefix(
-          xmlWriter.writeCharacters(
+          writeMatsimCustomAttributeEntry(xmlWriter,
+              MatsimNetworkAttributes.DISALLOWED_NEXT_LINKS, MatsimNetworkAttributes.DISALLOWED_NEXT_LINKS_CLASS_VALUE,
               constructBannedTurnJSon(bannedTurnsOfFromSegment, planitModeToMatsimModeMapping));
-          //PlanitXmlWriterUtils.writeNewLine(xmlWriter);
-          xmlWriter.writeEndElement();
-          decreaseIndentation();
-          PlanitXmlWriterUtils.writeNewLine(xmlWriter);
           writerStats.addTurnRestrictionsWritten(bannedTurnsOfFromSegment.size());
         }
         // </ATTRIBUTES>
@@ -516,7 +500,7 @@ public class MatsimNetworkWriter extends MatsimWriter<LayeredNetwork<?,?>> imple
 
         // crs
         writeMatsimCustomAttributeEntry(
-            xmlWriter, "coordinateSystem", "java.lang.String",
+            xmlWriter, "coordinateSystem", MatsimAttributes.STRING_CLASS_VALUE,
             PlanitCrsUtils.extractSrsName(getDestinationCoordinateReferenceSystem()));
 
         writeEndElementNewLine(xmlWriter, true /* undo indentation */ );

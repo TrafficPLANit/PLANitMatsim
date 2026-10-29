@@ -1,25 +1,23 @@
 package org.goplanit.matsim.test;
 
+import static org.goplanit.matsim.test.NetworkLayerTestUtils.createCartesianNetworkWithOneLayer;
+import static org.goplanit.matsim.test.NetworkLayerTestUtils.registerLinkSegmentTypeAllowing;
+import static org.goplanit.matsim.test.NetworkLayerTestUtils.registerLinkWithOneSegment;
+import static org.goplanit.matsim.test.NetworkLayerTestUtils.registerNodeAt;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Path;
-import java.util.List;
 
 import org.goplanit.matsim.converter.MatsimIntermodalWriter;
 import org.goplanit.matsim.converter.MatsimIntermodalWriterFactory;
 import org.goplanit.network.MacroscopicNetwork;
-import org.goplanit.network.layer.macroscopic.AccessGroupPropertiesFactory;
 import org.goplanit.utils.exceptions.PlanItRunTimeException;
-import org.goplanit.utils.geo.PlanitJtsCrsUtils;
 import org.goplanit.utils.geo.PlanitJtsUtils;
 import org.goplanit.utils.id.IdGenerator;
 import org.goplanit.utils.id.IdGroupingToken;
-import org.goplanit.utils.mode.Mode;
 import org.goplanit.utils.mode.PredefinedModeType;
 import org.goplanit.utils.network.layer.MacroscopicNetworkLayer;
-import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
-import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegmentType;
 import org.goplanit.utils.network.layer.physical.Node;
 import org.goplanit.utils.zoning.TransferZoneType;
 import org.goplanit.utils.zoning.connectoid.ZoneConnectoidType;
@@ -57,34 +55,6 @@ public class MatsimTransferZoneRoadAccessTest {
   /** the node at the ferry terminal */
   private Node terminalNode;
 
-  /** register a node at a position with its id as XML id */
-  private Node node(double x, double y) {
-    var node = layer.getNodes().getFactory().registerNew();
-    node.setPosition(PlanitJtsUtils.createPoint(x, y));
-    node.setXmlId(String.valueOf(node.getId()));
-    return node;
-  }
-
-  /** register a link segment type for one mode */
-  private MacroscopicLinkSegmentType typeFor(String name, Mode mode) {
-    var type = layer.getLinkSegmentTypes().getFactory().registerNew(name, 1000, 180);
-    type.setXmlId(String.valueOf(type.getId()));
-    AccessGroupPropertiesFactory.createOnLinkSegmentType(type, 20, List.of(mode));
-    return type;
-  }
-
-  /** register a link from one node to another with one segment in that direction */
-  private MacroscopicLinkSegment linkSegment(Node from, Node to, MacroscopicLinkSegmentType type) {
-    var link = layer.getLinks().getFactory().registerNew(from, to, 0.1, true);
-    link.setXmlId(String.valueOf(link.getId()));
-    link.setGeometry(PlanitJtsUtils.createLineString(
-        from.getPosition().getCoordinate(), to.getPosition().getCoordinate()));
-    var segment = layer.getLinkSegments().getFactory().registerNew(link, true, true);
-    segment.setXmlId(String.valueOf(segment.getId()));
-    segment.setLinkSegmentType(type);
-    return segment;
-  }
-
   /** write the network and zoning to MATSim, with the given modes activated on top of the defaults, and return the
    * writer */
   private MatsimIntermodalWriter write(PredefinedModeType... activatedModes) {
@@ -101,7 +71,8 @@ public class MatsimTransferZoneRoadAccessTest {
   private void addRoadFromTerminalFor(PredefinedModeType modeType) {
     var mode = network.getModes().getFactory().registerNew(modeType);
     layer.registerSupportedMode(mode);
-    linkSegment(terminalNode, node(0, 100), typeFor("road", mode));
+    registerLinkWithOneSegment(layer, terminalNode, registerNodeAt(layer, 0, 100),
+        registerLinkSegmentTypeAllowing(layer, "road", 1000, 20, mode));
   }
 
   /** where the files are written, not private as JUnit fills it in */
@@ -111,13 +82,13 @@ public class MatsimTransferZoneRoadAccessTest {
   @BeforeEach
   public void setUp() {
     IdGenerator.reset();
-    network = new MacroscopicNetwork(IdGroupingToken.collectGlobalToken());
-    network.setCoordinateReferenceSystem(PlanitJtsCrsUtils.CARTESIANCRS);
-    var ferry = network.getModes().getFactory().registerNew(PredefinedModeType.FERRY);
-    layer = network.getTransportLayers().getFactory().registerNew(network.getModes());
+    network = createCartesianNetworkWithOneLayer(PredefinedModeType.FERRY);
+    var ferry = network.getModes().get(PredefinedModeType.FERRY);
+    layer = network.getTransportLayers().getFirst();
 
-    terminalNode = node(0, 0);
-    var ferryLinkSegment = linkSegment(node(100, 0), terminalNode, typeFor("ferry", ferry));
+    terminalNode = registerNodeAt(layer, 0, 0);
+    var ferryLinkSegment = registerLinkWithOneSegment(layer, registerNodeAt(layer, 100, 0), terminalNode,
+        registerLinkSegmentTypeAllowing(layer, "ferry", 1000, 20, ferry));
 
     zoning = new Zoning(IdGroupingToken.collectGlobalToken(), layer.getLayerIdGroupingToken());
     var terminal = zoning.getTransferZones().getFactory().registerNew(TransferZoneType.PLATFORM, true);

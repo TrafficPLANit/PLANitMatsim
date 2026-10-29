@@ -1,5 +1,9 @@
 package org.goplanit.matsim.test;
 
+import static org.goplanit.matsim.test.NetworkLayerTestUtils.createCartesianNetworkWithOneLayer;
+import static org.goplanit.matsim.test.NetworkLayerTestUtils.registerLinkSegmentTypeAllowing;
+import static org.goplanit.matsim.test.NetworkLayerTestUtils.registerLinkWithOneSegment;
+import static org.goplanit.matsim.test.NetworkLayerTestUtils.registerNodeAt;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.file.Files;
@@ -11,22 +15,16 @@ import org.goplanit.matsim.converter.network.MatsimNetworkWriter;
 import org.goplanit.matsim.converter.network.MatsimNetworkWriterFactory;
 import org.goplanit.matsim.converter.network.MatsimNetworkWriterSettings;
 import org.goplanit.network.MacroscopicNetwork;
-import org.goplanit.network.layer.macroscopic.AccessGroupPropertiesFactory;
-import org.goplanit.utils.geo.PlanitJtsCrsUtils;
-import org.goplanit.utils.geo.PlanitJtsUtils;
 import org.goplanit.utils.id.IdGenerator;
-import org.goplanit.utils.id.IdGroupingToken;
 import org.goplanit.utils.mode.PredefinedModeType;
 import org.goplanit.utils.network.layer.MacroscopicNetworkLayer;
 import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
-import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegmentType;
 import org.goplanit.utils.network.layer.macroscopic.intersection.CapacityFactorOrigin;
 import org.goplanit.utils.network.layer.macroscopic.intersection.IntersectionControlType;
 import org.goplanit.utils.network.layer.macroscopic.intersection.IntersectionSegmentKind;
 import org.goplanit.utils.network.layer.macroscopic.intersection.IntersectionSignalSegment;
 import org.goplanit.utils.network.layer.macroscopic.intersection.IntersectionType;
 import org.goplanit.utils.network.layer.macroscopic.intersection.SpatialIntersection;
-import org.goplanit.utils.network.layer.physical.Node;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -64,26 +62,6 @@ public class MatsimLinkExitCapacityTest {
   /** the junction over nodes 1 and 2 */
   private SpatialIntersection junction;
 
-  /** register a node at a position with its id as XML id */
-  private Node node(double x, double y) {
-    var node = layer.getNodes().getFactory().registerNew();
-    node.setPosition(PlanitJtsUtils.createPoint(x, y));
-    node.setXmlId(String.valueOf(node.getId()));
-    return node;
-  }
-
-  /** register a link from one node to another with one segment in that direction */
-  private MacroscopicLinkSegment linkSegment(Node from, Node to, MacroscopicLinkSegmentType type) {
-    var link = layer.getLinks().getFactory().registerNew(from, to, 0.1, true);
-    link.setXmlId(String.valueOf(link.getId()));
-    link.setGeometry(PlanitJtsUtils.createLineString(
-        from.getPosition().getCoordinate(), to.getPosition().getCoordinate()));
-    var segment = layer.getLinkSegments().getFactory().registerNew(link, true, true);
-    segment.setXmlId(String.valueOf(segment.getId()));
-    segment.setLinkSegmentType(type);
-    return segment;
-  }
-
   /** write the network, reducing link exit capacity or not, and return the writer with its statistics */
   private MatsimNetworkWriter write(boolean reduce) throws Exception {
     var writer = MatsimNetworkWriterFactory.create(outputDir.toAbsolutePath().toString());
@@ -112,20 +90,16 @@ public class MatsimLinkExitCapacityTest {
   @BeforeEach
   public void setUp() {
     IdGenerator.reset();
-    network = new MacroscopicNetwork(IdGroupingToken.collectGlobalToken());
-    network.setCoordinateReferenceSystem(PlanitJtsCrsUtils.CARTESIANCRS);
-    var car = network.getModes().getFactory().registerNew(PredefinedModeType.CAR);
-    layer = network.getTransportLayers().getFactory().registerNew(network.getModes());
-    var type = layer.getLinkSegmentTypes().getFactory().registerNew("road", 3600, 180);
-    type.setXmlId(String.valueOf(type.getId()));
-    AccessGroupPropertiesFactory.createOnLinkSegmentType(type, 50, List.of(car));
+    network = createCartesianNetworkWithOneLayer(PredefinedModeType.CAR);
+    layer = network.getTransportLayers().getFirst();
+    var type = registerLinkSegmentTypeAllowing(layer, "road", 3600, 50, network.getModes().get(PredefinedModeType.CAR));
 
-    var n1 = node(100, 0);
-    var n2 = node(200, 0);
-    approach = linkSegment(node(0, 0), n1, type);
-    approachWithoutSignal = linkSegment(node(100, -100), n1, type);
-    internal = linkSegment(n1, n2, type);
-    exit = linkSegment(n1, node(100, 100), type);
+    var n1 = registerNodeAt(layer, 100, 0);
+    var n2 = registerNodeAt(layer, 200, 0);
+    approach = registerLinkWithOneSegment(layer, registerNodeAt(layer, 0, 0), n1, type);
+    approachWithoutSignal = registerLinkWithOneSegment(layer, registerNodeAt(layer, 100, -100), n1, type);
+    internal = registerLinkWithOneSegment(layer, n1, n2, type);
+    exit = registerLinkWithOneSegment(layer, n1, registerNodeAt(layer, 100, 100), type);
 
     junction = layer.getIntersections().getFactory().registerNewSpatial(
         List.of(n1, n2), IntersectionControlType.SIGNALISED, List.of(IntersectionType.JUNCTION));
