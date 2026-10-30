@@ -183,6 +183,27 @@ public class MatsimLinkExitCapacityTest {
         stats.getLinkSegmentsWithReducedExitCapacity(IntersectionSegmentKind.APPROACH_WITH_SIGNAL_AT_CROSSING_ONLY));
   }
 
+  /** The approach of a ramp meter, on a road of its own, with green ratio 0.9 is written with 3,240 pcu/h, and counted
+   * under its own kind */
+  @Test
+  public void rampMeterApproachIsWrittenWithItsGreenRatioAndCountedUnderItsKind() throws Exception {
+    var type = layer.getLinkSegments().getFirst().getLinkSegmentType();
+    var meterNode = registerNodeAt(layer, 100, -300);
+    var rampApproach = registerLinkWithOneSegment(layer, registerNodeAt(layer, 0, -300), meterNode, type);
+    registerLinkWithOneSegment(layer, meterNode, registerNodeAt(layer, 200, -300), type);
+    var rampMeter = layer.getIntersections().getFactory().createNonSpatial(
+        meterNode, IntersectionControlType.SIGNALISED, IntersectionType.RAMP_METER);
+    rampMeter.addNewApproachSegment(rampApproach);
+    layer.getIntersections().getFactory().register(rampMeter);
+    ((IntersectionSignalSegment) rampMeter.getApproach(rampApproach))
+        .setGreenRatio(0.9, CapacityFactorOrigin.SET_DIRECTLY);
+
+    assertEquals(3240, capacityWrittenFor(rampApproach, true), 1e-6);
+    var stats = write(true).getWriterStats();
+    assertEquals(1,
+        stats.getLinkSegmentsWithReducedExitCapacity(IntersectionSegmentKind.APPROACH_WITH_SIGNAL_AT_RAMP_METER, 0.9));
+  }
+
   /** An approach with green ratio 0.44 that allows no mode activated for MATSim is left out, and so not counted */
   @Test
   public void leftOutLinkSegmentIsNotCounted() throws Exception {

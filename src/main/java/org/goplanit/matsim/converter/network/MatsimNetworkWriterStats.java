@@ -32,6 +32,8 @@ public class MatsimNetworkWriterStats {
         return "approach with a signal at a junction, green for its phase only";
       case APPROACH_WITH_SIGNAL_AT_CROSSING_ONLY:
         return "approach with a signal at a crossing only, green unless pedestrians cross";
+      case APPROACH_WITH_SIGNAL_AT_RAMP_METER:
+        return "approach with a signal at a ramp meter, green at a fixed ratio";
       case APPROACH_WITHOUT_SIGNAL:
         return "approach without a signal of its own, giving way to signalised traffic";
       case INTERNAL_SEGMENT_WITH_SIGNAL:
