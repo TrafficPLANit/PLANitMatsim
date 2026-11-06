@@ -23,6 +23,7 @@ import org.goplanit.utils.graph.directed.DirectedVertex;
 import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
 import org.goplanit.utils.id.ExternalIdAbleUtils;
 import org.goplanit.utils.id.IdMapperType;
+import org.goplanit.utils.misc.HashUtils;
 import org.goplanit.utils.misc.LoggingUtils;
 import org.goplanit.utils.misc.Pair;
 import org.goplanit.utils.misc.Triple;
@@ -66,7 +67,8 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   /** track stats */
   private MatsimPlansWriterStats writerStats = new MatsimPlansWriterStats();
 
-  /** Default simulation seed for reproducible allocations */
+  /** fixed part of the seed of each activity location's draw, so every write of the same input gives the same
+   * locations */
   private static final long DEFAULT_SIMULATION_SEED = 42L;
 
   /** LocationGenerator:ZONE_LINKS_DISTANCE_WEIGHTED requires
@@ -86,10 +88,6 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   /** number of draws allowed when looking for an activity location that can also be departed from */
   private static final int MAX_ACTIVITY_LOCATION_DRAWS = 10;
 
-  /** LocationGenerator:ZONE_LINKS_DISTANCE_WEIGHTED requires
-   * Reproducible random generation stream */
-  private SplittableRandom randomEngine;
-
   /** contains the Persons' schedules that we will ignore. This is populated based on having schedules that are not
    * based on the settings provided, e.g., contains modes deactivated in the mapping for example */
   private Set<Person> personSchedulesToIgnore;
@@ -103,8 +101,13 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   /** tours encountered without any schedule of their own, reported once at the end */
   private Set<Tour> toursWithoutSchedule;
 
-  /** persons left without anything to write once the tours they only accompany are set aside, reported at the end */
-  private Set<Person> personsOnlyAccompanying;
+  /** sub tours by a mode driven by one of the people in it that the person drives while carried on the parent tour,
+   * so without the vehicle they drive, which may not be possible in the real world; reported once at the end */
+  private Set<Tour> subToursDrivenWhileCarriedOnParentTour = new LinkedHashSet<>();
+
+  /** tours with a trip by a mode driven by one of the people in it and a participation without a driver value, on
+   * which the primary participant is taken as driver, being one of the people travelling; reported once at the end */
+  private Set<Tour> selfDrivenToursWithoutDriverValue = new LinkedHashSet<>();
 
   /** whether the element written last within the plan being written is an activity, so that an activity written
    * straight after another, which leaves the plan without the movement reaching the second, can be spotted */
@@ -118,9 +121,6 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   /** The dwelling established for a household, keyed on the household, which has a single zone and therefore a single
    * home. Everyone living there comes home to the same address rather than to their own point in the shared zone */
   private Map<Long, MatsimPinnedActivityLocation> drawnHomeLocations;
-
-  /** maximum number of entities listed individually when reporting an issue affecting many of them */
-  private static final int MAX_LOGGED_ENTITIES = 10;
 
   /** an activity placed at the anchor the person's day departs from and returns to, being their household's home */
   private static final boolean AT_HOME_ANCHOR = true;
@@ -313,8 +313,8 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    * @param xmlWriter              to use
    * @param scheduleElement        to process
    * @param person                 for this element
-   * @param asPassenger            whether the person is carried on this element rather than travelling it themselves,
-   *                               which holds for everything within a tour they take part in without owning it
+   * @param asPassenger            whether the person is carried on the tour holding this element rather than driving
+   *                               it, false for an element at the top of their schedule
    * @param modeMapping            to use
    * @param periodStartTimeSeconds period start time
    * @param periodEndTimeSeconds   period end time
@@ -358,9 +358,15 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
         var participation = (ParticipantTour) scheduleElement;
         var currTour = participation.getTour();
 
-        /* the trips of a tour belong to whoever owns it, so anyone else taking part in it is carried along, and that
-         * holds for everything nested within it as well */
-        boolean carriedOnThisTour = asPassenger || !participation.isPrimary();
+        /* whoever drives a tour travels its car trips, the others taking part are carried along */
+        boolean driverOnThisTour = participation.isAssumedAsDriver();
+        boolean hasSelfDrivenTrip = currTour.hasTripByMode(Mode::isSelfDrivenMotorisedMode);
+        if(hasSelfDrivenTrip && participation.getDriver() == null){
+          selfDrivenToursWithoutDriverValue.add(currTour);
+        }
+        if(asPassenger && driverOnThisTour && hasSelfDrivenTrip){
+          subToursDrivenWhileCarriedOnParentTour.add(currTour);
+        }
 
         if(!currTour.hasSchedule()){
           toursWithoutSchedule.add(currTour);
@@ -381,7 +387,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
 
             // delegate one level deeper
             processScheduleElement(
-                xmlWriter, tourScheduleElement, person, carriedOnThisTour, modeMapping, periodStartTimeSeconds,
+                xmlWriter, tourScheduleElement, person, !driverOnThisTour, modeMapping, periodStartTimeSeconds,
                 periodEndTimeSeconds);
 
             prevTourScheduleElement = tourScheduleElement;
@@ -405,17 +411,6 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
 
 
   /**
-   * Write an activity element
-   * @param xmlWriter writer
-   * @param person the person doing the activity
-   * @param activityDescription description of activity
-   * @param endTime MATSim formatted end time of activity
-   * @param activeZone the zone the activity relates to
-   * @param arrivalMode mode by which the arrival occurs (may be null if first)
-   * @param departureMode mode by which the departure occurs (may be null if last)
-   * @throws XMLStreamException if error
-   */
-  /**
    * Draw a link segment for an activity that can also be departed from by the given mode.
    * <p>
    * The weight index only guarantees the arrival mode, since it is built per mode, whereas MATSim gives an activity a
@@ -433,14 +428,16 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    * @param activeZone the draw relates to, for reporting
    * @param arrivalMode the activity is reached by, for reporting
    * @param departureMode the activity is left by, may be null in which case any draw will do
+   * @param random to draw with, the sequence of the place drawn for
    * @return drawn segment, the last attempt when none allowing departure was found, null when the draw yields nothing
    */
   private MacroscopicLinkSegment drawSegmentAllowingDeparture(
-      LocationGeneratorUtils.ZoneLinkWeights weights, OdZone activeZone, Mode arrivalMode, Mode departureMode) {
+      LocationGeneratorUtils.ZoneLinkWeights weights, OdZone activeZone, Mode arrivalMode, Mode departureMode,
+      SplittableRandom random) {
 
     MacroscopicLinkSegment selectedSegment = null;
     for (int attempt = 0; attempt < MAX_ACTIVITY_LOCATION_DRAWS; ++attempt) {
-      selectedSegment = weights.drawRandomSegment(this.randomEngine);
+      selectedSegment = weights.drawRandomSegment(random);
       if (selectedSegment == null || departureMode == null ||
           hasExitSegmentAllowingMode(selectedSegment.getDownstreamVertex(), departureMode)) {
         return selectedSegment;
@@ -465,7 +462,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     }
 
     var compatibleWeights = departureCompatibleWeightsCache.get(cacheKey);
-    return compatibleWeights != null ? compatibleWeights.drawRandomSegment(this.randomEngine) : selectedSegment;
+    return compatibleWeights != null ? compatibleWeights.drawRandomSegment(random) : selectedSegment;
   }
 
   /**
@@ -589,10 +586,12 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    * @param departureMode the activity is left by
    * @param fallbackX to use when the zone offers no link to place on
    * @param fallbackY to use when the zone offers no link to place on
+   * @param random to draw with, the sequence of the place drawn for
    * @return the location established, never null
    */
   private MatsimPinnedActivityLocation resolveActivityLocation(
-      OdZone activeZone, Mode arrivalMode, Mode departureMode, double fallbackX, double fallbackY) {
+      OdZone activeZone, Mode arrivalMode, Mode departureMode, double fallbackX, double fallbackY,
+      SplittableRandom random) {
 
     Mode placementArrivalMode = resolvePlacementMode(arrivalMode);
     Mode placementDepartureMode = resolvePlacementMode(departureMode);
@@ -604,7 +603,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
 
     if (weights != null) {
       var selectedSegment =
-          drawSegmentAllowingDeparture(weights, activeZone, placementArrivalMode, placementDepartureMode);
+          drawSegmentAllowingDeparture(weights, activeZone, placementArrivalMode, placementDepartureMode, random);
       if (selectedSegment == null) {
         /* deliberately not dereferenced, the draw itself yielding nothing is a defect in the weight index rather
          * than a property of a segment, and reporting it must not depend on having one */
@@ -632,6 +631,18 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     return new MatsimPinnedActivityLocation(fallbackX, fallbackY, null);
   }
 
+  /**
+   * Write an activity element
+   * @param xmlWriter writer
+   * @param person the person doing the activity
+   * @param activityDescription description of activity
+   * @param endTime MATSim formatted end time of activity
+   * @param activeZone the zone the activity relates to
+   * @param arrivalMode mode by which the arrival occurs (may be null if first)
+   * @param departureMode mode by which the departure occurs (may be null if last)
+   * @param atHomeAnchor whether the activity is the anchor of the person's day rather than somewhere they travelled to
+   * @throws XMLStreamException if error
+   */
   private void writeActivityElement(
       XMLStreamWriter xmlWriter,
       Person person,
@@ -669,7 +680,13 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       var activityLocation = homeHousehold != null
           ? drawnHomeLocations.get(homeHousehold.getId()) : drawnActivityLocations.get(locationKey);
       if (activityLocation == null) {
-        activityLocation = resolveActivityLocation(activeZone, arrivalMode, departureMode, finalX, finalY);
+        /* each place draws from a sequence of its own, seeded by what it is pinned to, so where it lands does not
+         * depend on the other persons written or the order they are written in */
+        var random = new SplittableRandom(homeHousehold != null
+            ? HashUtils.createCombinedSeed(DEFAULT_SIMULATION_SEED, homeHousehold.getId(), activeZone.getId())
+            : HashUtils.createCombinedSeed(DEFAULT_SIMULATION_SEED, person.getId(), locationKey.second().hashCode(),
+                activeZone.getId()));
+        activityLocation = resolveActivityLocation(activeZone, arrivalMode, departureMode, finalX, finalY, random);
         if (homeHousehold != null) {
           drawnHomeLocations.put(homeHousehold.getId(), activityLocation);
           writerStats.incrementDwellingsPinned();
@@ -731,9 +748,10 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   /**
    * The MATSim mode a leg is written with. Someone carried on the trip rather than travelling it themselves is a
    * passenger, which MATSim expresses with its ride mode: it is teleported using car travel times and puts no
-   * vehicle of its own on the network, leaving the driver's vehicle as the only one the network sees. On a mode
-   * nobody is carried on, a walk or public transport trip for instance, a passenger travels exactly as the driver
-   * does and keeps the mapped mode
+   * vehicle of its own on the network, leaving the driver's vehicle as the only one the network sees. Only a mode
+   * driven by one of the people in it carries anyone, see {@link Mode#isSelfDrivenMotorisedMode()}. On any other mode,
+   * a walk or public transport trip for instance, a passenger travels exactly as the driver does and keeps the mapped
+   * mode
    *
    * @param trip to collect the mode for
    * @param asPassenger whether the person is carried rather than travelling the trip themselves
@@ -741,8 +759,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    * @return the MATSim mode to write
    */
   private String collectLegMode(Trip trip, boolean asPassenger, Map<Mode, String> modeMapping) {
-    if(asPassenger && getSettings().getCarriedPassengerModes().contains(
-        trip.getMode().getPredefinedModeType())){
+    if(asPassenger && trip.getMode().isSelfDrivenMotorisedMode()){
       writerStats.incrementPassengerLegsWritten();
       return MatsimBuiltInMode.RIDE.getValue();
     }
@@ -780,54 +797,9 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    * @param modeMapping     to use
    * @param discreteDemands to use
    */
-  /**
-   * The part of a person's schedule that is written out, being everything except the tours they take part in without
-   * owning them.
-   * <p>
-   * A tour shared by several participants is held once and carries one set of trips. When accompanying participants
-   * are not written, only its primary participant's copy is kept, so a shared tour yields a single traveller.
-   * Otherwise the schedule is left whole and the accompanying participants travel as passengers, see
-   * {@link #collectLegMode}
-   * </p>
-   *
-   * @param person whose schedule to filter
-   * @return the schedule to write, the person's own instance when nothing is left out
-   */
-  private ActivitySchedule collectScheduleToWrite(Person person) {
-    var schedule = person.getSchedule();
-    if(schedule == null){
-      return null;
-    }
-    if(getSettings().isWriteAccompanyingParticipants()){
-      return schedule;
-    }
-
-    boolean accompaniesAnything = false;
-    for(var element : schedule){
-      if(element instanceof ParticipantTour && !((ParticipantTour) element).isPrimary()){
-        accompaniesAnything = true;
-        break;
-      }
-    }
-    if(!accompaniesAnything){
-      /* nothing to leave out, so the person's own schedule is used as is */
-      return schedule;
-    }
-
-    var scheduleToWrite = new ActivitySchedule();
-    for(var element : schedule){
-      if(element instanceof ParticipantTour && !((ParticipantTour) element).isPrimary()){
-        writerStats.incrementAccompanyingParticipationsSkipped();
-        continue;
-      }
-      scheduleToWrite.add(element);
-    }
-    return scheduleToWrite;
-  }
-
   private void writePersonPlan(
-      XMLStreamWriter xmlWriter, Person person, ActivitySchedule scheduleToWrite, Map<Mode, String> modeMapping,
-      DiscreteDemands discreteDemands) {
+      XMLStreamWriter xmlWriter, Person person, Map<Mode, String> modeMapping, DiscreteDemands discreteDemands) {
+    var scheduleToWrite = person.getSchedule();
     var timePeriod = discreteDemands.getTimePeriods().getFirst();
     long periodStartTimeSeconds = timePeriod.getStartTimeSeconds();
     long periodEndTimeSeconds = periodStartTimeSeconds + timePeriod.getDurationSeconds();
@@ -884,13 +856,10 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
         checkForActivityElementBetweenScheduleElements(
             xmlWriter, scheduleElement, prevElement, person, periodStartTimeSeconds, periodEndTimeSeconds);
 
-        /* now we proceed with each travel involved activity, a top level element being travelled by the person
-         * themselves unless it is a tour they take part in without owning it */
-        boolean asPassenger = scheduleElement instanceof ParticipantTour
-            && !((ParticipantTour) scheduleElement).isPrimary();
+        /* now we proceed with each travel involved activity. Nothing holds a top level element, so whether the person
+         * is carried is decided by the tour they take part in */
         processScheduleElement(
-            xmlWriter, scheduleElement, person, asPassenger, modeMapping, periodStartTimeSeconds,
-            periodEndTimeSeconds);
+            xmlWriter, scheduleElement, person, false, modeMapping, periodStartTimeSeconds, periodEndTimeSeconds);
 
         prevElement = scheduleElement;
       }
@@ -956,15 +925,9 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
           continue;
         }
 
-        var scheduleToWrite = collectScheduleToWrite(person);
-        var initialActivity = scheduleToWrite != null ? scheduleToWrite.getFirst() : null;
+        var initialActivity = person.getSchedule() != null ? person.getSchedule().getFirst() : null;
         if(initialActivity == null){
           writerStats.incrementPersonsSkippedNoTours();
-          /* a person whose day consists only of tours they accompany has nothing left to write once those are set
-           * aside, which is worth separating from having no travel at all */
-          if(person.getSchedule() != null && !person.getSchedule().isEmpty()){
-            personsOnlyAccompanying.add(person);
-          }
           continue;
         }
 
@@ -975,19 +938,24 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
         xmlWriter.writeAttribute(MatsimAttributes.ID, getPrimaryIdMapper().getPersonClassIdMapper().apply(person));
         writeNewLine(xmlWriter);
 
-        if(person.hasExternalId()){
-          // attributes - Inside the person block right before initializing the <plan> tag
-          writeStartElementNewLine(xmlWriter, MatsimElements.ATTRIBUTES, true /* add indentation*/);
+        // attributes - Inside the person block right before initializing the <plan> tag
+        writeStartElementNewLine(xmlWriter, MatsimElements.ATTRIBUTES, true /* add indentation*/);
 
-          // external id
+        // subpopulation
+        writeMatsimCustomAttributeEntry(
+            xmlWriter, MatsimPlansAttributes.SUBPOPULATION, MatsimAttributes.STRING_CLASS_VALUE,
+            MatsimDiscreteDemandsWriterSettings.DEFAULT_PERSON_SUBPOPULATION);
+
+        // external id
+        if(person.hasExternalId()){
           writeMatsimCustomAttributeEntry(
               xmlWriter, "externalId", MatsimAttributes.STRING_CLASS_VALUE, person.getExternalId());
-
-          writeEndElementNewLine(xmlWriter, true /* undo indentation */ );
         }
 
+        writeEndElementNewLine(xmlWriter, true /* undo indentation */ );
+
         // plan
-        writePersonPlan(xmlWriter, person, scheduleToWrite, modeMapping, discreteDemands);
+        writePersonPlan(xmlWriter, person, modeMapping, discreteDemands);
 
         writeEndElementNewLine(xmlWriter, true /* undo indentation */ );
 
@@ -1055,6 +1023,8 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    * Validate
    * @param demands to validate
    * @return true when ok, false otherwise
+   * @throws PlanItRunTimeException when the network holds a custom mode, as trips are collapsed into mode chains by
+   * their predefined mode type, which every custom mode shares
    */
   private boolean validate(DiscreteDemands demands) {
     if(getReferenceNetwork() == null){
@@ -1065,6 +1035,13 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       LOGGER.severe(String.format("Matsim plans require a PLANit network with a single layer, but found (%d), " +
           "unable to persist demands", getReferenceNetwork().getTransportLayers().size()));
       return false;
+    }
+    var customModes = getReferenceNetwork().getModes().stream()
+        .filter(mode -> !mode.isPredefinedModeType()).collect(Collectors.toList());
+    if(!customModes.isEmpty()){
+      throw new PlanItRunTimeException("MATSim plans writer is only compatible with predefined PLANit modes, as it " +
+          "collapses trips into mode chains by their predefined mode type, found custom modes %s",
+          StringUtils.toBracketedList(customModes, StringUtils.DEFAULT_MAX_LISTED_ENTRIES, Mode::getName));
     }
 
     if(getReferenceZoning() == null){
@@ -1110,37 +1087,39 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       LOGGER.warning(String.format(
           "Skipped %s persons without a household, a MATSim plan requires a home location, persons %s",
           LoggingUtils.countWithPercentage(personsWithoutHousehold.size(), totalPersonCount),
-          ExternalIdAbleUtils.toIdsAsString(personsWithoutHousehold, MAX_LOGGED_ENTITIES)));
+          ExternalIdAbleUtils.toIdsAsString(personsWithoutHousehold, StringUtils.DEFAULT_MAX_LISTED_ENTRIES)));
     }
     if (!personsWithoutHomeZone.isEmpty()) {
       LOGGER.warning(String.format(
           "Skipped %s persons whose household has no home zone, a MATSim plan requires a home location, persons %s",
           LoggingUtils.countWithPercentage(personsWithoutHomeZone.size(), totalPersonCount),
-          ExternalIdAbleUtils.toIdsAsString(personsWithoutHomeZone, MAX_LOGGED_ENTITIES)));
+          ExternalIdAbleUtils.toIdsAsString(personsWithoutHomeZone, StringUtils.DEFAULT_MAX_LISTED_ENTRIES)));
     }
     if (writerStats.getPassengerLegsWritten() > 0) {
       LOGGER.info(String.format(
-          "Wrote %d legs as MATSim mode (%s) for persons carried on a tour owned by another, these are teleported " +
+          "Wrote %d legs as MATSim mode (%s) for persons carried on a tour driven by another, these are teleported " +
               "and place no vehicle of their own on the network",
           writerStats.getPassengerLegsWritten(), MatsimBuiltInMode.RIDE.getValue()));
-    }
-    if (writerStats.getAccompanyingParticipationsSkipped() > 0) {
-      LOGGER.info(String.format(
-          "Left out %d participations in tours the person only accompanies, the tour is written once for the " +
-              "participant owning it so that a shared tour yields a single vehicle rather than one per participant",
-          writerStats.getAccompanyingParticipationsSkipped()));
-    }
-    if (!personsOnlyAccompanying.isEmpty()) {
-      LOGGER.warning(String.format(
-          "Skipped %s persons whose only travel is in tours they accompany, leaving them without a plan, persons %s",
-          LoggingUtils.countWithPercentage(personsOnlyAccompanying.size(), totalPersonCount),
-          ExternalIdAbleUtils.toIdsAsString(personsOnlyAccompanying, MAX_LOGGED_ENTITIES)));
     }
     if (!toursWithoutSchedule.isEmpty()) {
       LOGGER.warning(String.format(
           "Found %d tours without a schedule (trips, or sub-tours), these contribute no legs to the plan, tours %s",
           toursWithoutSchedule.size(),
-          ExternalIdAbleUtils.toIdsAsString(toursWithoutSchedule, MAX_LOGGED_ENTITIES)));
+          ExternalIdAbleUtils.toIdsAsString(toursWithoutSchedule, StringUtils.DEFAULT_MAX_LISTED_ENTRIES)));
+    }
+    if (!subToursDrivenWhileCarriedOnParentTour.isEmpty()) {
+      LOGGER.warning(String.format(
+          "Found %d sub tours driven by a person who is carried on the tour holding them, written as driven although " +
+              "they would not have the vehicle with them, which may not be possible in the real world, sub tours %s",
+          subToursDrivenWhileCarriedOnParentTour.size(), ExternalIdAbleUtils.toIdsAsString(
+              subToursDrivenWhileCarriedOnParentTour, StringUtils.DEFAULT_MAX_LISTED_ENTRIES)));
+    }
+    if (!selfDrivenToursWithoutDriverValue.isEmpty()) {
+      LOGGER.warning(String.format(
+          "Found %d tours with a self-driven trip without a driver value, so one of the people travelling is taken " +
+              "as driver, the primary participant, tours %s",
+          selfDrivenToursWithoutDriverValue.size(), ExternalIdAbleUtils.toIdsAsString(
+              selfDrivenToursWithoutDriverValue, StringUtils.DEFAULT_MAX_LISTED_ENTRIES)));
     }
     if (writerStats.getActivitiesWithoutDescription() > 0) {
       LOGGER.warning(String.format(
@@ -1168,7 +1147,8 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     this.personsWithoutHousehold = new LinkedHashSet<>();
     this.personsWithoutHomeZone = new LinkedHashSet<>();
     this.toursWithoutSchedule = new LinkedHashSet<>();
-    this.personsOnlyAccompanying = new LinkedHashSet<>();
+    this.subToursDrivenWhileCarriedOnParentTour = new LinkedHashSet<>();
+    this.selfDrivenToursWithoutDriverValue = new LinkedHashSet<>();
     this.drawnActivityLocations = new HashMap<>();
     this.drawnHomeLocations = new HashMap<>();
     this.writerStats.reset();
@@ -1209,7 +1189,6 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
         LOGGER.info("[START] Pre-indexing structural metric zone-to-link length arrays for random allocations...");
         this.zoneLinkWeightsIndexByMode = LocationGeneratorUtils.populateZoneLinkWeightsIndex(
             activatedAvailableModes, referenceNetwork, referenceZoning.getOdZones(), getGeoUtils());
-        this.randomEngine = new SplittableRandom(DEFAULT_SIMULATION_SEED);
         this.publicModePlacementMode = resolvePublicModePlacementMode(activatedAvailableModes);
         LOGGER.info("[DONE] Pre-indexed structural metric zone-to-link length arrays for random allocations...");
       }
@@ -1306,12 +1285,10 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     publicModePlacementMode = null;
     centroidFallbackZoneIds = null;
     departureCompatibleWeightsCache = null;
-    randomEngine = null;
     personSchedulesToIgnore.clear();
     personsWithoutHousehold = null;
     personsWithoutHomeZone = null;
     toursWithoutSchedule = null;
-    personsOnlyAccompanying = null;
     drawnActivityLocations = null;
     drawnHomeLocations = null;
   }
@@ -1324,6 +1301,26 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    */
   public MatsimPlansWriterStats getWriterStats() {
     return writerStats;
+  }
+
+  /**
+   * The sub tours of the most recent write by a mode driven by one of the people in it that the person drives while
+   * carried on the parent tour, written as driven although the person would not have the vehicle with them
+   *
+   * @return those sub tours, not modifiable
+   */
+  public Set<Tour> getSubToursDrivenWhileCarriedOnParentTour() {
+    return Collections.unmodifiableSet(subToursDrivenWhileCarriedOnParentTour);
+  }
+
+  /**
+   * The tours of the most recent write with a trip by a mode driven by one of the people in it and a participation
+   * without a driver value, on which the primary participant was taken as driver
+   *
+   * @return those tours, not modifiable
+   */
+  public Set<Tour> getSelfDrivenToursWithoutDriverValue() {
+    return Collections.unmodifiableSet(selfDrivenToursWithoutDriverValue);
   }
 
   /**

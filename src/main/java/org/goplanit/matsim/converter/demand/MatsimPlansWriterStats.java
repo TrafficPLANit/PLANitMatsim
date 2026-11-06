@@ -41,14 +41,9 @@ public class MatsimPlansWriterStats {
   private long legsWritten;
 
   /**
-   * Number of legs written for a person carried on a tour owned by another.
+   * Number of legs written for a person carried on a tour driven by another.
    */
   private long passengerLegsWritten;
-
-  /**
-   * Number of participations in a tour owned by another that were left out of the plan.
-   */
-  private long accompanyingParticipationsSkipped;
 
   /**
    * Number of activities written without a description.
@@ -126,17 +121,10 @@ public class MatsimPlansWriterStats {
   }
 
   /**
-   * Increment the number of legs written for a person carried on a tour owned by another.
+   * Increment the number of legs written for a person carried on a tour driven by another.
    */
   public void incrementPassengerLegsWritten() {
     passengerLegsWritten++;
-  }
-
-  /**
-   * Increment the number of participations in a tour owned by another that were left out of the plan.
-   */
-  public void incrementAccompanyingParticipationsSkipped() {
-    accompanyingParticipationsSkipped++;
   }
 
   /**
@@ -235,15 +223,6 @@ public class MatsimPlansWriterStats {
    */
   public long getPassengerLegsWritten() {
     return passengerLegsWritten;
-  }
-
-  /**
-   * Get the value of accompanyingParticipationsSkipped.
-   *
-   * @return value of accompanyingParticipationsSkipped
-   */
-  public long getAccompanyingParticipationsSkipped() {
-    return accompanyingParticipationsSkipped;
   }
 
   /**
@@ -346,8 +325,6 @@ public class MatsimPlansWriterStats {
     builder.append(String.format("  - as a carried passenger       : %s%n",
         LoggingUtils.countWithPercentage(getPassengerLegsWritten(), getLegsWritten())));
     builder.append(String.format("  Trips merged by collapse rules : %d%n", getTripsCollapsedByModeChainRules()));
-    builder.append(String.format("  Accompanying participations left out : %d%n",
-        getAccompanyingParticipationsSkipped()));
     builder.append(String.format("  Dwellings established          : %s%n",
         LoggingUtils.countWithPercentage(getDwellingsPinned(), getPersonsWritten())));
     builder.append(String.format("  Other activity locations       : %s%n",
@@ -365,7 +342,6 @@ public class MatsimPlansWriterStats {
     activitiesWritten = 0;
     legsWritten = 0;
     passengerLegsWritten = 0;
-    accompanyingParticipationsSkipped = 0;
     activitiesWithoutDescription = 0;
     centroidFallbackActivities = 0;
     dwellingsPinned = 0;

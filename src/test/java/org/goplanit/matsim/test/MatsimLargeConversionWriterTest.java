@@ -188,7 +188,6 @@ public class MatsimLargeConversionWriterTest {
        * so every such leg is teleported rather than placing a second vehicle on the network alongside the driver */
       assertEquals(4_384, plansStats.getLegsWritten(MatsimBuiltInMode.RIDE.getValue()));
       assertEquals(4_384, plansStats.getPassengerLegsWritten());
-      assertEquals(0, plansStats.getAccompanyingParticipationsSkipped());
 
       /* a plan alternates activity and leg, an activity following another leaves out the movement reaching it */
       assertEquals(0, plansStats.getActivitiesFollowingAnActivity(),

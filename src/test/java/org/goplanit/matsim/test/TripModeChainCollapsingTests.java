@@ -11,7 +11,6 @@ import org.goplanit.matsim.util.ModeChainCollapseRule;
 import org.goplanit.matsim.util.ScheduleCollapsingUtils;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.utils.id.IdGenerator;
-import org.goplanit.utils.id.IdGroupingToken;
 import org.goplanit.utils.mode.Mode;
 import org.goplanit.utils.mode.PredefinedMode;
 import org.goplanit.utils.mode.PredefinedModeType;
@@ -36,6 +35,10 @@ public class TripModeChainCollapsingTests {
 
   /** Predefined test purpose string tokens. */
   private static final String PURPOSE_WORK = "work";
+
+  /** The modes of the network the tests build */
+  private static final PredefinedModeType[] MODE_TYPES = {
+      PredefinedModeType.CAR, PredefinedModeType.BUS, PredefinedModeType.TRAIN, PredefinedModeType.PEDESTRIAN};
 
   /**
    * Active multi-stage configuration rule matrices tracking valid matching chains
@@ -68,20 +71,14 @@ public class TripModeChainCollapsingTests {
   }
 
   /**
-   * Constructs and instantiates standard macroscopic network layers and
-   * zone structures in-memory to support test state execution profiles.
+   * Constructs the zone structures in-memory to support test state execution profiles, on a network with the
+   * {@link #MODE_TYPES} and one layer
    *
-   * @param network the active macroscopic network model container to populate
+   * @param network the active macroscopic network model the demands use
    * @param zoning the active zoning container linked to the graph
    * @return a validated, initialized DiscreteDemands database reference
    */
   private DiscreteDemands createBaseMemoryDemandModel(MacroscopicNetwork network, Zoning zoning) {
-    var carMode = network.getModes().getFactory().registerNew(PredefinedModeType.CAR);
-    var busMode = network.getModes().getFactory().registerNew(PredefinedModeType.BUS);
-    var trainMode = network.getModes().getFactory().registerNew(PredefinedModeType.TRAIN);
-    var walkMode = network.getModes().getFactory().registerNew(PredefinedModeType.PEDESTRIAN);
-    network.getTransportLayers().getFactory().registerNew(network.getModes());
-
     // Allocate 5 distinct spatial zones to trace multi-stop handovers
     zoning.getOdZones().getFactory().registerNew();
     zoning.getOdZones().getFactory().registerNew();
@@ -108,7 +105,7 @@ public class TripModeChainCollapsingTests {
    */
   @Test
   public void testValidStandardChainCollapsesCorrectly() {
-    var network = new MacroscopicNetwork(IdGroupingToken.collectGlobalToken());
+    var network = NetworkLayerTestUtils.createCartesianNetworkWithOneLayer(MODE_TYPES);
     var zoning = new Zoning(network.getIdGroupingToken(), network.getNetworkGroupingTokenId());
     var discreteDemands = createBaseMemoryDemandModel(network, zoning);
 
@@ -179,7 +176,7 @@ public class TripModeChainCollapsingTests {
    */
   @Test
   public void testEdgeCaseDirectionSwitchPreventsCollapse() {
-    var network = new MacroscopicNetwork(IdGroupingToken.collectGlobalToken());
+    var network = NetworkLayerTestUtils.createCartesianNetworkWithOneLayer(MODE_TYPES);
     var zoning = new Zoning(network.getIdGroupingToken(), network.getNetworkGroupingTokenId());
     var discreteDemands = createBaseMemoryDemandModel(network, zoning);
 
@@ -234,7 +231,7 @@ public class TripModeChainCollapsingTests {
    */
   @Test
   public void testEdgeCasePartialSequenceMatchesShortRule() {
-    var network = new MacroscopicNetwork(IdGroupingToken.collectGlobalToken());
+    var network = NetworkLayerTestUtils.createCartesianNetworkWithOneLayer(MODE_TYPES);
     var zoning = new Zoning(network.getIdGroupingToken(), network.getNetworkGroupingTokenId());
     var discreteDemands = createBaseMemoryDemandModel(network, zoning);
 
@@ -286,7 +283,7 @@ public class TripModeChainCollapsingTests {
    */
   @Test
   public void testInvalidContextMutationThrowsException() {
-    var network = new MacroscopicNetwork(IdGroupingToken.collectGlobalToken());
+    var network = NetworkLayerTestUtils.createCartesianNetworkWithOneLayer(MODE_TYPES);
     var zoning = new Zoning(network.getIdGroupingToken(), network.getNetworkGroupingTokenId());
     var discreteDemands = createBaseMemoryDemandModel(network, zoning);
 
@@ -328,7 +325,7 @@ public class TripModeChainCollapsingTests {
         PredefinedModeType.BUS, null, List.of()),
         "Null from-connectors should fail instantly with a NullPointerException.");
 
-    var network = new MacroscopicNetwork(IdGroupingToken.collectGlobalToken());
+    var network = NetworkLayerTestUtils.createCartesianNetworkWithOneLayer(MODE_TYPES);
     var zoning = new Zoning(network.getIdGroupingToken(), network.getNetworkGroupingTokenId());
     var discreteDemands = createBaseMemoryDemandModel(network, zoning);
 
@@ -351,7 +348,7 @@ public class TripModeChainCollapsingTests {
    */
   @Test
   public void testEdgeCaseStrictThreeStageOverlapPreservesRemainingBus() {
-    var network = new MacroscopicNetwork(IdGroupingToken.collectGlobalToken());
+    var network = NetworkLayerTestUtils.createCartesianNetworkWithOneLayer(MODE_TYPES);
     var zoning = new Zoning(network.getIdGroupingToken(), network.getNetworkGroupingTokenId());
     var discreteDemands = createBaseMemoryDemandModel(network, zoning);
 
@@ -434,7 +431,7 @@ public class TripModeChainCollapsingTests {
    */
   @Test
   public void testComplexMultiTransferChainWithBackwardPeeking() {
-    var network = new MacroscopicNetwork(IdGroupingToken.collectGlobalToken());
+    var network = NetworkLayerTestUtils.createCartesianNetworkWithOneLayer(MODE_TYPES);
     var zoning = new Zoning(network.getIdGroupingToken(), network.getNetworkGroupingTokenId());
     var discreteDemands = createBaseMemoryDemandModel(network, zoning);
 
@@ -531,7 +528,7 @@ public class TripModeChainCollapsingTests {
    */
   @Test
   public void testInvalidContextTourMutationThrowsException() {
-    var network = new MacroscopicNetwork(IdGroupingToken.collectGlobalToken());
+    var network = NetworkLayerTestUtils.createCartesianNetworkWithOneLayer(MODE_TYPES);
     var zoning = new Zoning(network.getIdGroupingToken(), network.getNetworkGroupingTokenId());
     var discreteDemands = createBaseMemoryDemandModel(network, zoning);
 
@@ -560,7 +557,7 @@ public class TripModeChainCollapsingTests {
    */
   @Test
   public void testAllowedFromMissingIfToPresentCollapseRule() {
-    var network = new MacroscopicNetwork(IdGroupingToken.collectGlobalToken());
+    var network = NetworkLayerTestUtils.createCartesianNetworkWithOneLayer(MODE_TYPES);
     var zoning = new Zoning(network.getIdGroupingToken(), network.getNetworkGroupingTokenId());
     var discreteDemands = createBaseMemoryDemandModel(network, zoning);
 
@@ -628,7 +625,7 @@ public class TripModeChainCollapsingTests {
    */
   @Test
   public void testAllowedToMissingIfFromPresentCollapseRule() {
-    var network = new MacroscopicNetwork(IdGroupingToken.collectGlobalToken());
+    var network = NetworkLayerTestUtils.createCartesianNetworkWithOneLayer(MODE_TYPES);
     var zoning = new Zoning(network.getIdGroupingToken(), network.getNetworkGroupingTokenId());
     var discreteDemands = createBaseMemoryDemandModel(network, zoning);
 

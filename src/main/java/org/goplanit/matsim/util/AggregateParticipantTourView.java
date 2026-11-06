@@ -65,4 +65,23 @@ public final class AggregateParticipantTourView implements ParticipantTour {
   public TourParticipantRole getRole() {
     return underlyingParticipation.getRole();
   }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public Boolean getDriver() {
+    return underlyingParticipation.getDriver();
+  }
+
+  /**
+   * Refused, as a view does not change the participation it shows
+   *
+   * @param driver not used
+   * @throws UnsupportedOperationException always
+   */
+  @Override
+  public void setDriver(Boolean driver) {
+    throw new UnsupportedOperationException("Mutations forbidden on aggregate mock view layers");
+  }
 }

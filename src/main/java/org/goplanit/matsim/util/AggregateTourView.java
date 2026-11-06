@@ -99,7 +99,9 @@ public final class AggregateTourView implements Tour {
   public Mode getInboundMode() { return collapsedSchedule.getInboundMode(); }
 
   // --- Mutator Safety Exceptions for Immutable Mock Views ---
-  @Override public ParticipantTour addParticipant(Person person, TourParticipantRole role) {
+  @Override public ParticipantTour addParticipant(Person person, TourParticipantRole role, Boolean driver) {
+    throw new UnsupportedOperationException("Mutations forbidden on aggregate mock view layers"); }
+  @Override public void setDriver(ParticipantTour driver) {
     throw new UnsupportedOperationException("Mutations forbidden on aggregate mock view layers"); }
   @Override public boolean removeParticipant(ParticipantTour participantTour) {
     throw new UnsupportedOperationException("Mutations forbidden on aggregate mock view layers"); }

@@ -4,6 +4,8 @@ import org.goplanit.utils.exceptions.PlanItRunTimeException;
 import org.goplanit.utils.geo.PlanitGraphGeoUtils;
 import org.goplanit.utils.geo.PlanitJtsCrsUtils;
 import org.goplanit.utils.id.ExternalIdAble;
+import org.goplanit.utils.id.ExternalIdAbleUtils;
+import org.goplanit.utils.misc.StringUtils;
 import org.goplanit.utils.mode.Mode;
 import org.goplanit.utils.mode.PredefinedModeType;
 import org.goplanit.utils.network.layer.macroscopic.MacroscopicLink;
@@ -33,9 +35,6 @@ import java.util.stream.Collectors;
 public class LocationGeneratorUtils {
 
   private static final Logger LOGGER = Logger.getLogger(LocationGeneratorUtils.class.getCanonicalName());
-
-  /** number of zones named when reporting a group of them, enough to go and look at without flooding the log */
-  private static final int MAX_REPORTED_ZONES = 10;
 
   /**
    * Pre-index a mapping from zone to the length weighted link segments within it supporting each of the given modes.
@@ -190,7 +189,8 @@ public class LocationGeneratorUtils {
     if (!noSpatialCandidateLinkZones.isEmpty()) {
       LOGGER.warning(String.format(
           "Found %d zones within the network extent yet without any spatial link coverage for any mode: %s",
-          noSpatialCandidateLinkZones.size(), listFirstZones(noSpatialCandidateLinkZones)));
+          noSpatialCandidateLinkZones.size(),
+          ExternalIdAbleUtils.toIdsAsString(noSpatialCandidateLinkZones, StringUtils.DEFAULT_MAX_LISTED_ENTRIES)));
     }
     /* reported here, once and naming the modes, rather than per activity that later falls back on the zone centroid:
      * with no link at all to draw there is nothing the writer could have done differently. Modes that fail in exactly
@@ -217,7 +217,7 @@ public class LocationGeneratorUtils {
           "Found %d zones within the network extent without any link supporting mode(s) (%s): %s",
           zones.size(),
           modesWithoutLinks.stream().map(Mode::getName).collect(Collectors.joining(",")),
-          listFirstZones(zones)));
+          ExternalIdAbleUtils.toIdsAsString(zones, StringUtils.DEFAULT_MAX_LISTED_ENTRIES)));
       if (!noWalkLinkZones.isEmpty() && !modesWithoutLinks.contains(pedestrianMode.get())) {
         message.append(String.format(
             " - %d/%d potentially problematic due to also lacking walk links as access mode",
@@ -227,18 +227,6 @@ public class LocationGeneratorUtils {
     });
 
     return indexByMode;
-  }
-
-  /**
-   * List the first handful of zones by their ids as (..),(..)
-   *
-   * @param zones to list
-   * @return the listing, trailing with ... when not all zones are named
-   */
-  private static String listFirstZones(List<Zone> zones) {
-    var listing = zones.stream().limit(MAX_REPORTED_ZONES).map(
-        z -> "(" + z.getIdsAsString() + ")").collect(Collectors.joining(","));
-    return zones.size() > MAX_REPORTED_ZONES ? listing + ",..." : listing;
   }
 
   /**

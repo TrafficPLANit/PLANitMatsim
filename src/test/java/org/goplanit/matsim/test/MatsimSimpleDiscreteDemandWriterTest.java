@@ -1,6 +1,7 @@
 package org.goplanit.matsim.test;
 
 import org.goplanit.demands.discrete.DiscreteDemands;
+import org.goplanit.demands.discrete.tour.ParticipantTour;
 import org.goplanit.demands.discrete.tour.Tour;
 import org.goplanit.demands.discrete.tour.TourParticipantRole;
 import org.goplanit.demands.discrete.util.DirectionBound;
@@ -9,14 +10,19 @@ import org.goplanit.matsim.converter.demand.MatsimDiscreteDemandsWriter;
 import org.goplanit.matsim.converter.demand.MatsimDiscreteDemandsWriterFactory;
 import org.goplanit.matsim.converter.demand.MatsimDiscreteDemandsWriterSettings;
 import org.goplanit.matsim.util.MatsimAssertionUtils;
+import org.goplanit.matsim.util.MatsimBuiltInMode;
+import org.goplanit.matsim.xml.MatsimAttributes;
+import org.goplanit.matsim.xml.MatsimPlansAttributes;
+import org.goplanit.matsim.xml.MatsimPlansElements;
 import org.goplanit.network.MacroscopicNetwork;
+import org.goplanit.utils.exceptions.PlanItRunTimeException;
 import org.goplanit.utils.geo.PlanitCrsUtils;
-import org.goplanit.utils.geo.PlanitJtsCrsUtils;
 import org.goplanit.utils.geo.PlanitJtsUtils;
 import org.goplanit.utils.id.IdGenerator;
-import org.goplanit.utils.id.IdGroupingToken;
 import org.goplanit.utils.misc.Pair;
+import org.goplanit.utils.mode.Mode;
 import org.goplanit.utils.mode.PredefinedModeType;
+import org.goplanit.utils.zoning.OdZone;
 import org.goplanit.zoning.Zoning;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -25,16 +31,24 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Point;
+import org.w3c.dom.Element;
 
+import javax.xml.parsers.DocumentBuilderFactory;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -57,28 +71,63 @@ public class MatsimSimpleDiscreteDemandWriterTest {
   private static final String PURPOSE_SHOPPING = "shopping";
   private static final String PURPOSE_GYM = "gym";
 
-  @BeforeAll
-  public static void setUp() throws Exception {
-    if (LOGGER == null) {
-      LOGGER = Logging.createLogger(MatsimSimpleDiscreteDemandWriterTest.class);
+  /**
+   * A value of each element with the given tag in the plan of one person in a written plans file, in the order they
+   * are written. The plans file's document type is not loaded, so nothing is fetched online
+   *
+   * @param plansFile to read
+   * @param personId the person is written with
+   * @param tag of the elements to collect a value of
+   * @param valueOf gives the value of an element
+   * @return the values, empty when the person is not in the file
+   * @throws Exception thrown if the file cannot be read
+   */
+  private static List<String> collectPlanElementValues(
+      Path plansFile, String personId, String tag, Function<Element, String> valueOf) throws Exception {
+    var documentBuilderFactory = DocumentBuilderFactory.newInstance();
+    documentBuilderFactory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+    var persons = documentBuilderFactory.newDocumentBuilder().parse(plansFile.toFile())
+        .getElementsByTagName(MatsimPlansElements.PERSON);
+
+    var values = new ArrayList<String>();
+    for (int personIndex = 0; personIndex < persons.getLength(); ++personIndex) {
+      var person = (Element) persons.item(personIndex);
+      if (personId.equals(person.getAttribute(MatsimAttributes.ID))) {
+        var elements = person.getElementsByTagName(tag);
+        for (int elementIndex = 0; elementIndex < elements.getLength(); ++elementIndex) {
+          values.add(valueOf.apply((Element) elements.item(elementIndex)));
+        }
+      }
     }
+    return values;
   }
 
   /**
-   * run garbage collection after each test as it apparently is not triggered properly within
-   * Eclipse (or takes too long before being triggered)
+   * The modes of the legs in the plan of one person in a written plans file, in the order they are written
+   *
+   * @param plansFile to read
+   * @param personId the person is written with
+   * @return leg modes, empty when the person is not in the file
+   * @throws Exception thrown if the file cannot be read
    */
-  @AfterEach
-  public void afterTest() {
-    IdGenerator.reset();
-    System.gc();
+  private static List<String> collectLegModes(Path plansFile, String personId) throws Exception {
+    return collectPlanElementValues(plansFile, personId, MatsimPlansElements.LEG,
+        leg -> leg.getAttribute(MatsimPlansAttributes.MODE));
   }
 
-  @AfterAll
-  public static void tearDown() {
-    Logging.closeLogger(LOGGER);
+  /**
+   * The locations of the activities in the plan of one person in a written plans file, each as its x and y, in the
+   * order they are written
+   *
+   * @param plansFile to read
+   * @param personId the person is written with
+   * @return activity locations, empty when the person is not in the file
+   * @throws Exception thrown if the file cannot be read
+   */
+  private static List<String> collectActivityLocations(Path plansFile, String personId) throws Exception {
+    return collectPlanElementValues(plansFile, personId, MatsimPlansElements.ACTIVITY,
+        activity -> activity.getAttribute(MatsimAttributes.X) + "," + activity.getAttribute(MatsimAttributes.Y));
   }
-
 
   /**
    * Create a network supporting car, bus, train and walking, and a zoning of five zones with their centroids placed
@@ -87,14 +136,8 @@ public class MatsimSimpleDiscreteDemandWriterTest {
    * @return network and zoning
    */
   private static Pair<MacroscopicNetwork, Zoning> createNetworkAndZoning() {
-    var network = new MacroscopicNetwork(IdGroupingToken.collectGlobalToken());
-    network.setCoordinateReferenceSystem(PlanitJtsCrsUtils.CARTESIANCRS);
-
-    network.getModes().getFactory().registerNew(PredefinedModeType.CAR);
-    network.getModes().getFactory().registerNew(PredefinedModeType.BUS);
-    network.getModes().getFactory().registerNew(PredefinedModeType.TRAIN);
-    network.getModes().getFactory().registerNew(PredefinedModeType.PEDESTRIAN);
-    network.getTransportLayers().getFactory().registerNew(network.getModes());
+    var network = NetworkLayerTestUtils.createCartesianNetworkWithOneLayer(
+        PredefinedModeType.CAR, PredefinedModeType.BUS, PredefinedModeType.TRAIN, PredefinedModeType.PEDESTRIAN);
 
     var zoning = new Zoning(network.getIdGroupingToken(), network.getNetworkGroupingTokenId());
     for (int index = 0; index < 5; ++index) {
@@ -137,6 +180,109 @@ public class MatsimSimpleDiscreteDemandWriterTest {
   }
 
   /**
+   * Create demands of a single person living in zone0 with a work tour to zone2 from 08:00 to 17:00, without trips
+   *
+   * @param network to use
+   * @param zoning to use
+   * @return demands and the work tour
+   */
+  private static Pair<DiscreteDemands, Tour> createWorkTourDemands(MacroscopicNetwork network, Zoning zoning) {
+    var discreteDemands = new DiscreteDemands(network.getIdGroupingToken());
+    discreteDemands.getTimePeriods().getFactory().registerNew("all day", 0, (24 * 3600)-1);
+    var tour = registerPersonWithWorkTour(discreteDemands, zoning.getOdZones().get(0), zoning.getOdZones().get(2));
+    return Pair.of(discreteDemands, tour);
+  }
+
+  /**
+   * Register a person in a household of their own living in the home zone, with a work tour to the work zone from
+   * 08:00 to 17:00, without trips
+   *
+   * @param discreteDemands to register on
+   * @param homeZone the household lives in
+   * @param workZone the person works in
+   * @return the work tour
+   */
+  private static Tour registerPersonWithWorkTour(DiscreteDemands discreteDemands, OdZone homeZone, OdZone workZone) {
+    var household = discreteDemands.getHouseholds().getFactory().registerNew();
+    household.setZone(homeZone);
+    var person = discreteDemands.getPersons().getFactory().registerNew(household);
+    person.setInitialPurpose("home");
+
+    var tour = discreteDemands.getTours().getFactory().registerNew(
+        person, homeZone, workZone, LocalTime.of(8, 0), LocalTime.of(17, 0), true);
+    tour.setPurpose(PURPOSE_WORK);
+    return tour;
+  }
+
+  /**
+   * Create a network supporting car, bus, train and walking, and a zoning of two square zones of 1 km with their
+   * polygons, zone0 west of zone1. Each zone is crossed by a two-way road of eight links at y 400, away from its
+   * centroid at y 500, so an activity placed on a link of its zone can be told from one placed on the centroid
+   *
+   * @return network and zoning
+   */
+  private static Pair<MacroscopicNetwork, Zoning> createNetworkAndZoningWithRoads() {
+    var network = NetworkLayerTestUtils.createCartesianNetworkWithOneLayer(
+        PredefinedModeType.CAR, PredefinedModeType.BUS, PredefinedModeType.TRAIN, PredefinedModeType.PEDESTRIAN);
+    var layer = network.getTransportLayers().getFirst();
+    var roadType = NetworkLayerTestUtils.registerLinkSegmentTypeAllowing(layer, "road", 1000, 50,
+        network.getModes().get(PredefinedModeType.CAR), network.getModes().get(PredefinedModeType.PEDESTRIAN));
+
+    var zoning = new Zoning(network.getIdGroupingToken(), network.getNetworkGroupingTokenId());
+    for (int zoneIndex = 0; zoneIndex < 2; ++zoneIndex) {
+      double west = zoneIndex * 1000.0;
+      var zone = zoning.getOdZones().getFactory().registerNew();
+      zone.setGeometry(PlanitJtsUtils.create2DPolygon(
+          List.of(west, 0.0, west + 1000, 0.0, west + 1000, 1000.0, west, 1000.0, west, 0.0)));
+      zone.getCentroid().setPosition(PlanitJtsUtils.createPoint(west + 500, 500));
+
+      var previous = NetworkLayerTestUtils.registerNodeAt(layer, west + 100, 400);
+      for (int nodeIndex = 2; nodeIndex <= 9; ++nodeIndex) {
+        var next = NetworkLayerTestUtils.registerNodeAt(layer, west + 100 * nodeIndex, 400);
+        NetworkLayerTestUtils.registerLinkWithOneSegment(layer, previous, next, roadType);
+        NetworkLayerTestUtils.registerLinkWithOneSegment(layer, next, previous, roadType);
+        previous = next;
+      }
+    }
+    return Pair.of(network, zoning);
+  }
+
+  /**
+   * Register the trip to work at the start of a work tour and the trip home half an hour before its end
+   *
+   * @param discreteDemands to register the trips on
+   * @param tour work tour, see {@link #createWorkTourDemands(MacroscopicNetwork, Zoning)}
+   * @param toWorkMode mode of the trip to work
+   * @param toHomeMode mode of the trip home
+   */
+  private static void registerTripsToWorkAndHome(
+      DiscreteDemands discreteDemands, Tour tour, Mode toWorkMode, Mode toHomeMode) {
+    boolean addToSchedule = true;
+    var toWork = discreteDemands.getTrips().getFactory().registerNew(tour, DirectionBound.OUTBOUND, addToSchedule);
+    toWork.setMode(toWorkMode);
+    toWork.syncStartTimeToTourStartTime();
+    var toHome = discreteDemands.getTrips().getFactory().registerNew(tour, DirectionBound.INBOUND, addToSchedule);
+    toHome.setMode(toHomeMode);
+    toHome.syncStartTimeToTourEndWithNegativeOffset(Duration.of(30, ChronoUnit.MINUTES));
+  }
+
+  /**
+   * Add a companion from the primary participant's household to the tour, accompanying them
+   *
+   * @param discreteDemands to register the companion in
+   * @param tour to add the companion to
+   * @return the companion's participation, without a driver value
+   */
+  private static ParticipantTour addCompanion(DiscreteDemands discreteDemands, Tour tour) {
+    var companion =
+        discreteDemands.getPersons().getFactory().registerNew(tour.getPrimaryParticipant().getHousehold());
+    companion.setInitialPurpose("home");
+    var companionParticipation = tour.addParticipant(companion, TourParticipantRole.ACCOMPANYING, null);
+    companion.getSchedule().add(companionParticipation);
+    return companionParticipation;
+  }
+
+  /**
    * Test case which parses a PLANit network without services, loads it into PLANit memory model and persists it as a
    * MATSim network without pt services
    * <p>
@@ -144,9 +290,7 @@ public class MatsimSimpleDiscreteDemandWriterTest {
    * GtfsToPlanitSydneyTest.testGtfsIntermodalReaderWithPreExistingPlanitTransferZones
    * </p>
    */
-  private void runPlansWriterTest(
-      String outputSubDir, String referenceSubDir,
-      Consumer<MatsimDiscreteDemandsWriterSettings> settingsCustomizer) {
+  private void runPlansWriterTest(String outputSubDir, String referenceSubDir) {
 
     final Path MATSIM_OUTPUT_DIR = Path.of(RESOURCE_PATH.toString(), "testcases", "synthetic", outputSubDir);
     final Path MATSIM_REF_DIR = Path.of(RESOURCE_PATH.toString(), "matsim", "synthetic", referenceSubDir);
@@ -333,7 +477,6 @@ public class MatsimSimpleDiscreteDemandWriterTest {
       person4.getSchedule().add(tour2_p2.addParticipant(person4, TourParticipantRole.ACCOMPANYING));
 
       var matsimPlansWriter = createPlansWriter(MATSIM_OUTPUT_DIR, network, zoning);
-      settingsCustomizer.accept(matsimPlansWriter.getSettings());
 
       // convert
       matsimPlansWriter.write(discreteDemands);
@@ -347,13 +490,26 @@ public class MatsimSimpleDiscreteDemandWriterTest {
     }
   }
 
+  @BeforeAll
+  public static void setUp() throws Exception {
+    if (LOGGER == null) {
+      LOGGER = Logging.createLogger(MatsimSimpleDiscreteDemandWriterTest.class);
+    }
+  }
+
+  @AfterAll
+  public static void tearDown() {
+    Logging.closeLogger(LOGGER);
+  }
+
   /**
-   * A shared tour is written for the participant owning it alone, so it yields one traveller however many take part
-   * in it. The companions contribute nothing, and a person who does nothing but accompany ends up without a plan
+   * run garbage collection after each test as it apparently is not triggered properly within
+   * Eclipse (or takes too long before being triggered)
    */
-  @Test
-  public void testMemoryModelToMatsimPlans() {
-    runPlansWriterTest("plans", "plans", settings -> settings.setWriteAccompanyingParticipants(false));
+  @AfterEach
+  public void afterTest() {
+    IdGenerator.reset();
+    System.gc();
   }
 
   /**
@@ -363,32 +519,7 @@ public class MatsimSimpleDiscreteDemandWriterTest {
    */
   @Test
   public void testMemoryModelToMatsimPlansWithAccompanyingParticipants() {
-    runPlansWriterTest("plans_joint", "plans_joint", settings -> {
-      // the default, stated here because it is what this case is about
-      settings.setWriteAccompanyingParticipants(true);
-    });
-  }
-
-  /**
-   * Create demands of a single person living in zone0 with a work tour to zone2 from 08:00 to 17:00, without trips
-   *
-   * @param network to use
-   * @param zoning to use
-   * @return demands and the work tour
-   */
-  private static Pair<DiscreteDemands, Tour> createWorkTourDemands(MacroscopicNetwork network, Zoning zoning) {
-    var discreteDemands = new DiscreteDemands(network.getIdGroupingToken());
-    discreteDemands.getTimePeriods().getFactory().registerNew("all day", 0, (24 * 3600)-1);
-    var household = discreteDemands.getHouseholds().getFactory().registerNew();
-    household.setZone(zoning.getOdZones().get(0));
-    var person = discreteDemands.getPersons().getFactory().registerNew(household);
-    person.setInitialPurpose("home");
-
-    var tour = discreteDemands.getTours().getFactory().registerNew(
-        person, zoning.getOdZones().get(0), zoning.getOdZones().get(2), LocalTime.of(8, 0), LocalTime.of(17, 0),
-        true);
-    tour.setPurpose(PURPOSE_WORK);
-    return Pair.of(discreteDemands, tour);
+    runPlansWriterTest("plans_joint", "plans_joint");
   }
 
   /**
@@ -488,5 +619,310 @@ public class MatsimSimpleDiscreteDemandWriterTest {
     assertEquals(1, plansStats.getLegsWritten("pt"));
     /* home, work and home again */
     assertEquals(3, plansStats.getActivitiesWritten());
+  }
+
+  /**
+   * Every person gets the default subpopulation, also a person without an external id, who has no other attributes
+   * <pre>
+   *   HOME (zone0) --walk--> WORK (zone2) --walk--> HOME (zone0)
+   *        08:00                  16:30
+   * </pre>
+   *
+   * @param outputDir to write the plans to
+   * @throws IOException thrown if the written plans cannot be read
+   */
+  @Test
+  public void testPersonGetsDefaultSubpopulation(@TempDir Path outputDir) throws IOException {
+    var networkAndZoning = createNetworkAndZoning();
+    var network = networkAndZoning.first();
+    var zoning = networkAndZoning.second();
+    var demandsAndTour = createWorkTourDemands(network, zoning);
+    var discreteDemands = demandsAndTour.first();
+    var tour = demandsAndTour.second();
+    var walkMode = network.getModes().get(PredefinedModeType.PEDESTRIAN);
+    registerTripsToWorkAndHome(discreteDemands, tour, walkMode, walkMode);
+
+    createPlansWriter(outputDir, network, zoning).write(discreteDemands);
+
+    var plansFile = outputDir.resolve(MatsimDiscreteDemandsWriterSettings.DEFAULT_PLANS_FILE_NAME + ".xml");
+    assertTrue(Files.readString(plansFile).contains(String.format(
+        "<attribute name=\"%s\" class=\"java.lang.String\">%s</attribute>", MatsimPlansAttributes.SUBPOPULATION,
+        MatsimDiscreteDemandsWriterSettings.DEFAULT_PERSON_SUBPOPULATION)));
+  }
+
+  /**
+   * A person who does not drive their own tour is carried on its car trip, written with MATSim's ride mode, while
+   * their walk trip on it stays a walk
+   * <pre>
+   *   HOME (zone0) --car, carried--> WORK (zone2) --walk--> HOME (zone0)
+   *        08:00                          16:30
+   * </pre>
+   *
+   * @param outputDir to write the plans to
+   */
+  @Test
+  public void testOwnTourNotDrivenIsCarriedOnItsCarTripOnly(@TempDir Path outputDir) {
+    var networkAndZoning = createNetworkAndZoning();
+    var network = networkAndZoning.first();
+    var zoning = networkAndZoning.second();
+    var demandsAndTour = createWorkTourDemands(network, zoning);
+    var discreteDemands = demandsAndTour.first();
+    var tour = demandsAndTour.second();
+    registerTripsToWorkAndHome(discreteDemands, tour,
+        network.getModes().get(PredefinedModeType.CAR), network.getModes().get(PredefinedModeType.PEDESTRIAN));
+    tour.getPrimaryParticipation().setDriver(false);
+
+    var matsimPlansWriter = createPlansWriter(outputDir, network, zoning);
+    matsimPlansWriter.write(discreteDemands);
+
+    var plansStats = matsimPlansWriter.getWriterStats();
+    assertEquals(2, plansStats.getLegsWritten());
+    assertEquals(1, plansStats.getLegsWritten(MatsimBuiltInMode.RIDE.getValue()));
+    assertEquals(1, plansStats.getLegsWritten("walk"));
+  }
+
+  /**
+   * On a joint car tour driven by its accompanying participant, that participant's legs are written by car and the
+   * primary participant's as ride
+   * <pre>
+   *   HOME (zone0) --car--> WORK (zone2) --car--> HOME (zone0)
+   *        08:00                 16:30
+   *   primary participant carried, accompanying participant driving
+   * </pre>
+   *
+   * @param outputDir to write the plans to
+   * @throws Exception thrown if the written plans cannot be read
+   */
+  @Test
+  public void testJointTourDrivenByItsAccompanyingParticipant(@TempDir Path outputDir) throws Exception {
+    var networkAndZoning = createNetworkAndZoning();
+    var network = networkAndZoning.first();
+    var zoning = networkAndZoning.second();
+    var demandsAndTour = createWorkTourDemands(network, zoning);
+    var discreteDemands = demandsAndTour.first();
+    var tour = demandsAndTour.second();
+    var carMode = network.getModes().get(PredefinedModeType.CAR);
+    registerTripsToWorkAndHome(discreteDemands, tour, carMode, carMode);
+
+    var primary = tour.getPrimaryParticipant();
+    var companionParticipation = addCompanion(discreteDemands, tour);
+    tour.setDriver(companionParticipation);
+
+    var matsimPlansWriter = createPlansWriter(outputDir, network, zoning);
+    matsimPlansWriter.write(discreteDemands);
+
+    var plansFile = outputDir.resolve(MatsimDiscreteDemandsWriterSettings.DEFAULT_PLANS_FILE_NAME + ".xml");
+    var personIdMapper = matsimPlansWriter.getPrimaryIdMapper().getPersonClassIdMapper();
+    var ride = MatsimBuiltInMode.RIDE.getValue();
+    assertEquals(List.of(ride, ride), collectLegModes(plansFile, personIdMapper.apply(primary)));
+    assertEquals(List.of("private_car", "private_car"),
+        collectLegModes(plansFile, personIdMapper.apply(companionParticipation.getPerson())));
+  }
+
+  /**
+   * An own car tour without a driver value is driven by its person, the mode being driven by one of the people
+   * travelling, and the tour is kept for the collated warning about missing driver values
+   * <pre>
+   *   HOME (zone0) --car--> WORK (zone2) --car--> HOME (zone0)
+   *        08:00                 16:30
+   *   no driver value
+   * </pre>
+   *
+   * @param outputDir to write the plans to
+   */
+  @Test
+  public void testOwnCarTourWithoutDriverValueIsDrivenAndKept(@TempDir Path outputDir) {
+    var networkAndZoning = createNetworkAndZoning();
+    var network = networkAndZoning.first();
+    var zoning = networkAndZoning.second();
+    var demandsAndTour = createWorkTourDemands(network, zoning);
+    var discreteDemands = demandsAndTour.first();
+    var tour = demandsAndTour.second();
+    var carMode = network.getModes().get(PredefinedModeType.CAR);
+    registerTripsToWorkAndHome(discreteDemands, tour, carMode, carMode);
+
+    var matsimPlansWriter = createPlansWriter(outputDir, network, zoning);
+    matsimPlansWriter.write(discreteDemands);
+
+    assertEquals(2, matsimPlansWriter.getWriterStats().getLegsWritten("private_car"));
+    assertEquals(Set.of(tour), matsimPlansWriter.getSelfDrivenToursWithoutDriverValue());
+  }
+
+  /**
+   * On a joint car tour without driver values its primary participant drives, so the tour keeps one car, and the
+   * other is carried; the tour is kept for the collated warning about missing driver values
+   * <pre>
+   *   HOME (zone0) --car--> WORK (zone2) --car--> HOME (zone0)
+   *        08:00                 16:30
+   *   primary participant and accompanying participant, no driver values
+   * </pre>
+   *
+   * @param outputDir to write the plans to
+   * @throws Exception thrown if the written plans cannot be read
+   */
+  @Test
+  public void testJointCarTourWithoutDriverValuesIsDrivenByItsPrimaryAndKept(@TempDir Path outputDir)
+      throws Exception {
+    var networkAndZoning = createNetworkAndZoning();
+    var network = networkAndZoning.first();
+    var zoning = networkAndZoning.second();
+    var demandsAndTour = createWorkTourDemands(network, zoning);
+    var discreteDemands = demandsAndTour.first();
+    var tour = demandsAndTour.second();
+    var carMode = network.getModes().get(PredefinedModeType.CAR);
+    registerTripsToWorkAndHome(discreteDemands, tour, carMode, carMode);
+    var companionParticipation = addCompanion(discreteDemands, tour);
+
+    var matsimPlansWriter = createPlansWriter(outputDir, network, zoning);
+    matsimPlansWriter.write(discreteDemands);
+
+    var plansFile = outputDir.resolve(MatsimDiscreteDemandsWriterSettings.DEFAULT_PLANS_FILE_NAME + ".xml");
+    var personIdMapper = matsimPlansWriter.getPrimaryIdMapper().getPersonClassIdMapper();
+    var ride = MatsimBuiltInMode.RIDE.getValue();
+    assertEquals(List.of("private_car", "private_car"),
+        collectLegModes(plansFile, personIdMapper.apply(tour.getPrimaryParticipant())));
+    assertEquals(List.of(ride, ride),
+        collectLegModes(plansFile, personIdMapper.apply(companionParticipation.getPerson())));
+    assertEquals(Set.of(tour), matsimPlansWriter.getSelfDrivenToursWithoutDriverValue());
+  }
+
+  /**
+   * A walk tour without a driver value has nothing anyone drives, so it is not kept for the warning
+   *
+   * @param outputDir to write the plans to
+   */
+  @Test
+  public void testWalkTourWithoutDriverValueIsNotKept(@TempDir Path outputDir) {
+    var networkAndZoning = createNetworkAndZoning();
+    var network = networkAndZoning.first();
+    var zoning = networkAndZoning.second();
+    var demandsAndTour = createWorkTourDemands(network, zoning);
+    var discreteDemands = demandsAndTour.first();
+    var walkMode = network.getModes().get(PredefinedModeType.PEDESTRIAN);
+    registerTripsToWorkAndHome(discreteDemands, demandsAndTour.second(), walkMode, walkMode);
+
+    var matsimPlansWriter = createPlansWriter(outputDir, network, zoning);
+    matsimPlansWriter.write(discreteDemands);
+
+    assertTrue(matsimPlansWriter.getSelfDrivenToursWithoutDriverValue().isEmpty());
+  }
+
+  /**
+   * A person carried to work who drives on their at-work sub tour is written driving it, as the demand says, and the
+   * sub tour is kept for the collated warning, since they would not have the car with them at work
+   * <pre>
+   *   HOME (zone0) --car, carried--> WORK (zone2) --car, driving--> LUNCH (zone3) --car, driving--> WORK (zone2)
+   *        08:00                          12:00                           12:50
+   *   WORK (zone2) --car, carried--> HOME (zone0)
+   *        16:30
+   * </pre>
+   *
+   * @param outputDir to write the plans to
+   */
+  @Test
+  public void testSubTourDrivenWhileCarriedOnItsParentTourIsKept(@TempDir Path outputDir) {
+    var networkAndZoning = createNetworkAndZoning();
+    var network = networkAndZoning.first();
+    var zoning = networkAndZoning.second();
+    var demandsAndTour = createWorkTourDemands(network, zoning);
+    var discreteDemands = demandsAndTour.first();
+    var workTour = demandsAndTour.second();
+    var carMode = network.getModes().get(PredefinedModeType.CAR);
+
+    boolean addToSchedule = true;
+    var toWork =
+        discreteDemands.getTrips().getFactory().registerNew(workTour, DirectionBound.OUTBOUND, addToSchedule);
+    toWork.setMode(carMode);
+    toWork.syncStartTimeToTourStartTime();
+    var lunchTour = discreteDemands.getTours().getFactory().registerNew(workTour, workTour.getDestination(),
+        zoning.getOdZones().get(3), LocalTime.of(12, 0), LocalTime.of(13, 0), addToSchedule);
+    lunchTour.setPurpose(PURPOSE_SHOPPING);
+    var toLunch =
+        discreteDemands.getTrips().getFactory().registerNew(lunchTour, DirectionBound.OUTBOUND, addToSchedule);
+    toLunch.setMode(carMode);
+    toLunch.syncStartTimeToTourStartTime();
+    var backToWork =
+        discreteDemands.getTrips().getFactory().registerNew(lunchTour, DirectionBound.INBOUND, addToSchedule);
+    backToWork.setMode(carMode);
+    backToWork.syncStartTimeToTourEndWithNegativeOffset(Duration.of(10, ChronoUnit.MINUTES));
+    var toHome = discreteDemands.getTrips().getFactory().registerNew(workTour, DirectionBound.INBOUND, addToSchedule);
+    toHome.setMode(carMode);
+    toHome.syncStartTimeToTourEndWithNegativeOffset(Duration.of(30, ChronoUnit.MINUTES));
+    workTour.getPrimaryParticipation().setDriver(false);
+    lunchTour.getPrimaryParticipation().setDriver(true);
+
+    var matsimPlansWriter = createPlansWriter(outputDir, network, zoning);
+    matsimPlansWriter.write(discreteDemands);
+
+    var plansStats = matsimPlansWriter.getWriterStats();
+    assertEquals(2, plansStats.getLegsWritten(MatsimBuiltInMode.RIDE.getValue()));
+    assertEquals(2, plansStats.getLegsWritten("private_car"));
+    assertEquals(Set.of(lunchTour), matsimPlansWriter.getSubToursDrivenWhileCarriedOnParentTour());
+  }
+
+  /**
+   * A person's locations do not depend on the other persons written. Two commuters by car from households of their own
+   * in zone0 to work in zone1, the first written first, are written twice, the second time with the first person's
+   * day cleared. Every location of the second person is on a road and the same both times
+   * <pre>
+   *   HOME (zone0) --car--> WORK (zone1) --car--> HOME (zone0)
+   *        08:00                 16:30
+   *   both persons alike, the first person's day cleared in the second write
+   * </pre>
+   *
+   * @param outputDir to write the plans to
+   * @throws Exception thrown if the written plans cannot be read
+   */
+  @Test
+  public void testLocationsDoNotDependOnOtherPersons(@TempDir Path outputDir) throws Exception {
+    var networkAndZoning = createNetworkAndZoningWithRoads();
+    var network = networkAndZoning.first();
+    var zoning = networkAndZoning.second();
+    var carMode = network.getModes().get(PredefinedModeType.CAR);
+    var homeZone = zoning.getOdZones().get(0);
+    var workZone = zoning.getOdZones().get(1);
+
+    var discreteDemands = new DiscreteDemands(network.getIdGroupingToken());
+    discreteDemands.getTimePeriods().getFactory().registerNew("all day", 0, (24 * 3600)-1);
+    var firstTour = registerPersonWithWorkTour(discreteDemands, homeZone, workZone);
+    registerTripsToWorkAndHome(discreteDemands, firstTour, carMode, carMode);
+    var secondTour = registerPersonWithWorkTour(discreteDemands, homeZone, workZone);
+    registerTripsToWorkAndHome(discreteDemands, secondTour, carMode, carMode);
+
+    var bothDir = Files.createDirectories(outputDir.resolve("both"));
+    var bothWriter = createPlansWriter(bothDir, network, zoning);
+    bothWriter.write(discreteDemands);
+    discreteDemands.getDiscreteDemandsModifier().clearPersonSchedule(firstTour.getPrimaryParticipant());
+    var secondOnlyDir = Files.createDirectories(outputDir.resolve("second_only"));
+    createPlansWriter(secondOnlyDir, network, zoning).write(discreteDemands);
+
+    var plansFileName = MatsimDiscreteDemandsWriterSettings.DEFAULT_PLANS_FILE_NAME + ".xml";
+    var secondId = bothWriter.getPrimaryIdMapper().getPersonClassIdMapper().apply(secondTour.getPrimaryParticipant());
+    var locationsWithBoth = collectActivityLocations(bothDir.resolve(plansFileName), secondId);
+    assertEquals(3, locationsWithBoth.size());
+    assertTrue(locationsWithBoth.stream().allMatch(location -> location.endsWith(",400.0")));
+    assertEquals(locationsWithBoth, collectActivityLocations(secondOnlyDir.resolve(plansFileName), secondId));
+  }
+
+  /**
+   * A network holding a custom mode is refused, as the writer collapses trips into mode chains by their predefined
+   * mode type, which every custom mode shares
+   *
+   * @param outputDir to write the plans to
+   */
+  @Test
+  public void testNetworkWithCustomModeIsRefused(@TempDir Path outputDir) {
+    var networkAndZoning = createNetworkAndZoning();
+    var network = networkAndZoning.first();
+    var zoning = networkAndZoning.second();
+    network.getModes().getFactory().registerNewCustomMode("van", 100, 1.5, null, null);
+    var demandsAndTour = createWorkTourDemands(network, zoning);
+    var discreteDemands = demandsAndTour.first();
+    var tour = demandsAndTour.second();
+    var walkMode = network.getModes().get(PredefinedModeType.PEDESTRIAN);
+    registerTripsToWorkAndHome(discreteDemands, tour, walkMode, walkMode);
+
+    var matsimPlansWriter = createPlansWriter(outputDir, network, zoning);
+    assertThrows(PlanItRunTimeException.class, () -> matsimPlansWriter.write(discreteDemands));
   }
 }
