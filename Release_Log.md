@@ -2,6 +2,9 @@
 
 This project contains core code to write a MATSIM network to disk based on PLANit memory model
 
+## 0.5.0
+* [GENERAL] update geotools version to be compatible with other PLANit components of this version
+
 ## 0.4.0
 
 * [GENERAL] Add support for writing out transit schedules based on PLANit routed services and service network via intermodal writer

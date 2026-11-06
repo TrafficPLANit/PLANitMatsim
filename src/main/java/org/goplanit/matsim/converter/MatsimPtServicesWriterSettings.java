@@ -2,6 +2,7 @@ package org.goplanit.matsim.converter;
 
 import org.goplanit.matsim.util.PlanitMatsimWriterModeMappingSettings;
 import org.goplanit.utils.locale.CountryNames;
+import org.goplanit.utils.misc.LoggingUtils;
 import org.goplanit.zoning.Zoning;
 
 import java.nio.file.Path;
@@ -28,15 +29,15 @@ public class MatsimPtServicesWriterSettings extends PlanitMatsimWriterModeMappin
    * in conjunction with MATsim network writer and we shared the mode mapping with these settings which will
    * already be logged.
    *
-   * todo: in future if there is a use case for the pt services to be persisted stand alone, then we can because we already
-   * have the mode mapping as part of its settings, but then we would want to log this mapping to the user in which case this
-   * method needs adjusting to be configurable, either do or do not log the mode mapping depending on the use case. Currently
-   * this mapping is simply not logged.
+   * todo: in future if there is a use case for the pt services to be persisted stand alone, then we can because
+   *  we already have the mode mapping as part of its settings, but then we would want to log this mapping to the user
+   *  in which case this method needs adjusting to be configurable, either do or do not log the mode mapping
+   *  depending on the use case. Currently this mapping is simply not logged.
    *
    */
   protected void logSettingsWithoutModeMapping() {
-    Path matsimZoningPath =  Paths.get(getOutputDirectory(), getFileName().concat(MatsimWriter.DEFAULT_FILE_NAME_EXTENSION));
-    LOGGER.info(String.format("Persisting MATSim public transport to: %s", matsimZoningPath));
+    LOGGER.info(LoggingUtils.settingsHeader("MATSim public transport services settings"));
+    super.logSettings(0); // bypass mode mapping
   }
 
   /** default value aligned with MATSim default */
