@@ -4,6 +4,7 @@ import org.goplanit.demands.discrete.DiscreteDemands;
 import org.goplanit.demands.discrete.tour.ActivitySchedule;
 import org.goplanit.demands.discrete.trip.Trip;
 import org.goplanit.demands.discrete.util.DirectionBound;
+import org.goplanit.logging.Logging;
 import org.goplanit.matsim.util.AggregateParticipantTourView;
 import org.goplanit.matsim.util.AggregateTourView;
 import org.goplanit.matsim.util.AggregateTripView;
@@ -15,6 +16,7 @@ import org.goplanit.utils.mode.Mode;
 import org.goplanit.utils.mode.PredefinedMode;
 import org.goplanit.utils.mode.PredefinedModeType;
 import org.goplanit.zoning.Zoning;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -62,6 +64,24 @@ public class TripModeChainCollapsingTests {
     if (LOGGER == null) {
       LOGGER = Logger.getLogger(TripModeChainCollapsingTests.class.getCanonicalName());
     }
+  }
+
+  /**
+   * Create the logger once for all tests of the class
+   *
+   * @throws Exception when the log file cannot be opened
+   */
+  @BeforeAll
+  public static void setUpLogger() throws Exception {
+    if (LOGGER == null) {
+      LOGGER = Logging.createLogger(TripModeChainCollapsingTests.class);
+    }
+  }
+
+  /** Close the logger after all tests of the class */
+  @AfterAll
+  public static void tearDownLogger() {
+    Logging.closeLogger(LOGGER);
   }
 
   @AfterEach

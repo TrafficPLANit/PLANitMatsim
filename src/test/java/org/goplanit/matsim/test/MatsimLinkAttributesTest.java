@@ -10,15 +10,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
+import org.goplanit.logging.Logging;
 import org.goplanit.matsim.converter.network.MatsimNetworkWriterFactory;
 import org.goplanit.matsim.converter.network.MatsimNetworkWriterSettings;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.utils.id.IdGenerator;
 import org.goplanit.utils.mode.PredefinedModeType;
 import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -34,6 +38,9 @@ import org.junit.jupiter.api.io.TempDir;
  * @author markr
  */
 public class MatsimLinkAttributesTest {
+
+  /** the logger, giving the log output PLANit's format */
+  private static Logger LOGGER = null;
 
   /** the value of the attribute element of the given name inside the written link, null when there is none */
   private static String attributeElementValue(String writtenLink, String name) {
@@ -51,6 +58,24 @@ public class MatsimLinkAttributesTest {
   /** where the network is written, not private as JUnit fills it in */
   @TempDir
   protected Path outputDir;
+
+  /**
+   * Create the logger once for all tests of the class
+   *
+   * @throws Exception when the log file cannot be opened
+   */
+  @BeforeAll
+  public static void setUpLogger() throws Exception {
+    if (LOGGER == null) {
+      LOGGER = Logging.createLogger(MatsimLinkAttributesTest.class);
+    }
+  }
+
+  /** Close the logger after all tests of the class */
+  @AfterAll
+  public static void tearDownLogger() {
+    Logging.closeLogger(LOGGER);
+  }
 
   @BeforeEach
   public void setUp() {

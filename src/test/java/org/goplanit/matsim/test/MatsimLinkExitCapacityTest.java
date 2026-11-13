@@ -9,8 +9,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
+import org.goplanit.logging.Logging;
 import org.goplanit.matsim.converter.network.MatsimNetworkWriter;
 import org.goplanit.matsim.converter.network.MatsimNetworkWriterFactory;
 import org.goplanit.matsim.converter.network.MatsimNetworkWriterSettings;
@@ -25,7 +27,9 @@ import org.goplanit.utils.network.layer.macroscopic.intersection.IntersectionSeg
 import org.goplanit.utils.network.layer.macroscopic.intersection.IntersectionSignalSegment;
 import org.goplanit.utils.network.layer.macroscopic.intersection.IntersectionType;
 import org.goplanit.utils.network.layer.macroscopic.intersection.SpatialIntersection;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -49,6 +53,9 @@ import org.junit.jupiter.api.io.TempDir;
  * @author markr
  */
 public class MatsimLinkExitCapacityTest {
+
+  /** the logger, giving the log output PLANit's format */
+  private static Logger LOGGER = null;
 
   /** the network written */
   private MacroscopicNetwork network;
@@ -86,6 +93,24 @@ public class MatsimLinkExitCapacityTest {
   /** where the network is written, not private as JUnit fills it in */
   @TempDir
   protected Path outputDir;
+
+  /**
+   * Create the logger once for all tests of the class
+   *
+   * @throws Exception when the log file cannot be opened
+   */
+  @BeforeAll
+  public static void setUpLogger() throws Exception {
+    if (LOGGER == null) {
+      LOGGER = Logging.createLogger(MatsimLinkExitCapacityTest.class);
+    }
+  }
+
+  /** Close the logger after all tests of the class */
+  @AfterAll
+  public static void tearDownLogger() {
+    Logging.closeLogger(LOGGER);
+  }
 
   @BeforeEach
   public void setUp() {

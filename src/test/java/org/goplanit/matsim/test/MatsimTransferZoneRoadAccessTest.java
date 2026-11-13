@@ -8,7 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Path;
+import java.util.logging.Logger;
 
+import org.goplanit.logging.Logging;
 import org.goplanit.matsim.converter.MatsimIntermodalWriter;
 import org.goplanit.matsim.converter.MatsimIntermodalWriterFactory;
 import org.goplanit.network.MacroscopicNetwork;
@@ -22,7 +24,9 @@ import org.goplanit.utils.network.layer.physical.Node;
 import org.goplanit.utils.zoning.TransferZoneType;
 import org.goplanit.utils.zoning.connectoid.ZoneConnectoidType;
 import org.goplanit.zoning.Zoning;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -42,6 +46,9 @@ import org.junit.jupiter.api.io.TempDir;
  * @author markr
  */
 public class MatsimTransferZoneRoadAccessTest {
+
+  /** the logger, giving the log output PLANit's format */
+  private static Logger LOGGER = null;
 
   /** the network written */
   private MacroscopicNetwork network;
@@ -78,6 +85,24 @@ public class MatsimTransferZoneRoadAccessTest {
   /** where the files are written, not private as JUnit fills it in */
   @TempDir
   protected Path outputDir;
+
+  /**
+   * Create the logger once for all tests of the class
+   *
+   * @throws Exception when the log file cannot be opened
+   */
+  @BeforeAll
+  public static void setUpLogger() throws Exception {
+    if (LOGGER == null) {
+      LOGGER = Logging.createLogger(MatsimTransferZoneRoadAccessTest.class);
+    }
+  }
+
+  /** Close the logger after all tests of the class */
+  @AfterAll
+  public static void tearDownLogger() {
+    Logging.closeLogger(LOGGER);
+  }
 
   @BeforeEach
   public void setUp() {
