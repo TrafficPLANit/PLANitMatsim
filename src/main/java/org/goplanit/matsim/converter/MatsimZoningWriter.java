@@ -46,35 +46,6 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter, M
   /** Logger to use */
   private static final Logger LOGGER = Logger.getLogger(MatsimZoningWriter.class.getCanonicalName());
 
-  /** reference network to use */
-  private MacroscopicNetwork referenceNetwork;
-
-  /** the zoning writer settings used for the MATSim pt component*/
-  private final MatsimZoningWriterSettings zoningWriterSettings;
-
-  /** track stats */
-  private final MatsimZoningWriterStats writerStats = new MatsimZoningWriterStats();
-
-  /** describes the transfer zone access to contribute to a MATSim network file, null when there is none to write */
-  private TransferAccessBuilder transferAccessBuilder;
-
-  /** whether stops must be reachable from the road network, which is not so when the modes written hold no road
-   * based mode, walking included, see {@link #prepareTransferAccess} */
-  private boolean stopsMustBeReachableByRoad = true;
-
-  /**
-   * validate if settings are complete and if not try to salve by adopting settings from the network where possible
-   *
-   * @return valid flag
-   */
-  private boolean validateSettings() {
-    if(getSettings().getOutputDirectory() == null || getSettings().getOutputDirectory().isBlank()) {
-      LOGGER.severe("MATSim zoning output directory not set, abort");
-      return false;
-    }
-    return true;
-  }
-
 
   /**
    * Identify the transfer zones that cannot be reached from road based infrastructure, which MATSim needs to get
@@ -145,6 +116,35 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter, M
     return false;
   }
 
+  /** reference network to use */
+  private MacroscopicNetwork referenceNetwork;
+
+  /** the zoning writer settings used for the MATSim pt component*/
+  private final MatsimZoningWriterSettings zoningWriterSettings;
+
+  /** track stats */
+  private final MatsimZoningWriterStats writerStats = new MatsimZoningWriterStats();
+
+  /** describes the transfer zone access to contribute to a MATSim network file, null when there is none to write */
+  private TransferAccessBuilder transferAccessBuilder;
+
+  /** whether stops must be reachable from the road network, which is not so when the modes written hold no road
+   * based mode, walking included, see {@link #prepareTransferAccess} */
+  private boolean stopsMustBeReachableByRoad = true;
+
+  /**
+   * validate if settings are complete and if not try to salve by adopting settings from the network where possible
+   *
+   * @return valid flag
+   */
+  private boolean validateSettings() {
+    if(getSettings().getOutputDirectory() == null || getSettings().getOutputDirectory().isBlank()) {
+      LOGGER.severe("MATSim zoning output directory not set, abort");
+      return false;
+    }
+    return true;
+  }
+
   /**
    * Prepare the transfer zone access so it can be contributed to a MATSim network file that is about to be written.
    * <p>
@@ -163,7 +163,7 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter, M
    * @param modesWritten the modes of the layer written to MATSim
    * @param minimumLinkLengthMeters to fall back on for a transfer link without a usable length
    */
-  void prepareTransferAccess(
+  protected void prepareTransferAccess(
       Zoning zoning, MacroscopicNetworkLayer networkLayer, Collection<Mode> modesWritten,
       double minimumLinkLengthMeters) {
     this.transferAccessBuilder = null;
@@ -191,6 +191,35 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter, M
         getSettings(),
         minimumLinkLengthMeters,
         new PlanitJtsCrsUtils(getReferenceNetwork().getCoordinateReferenceSystem()));
+  }
+
+  /**
+   * Access to zoning writer settings
+   * @return settings
+   */
+  protected MatsimZoningWriterSettings getZoningWriterSettings() {
+    return zoningWriterSettings;
+  }
+
+  /** constructor
+   *
+   * @param zoningWriterSettings to use
+   * @param referenceNetwork mandatory reference network
+   */
+  protected MatsimZoningWriter(
+      final MatsimZoningWriterSettings zoningWriterSettings,
+      final MacroscopicNetwork referenceNetwork) {
+    super(IdMapperType.ID);
+    this.referenceNetwork = referenceNetwork;
+    this.zoningWriterSettings = zoningWriterSettings;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public MacroscopicNetwork getReferenceNetwork() {
+    return referenceNetwork;
   }
 
   /**
@@ -275,27 +304,6 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter, M
     }
   }
 
-  /** constructor
-   *
-   * @param zoningWriterSettings to use
-   * @param referenceNetwork mandatory reference network
-   */
-  protected MatsimZoningWriter(
-      final MatsimZoningWriterSettings zoningWriterSettings,
-      final MacroscopicNetwork referenceNetwork) {
-    super(IdMapperType.ID);
-    this.referenceNetwork = referenceNetwork;
-    this.zoningWriterSettings = zoningWriterSettings;
-  }
-
-  /**
-   * Access to zoning writer settings
-   * @return settings
-   */
-  MatsimZoningWriterSettings getZoningWriterSettings() {
-    return zoningWriterSettings;
-  }
-
 
   /**
    * extract public transport information from PLANit zoning and use it to persist as much  of the MATSim
@@ -373,17 +381,10 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter, M
     return zoningWriterSettings;
   }
 
-  /** Collect the reference network used
-   *
-   * @return reference network
+  /**
+   * {@inheritDoc}
    */
-  protected MacroscopicNetwork getReferenceNetwork() {
-    return referenceNetwork;
-  }
-
-  /** Set the reference network compatible with the zoning
-   * @param referenceNetwork to use
-   */
+  @Override
   public void setReferenceNetwork(MacroscopicNetwork referenceNetwork) {
     this.referenceNetwork = referenceNetwork;
   }
