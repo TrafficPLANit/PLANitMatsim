@@ -1,8 +1,11 @@
 package org.goplanit.matsim.converter;
 
-import org.goplanit.matsim.util.PlanitMatsimWriterModeMappingSettings;
+import org.goplanit.matsim.util.PlanitMatsimWriterSettings;
 import org.goplanit.utils.locale.CountryNames;
 import org.goplanit.utils.misc.LoggingUtils;
+import org.goplanit.utils.settings.annotations.SettingsKeyLevel;
+import org.goplanit.utils.settings.annotations.SettingsRead;
+import org.goplanit.utils.settings.annotations.SettingsWrite;
 import org.goplanit.zoning.Zoning;
 
 import java.nio.file.Path;
@@ -16,29 +19,13 @@ import java.util.logging.Logger;
  * @author markr
  *
  */
-public class MatsimPtServicesWriterSettings extends PlanitMatsimWriterModeMappingSettings {
+public class MatsimPtServicesWriterSettings extends PlanitMatsimWriterSettings {
 
   /** settings to use */
   private static final Logger LOGGER = Logger.getLogger(MatsimPtServicesWriterSettings.class.getCanonicalName());
 
   /** flag indicating the default for transit routes awaiting departure based on their schedule */
   private boolean awaitDepartures = AWAIT_DEPARTURE_DEFAULT;
-
-  /**
-   * Log settings but do not use parent class log settings as it is assumed this writer is always used
-   * in conjunction with MATsim network writer and we shared the mode mapping with these settings which will
-   * already be logged.
-   *
-   * todo: in future if there is a use case for the pt services to be persisted stand alone, then we can because
-   *  we already have the mode mapping as part of its settings, but then we would want to log this mapping to the user
-   *  in which case this method needs adjusting to be configurable, either do or do not log the mode mapping
-   *  depending on the use case. Currently this mapping is simply not logged.
-   *
-   */
-  protected void logSettingsWithoutModeMapping() {
-    LOGGER.info(LoggingUtils.settingsHeader("MATSim public transport services settings"));
-    super.logSettings(0); // bypass mode mapping
-  }
 
   /** default value aligned with MATSim default */
   public static final boolean AWAIT_DEPARTURE_DEFAULT = false;
@@ -84,21 +71,25 @@ public class MatsimPtServicesWriterSettings extends PlanitMatsimWriterModeMappin
   }
 
   /**
-   * Copy Constructor based on PlanitMatsimWriterModeMappingSettings
-   *
-   * @param settings to apply
-   */
-  public MatsimPtServicesWriterSettings(final PlanitMatsimWriterModeMappingSettings settings){
-    super(settings);
-  }
-
-  /**
    * {@inheritDoc}
    */
   @Override
   public void reset() {
     super.reset();
-    // TODO
+    setFileName(DEFAULT_TRANSIT_SCHEDULE_FILE_NAME);
+    this.awaitDepartures = AWAIT_DEPARTURE_DEFAULT;
+  }
+
+  /**
+   * Log the settings under their own heading. The MATSim modes of the transit routes are not among them: they come
+   * from the network writer settings, which log them.
+   *
+   * @param level to log at
+   */
+  @Override
+  public void logSettings(int level) {
+    LOGGER.info(LoggingUtils.settingsHeader("MATSim public transport services settings"));
+    super.logSettings(level);
   }
 
   // getters-settings
@@ -107,6 +98,7 @@ public class MatsimPtServicesWriterSettings extends PlanitMatsimWriterModeMappin
    *
    * @return await departures flag
    */
+  @SettingsRead(key = "awaitDepartures")
   public boolean isAwaitDepartures() {
     return awaitDepartures;
   }
@@ -116,6 +108,8 @@ public class MatsimPtServicesWriterSettings extends PlanitMatsimWriterModeMappin
    *
    * @param awaitDepartures set await departures flag
    */
+  @SettingsWrite(key = "awaitDepartures", level = SettingsKeyLevel.UNCOMMON,
+      description = "Make every transit route wait at each stop until its scheduled departure time")
   public void setAwaitDepartures(boolean awaitDepartures) {
     this.awaitDepartures = awaitDepartures;
   }

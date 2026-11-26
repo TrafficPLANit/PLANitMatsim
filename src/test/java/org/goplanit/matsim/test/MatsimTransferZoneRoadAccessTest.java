@@ -5,22 +5,31 @@ import static org.goplanit.matsim.test.NetworkLayerTestUtils.registerLinkSegment
 import static org.goplanit.matsim.test.NetworkLayerTestUtils.registerLinkWithOneSegment;
 import static org.goplanit.matsim.test.NetworkLayerTestUtils.registerNodeAt;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.logging.Logger;
 
 import org.goplanit.logging.Logging;
 import org.goplanit.matsim.converter.MatsimIntermodalWriter;
 import org.goplanit.matsim.converter.MatsimIntermodalWriterFactory;
+import org.goplanit.matsim.converter.MatsimWriterSettingsFactory;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.utils.exceptions.PlanItRunTimeException;
 import org.goplanit.utils.geo.PlanitJtsUtils;
 import org.goplanit.utils.id.IdGenerator;
 import org.goplanit.utils.id.IdGroupingToken;
+import org.goplanit.utils.misc.FileUtils;
 import org.goplanit.utils.mode.PredefinedModeType;
 import org.goplanit.utils.network.layer.MacroscopicNetworkLayer;
 import org.goplanit.utils.network.layer.physical.Node;
+import org.goplanit.utils.settings.SettingsSource;
 import org.goplanit.utils.zoning.TransferZoneType;
 import org.goplanit.utils.zoning.connectoid.ZoneConnectoidType;
 import org.goplanit.zoning.Zoning;
@@ -49,6 +58,18 @@ public class MatsimTransferZoneRoadAccessTest {
 
   /** the logger, giving the log output PLANit's format */
   private static Logger LOGGER = null;
+
+  /**
+   * The names of the files in a folder
+   *
+   * @param folder to look in
+   * @return the names, sorted
+   */
+  private static Set<String> fileNamesIn(Path folder) {
+    var fileNames = new TreeSet<String>();
+    FileUtils.callForEachFileIn(folder.toString(), file -> fileNames.add(file.getName()));
+    return fileNames;
+  }
 
   /** the network written */
   private MacroscopicNetwork network;
@@ -149,5 +170,38 @@ public class MatsimTransferZoneRoadAccessTest {
     addRoadFromTerminalFor(PredefinedModeType.PEDESTRIAN);
 
     assertThrows(PlanItRunTimeException.class, () -> write(PredefinedModeType.PEDESTRIAN));
+  }
+
+  /**
+   * Written with intermodal writer settings made from settings files, the terminal is written as with the settings
+   * made in code: the same files, each with the same lines. The files name one file for every part, setting the folder
+   * written to, relative to that file, and the files written as not gzipped
+   *
+   * @throws IOException when a settings file cannot be written or a file written cannot be read
+   */
+  @Test
+  public void writtenWithSettingsFromFilesAsWithSettingsInCode() throws IOException {
+    var inCode = Files.createDirectories(outputDir.resolve("inCode"));
+    var writer = MatsimIntermodalWriterFactory.create(inCode.toString());
+    writer.getSettings().setWriteAsGZip(false);
+    writer.write(network, zoning);
+
+    /* a conversion of its own, from the network and zoning built afresh */
+    setUp();
+    var fromFiles = Files.createDirectories(outputDir.resolve("fromFiles"));
+    Files.writeString(outputDir.resolve("parts.yaml"),
+        "planitMatsimWriterSettings: 1\noutputDirectory: fromFiles\nwriteAsGZip: false\n");
+    var intermodalFile = Files.writeString(outputDir.resolve("intermodal.yaml"),
+        "planitMatsimWriterSettings: 1\nnetwork: parts.yaml\nzoning: parts.yaml\nptServices: parts.yaml\n");
+    MatsimIntermodalWriterFactory.create(MatsimWriterSettingsFactory.createIntermodalWriterSettingsFromYaml(
+        List.of(SettingsSource.ofFile(intermodalFile)))).write(network, zoning);
+
+    var fileNames = fileNamesIn(inCode);
+    assertFalse(fileNames.isEmpty());
+    assertEquals(fileNames, fileNamesIn(fromFiles));
+    for (var fileName : fileNames) {
+      assertEquals(Files.readAllLines(inCode.resolve(fileName)), Files.readAllLines(fromFiles.resolve(fileName)),
+          fileName);
+    }
   }
 }

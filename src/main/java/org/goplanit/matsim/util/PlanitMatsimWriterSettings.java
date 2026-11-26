@@ -6,6 +6,12 @@ import org.goplanit.converter.SingleFileBasedConverterWriterSettings;
 import org.goplanit.utils.math.Precision;
 import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.goplanit.utils.misc.LoggingUtils;
+import org.goplanit.utils.settings.SettingsSchema;
+import org.goplanit.utils.settings.YamlWriteSettingsSupport;
+import org.goplanit.utils.settings.annotations.SettingsHeader;
+import org.goplanit.utils.settings.annotations.SettingsKeyLevel;
+import org.goplanit.utils.settings.annotations.SettingsRead;
+import org.goplanit.utils.settings.annotations.SettingsWrite;
 
 import java.text.DecimalFormat;
 import java.util.logging.Logger;
@@ -13,12 +19,29 @@ import java.util.logging.Logger;
 /**
  * Base writer settings class to be used by all available matsim writer settings classes.
  * Contains the output directory and destination country name used
- * 
+ * <p>
+ * Each MATSim writer has a settings file of its own, headed {@code planitMatsimWriterSettings: 1}, holding every key
+ * at the top level, those of every MATSim writer and its own, such as
+ * </p>
+ * <pre>
+ * planitMatsimWriterSettings: 1
+ * outputDirectory: out
+ * country: Australia
+ * fileName: roads
+ * writeAsGZip: false
+ * </pre>
+ * <p>
+ * One header serves every MATSim writer, so a file of the keys several writers share can be stacked under each
+ * writer's own file. {@link org.goplanit.matsim.converter.MatsimWriterSettingsFactory} makes the settings of each
+ * writer from such files.
+ * </p>
+ *
  * @author markr
  *
  */
+@SettingsHeader(key = "planitMatsimWriterSettings", version = 1)
 public abstract class PlanitMatsimWriterSettings extends SingleFileBasedConverterWriterSettings
-    implements ConverterWriterSettings {
+    implements ConverterWriterSettings, YamlWriteSettingsSupport {
 
   private static final Logger LOGGER = Logger.getLogger(PlanitMatsimWriterSettings.class.getCanonicalName());
 
@@ -81,10 +104,21 @@ public abstract class PlanitMatsimWriterSettings extends SingleFileBasedConverte
     LOGGER.info(LoggingUtils.settingsValue("Write as GZip", isWriteAsGZip(), level));
   }
 
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void reset() {
+    super.reset();
+    this.decimalFormat = Precision.DEFAULT_DECIMAL_FORMAT;
+    this.writeAsGZip = DEFAULT_WRITE_GZIP;
+  }
+
   /** Collect number of decimals used in writing coordinates
    *
    * @return number of decimals used
    */
+  @SettingsRead(key = "decimalFormat")
   public DecimalFormat getDecimalFormat() {
     return decimalFormat;
   }
@@ -93,6 +127,8 @@ public abstract class PlanitMatsimWriterSettings extends SingleFileBasedConverte
    *
    * @param decimalFormat format to use
    */
+  @SettingsWrite(key = "decimalFormat", level = SettingsKeyLevel.UNCOMMON,
+      description = "The pattern numbers are written with, such as #.###, as Java's DecimalFormat reads it")
   public void setDecimalFormat(DecimalFormat decimalFormat) {
     this.decimalFormat = decimalFormat;
   }
@@ -101,6 +137,8 @@ public abstract class PlanitMatsimWriterSettings extends SingleFileBasedConverte
    * Write XML as gzipped xml
    * @param flag flag
    */
+  @SettingsWrite(key = "writeAsGZip", level = SettingsKeyLevel.STANDARD,
+      description = "Write the MATSim files gzipped, adding .gz to their names")
   public void setWriteAsGZip(boolean flag) {
     this.writeAsGZip = flag;
   }
@@ -109,7 +147,16 @@ public abstract class PlanitMatsimWriterSettings extends SingleFileBasedConverte
    * Write XML as gzipped xml
    * @return flag
    */
+  @SettingsRead(key = "writeAsGZip")
   public boolean isWriteAsGZip() {
     return writeAsGZip;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public SettingsSchema getSettingsSchema() {
+    return MatsimWriterSettingsSchema.SCHEMA;
   }
 }

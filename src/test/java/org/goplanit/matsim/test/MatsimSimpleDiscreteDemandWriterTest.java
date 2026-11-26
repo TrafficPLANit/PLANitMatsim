@@ -267,6 +267,40 @@ public class MatsimSimpleDiscreteDemandWriterTest {
   }
 
   /**
+   * Register on a work tour a walk to the station in zone3 at 08:00, the train to zone4 at 08:10 and a walk on to work
+   * at 08:40, then a walk home half an hour before the end of the tour
+   *
+   * @param discreteDemands to register the trips on
+   * @param tour work tour, see {@link #createWorkTourDemands(MacroscopicNetwork, Zoning)}
+   * @param network holding the modes
+   * @param zoning holding the zones
+   * @param stationPurpose purpose of the walk to the station and of the train trip, may be null
+   */
+  private static void registerTrainJourneyToWorkAndWalkHome(
+      DiscreteDemands discreteDemands, Tour tour, MacroscopicNetwork network, Zoning zoning, String stationPurpose) {
+    var walkMode = network.getModes().get(PredefinedModeType.PEDESTRIAN);
+    boolean addToSchedule = true;
+    var toStation = discreteDemands.getTrips().getFactory().registerNew(tour, DirectionBound.OUTBOUND, addToSchedule);
+    toStation.setDestination(zoning.getOdZones().get(3));
+    toStation.setMode(walkMode);
+    toStation.setPurpose(stationPurpose);
+    toStation.syncStartTimeToTourStartTime();
+    var byTrain = discreteDemands.getTrips().getFactory().registerNew(tour, DirectionBound.OUTBOUND, addToSchedule);
+    byTrain.setOrigin(zoning.getOdZones().get(3));
+    byTrain.setDestination(zoning.getOdZones().get(4));
+    byTrain.setMode(network.getModes().get(PredefinedModeType.TRAIN));
+    byTrain.setPurpose(stationPurpose);
+    byTrain.setStartTime(LocalTime.of(8, 10));
+    var fromStation = discreteDemands.getTrips().getFactory().registerNew(tour, DirectionBound.OUTBOUND, addToSchedule);
+    fromStation.setOrigin(zoning.getOdZones().get(4));
+    fromStation.setMode(walkMode);
+    fromStation.setStartTime(LocalTime.of(8, 40));
+    var toHome = discreteDemands.getTrips().getFactory().registerNew(tour, DirectionBound.INBOUND, addToSchedule);
+    toHome.setMode(walkMode);
+    toHome.syncStartTimeToTourEndWithNegativeOffset(Duration.of(30, ChronoUnit.MINUTES));
+  }
+
+  /**
    * Add a companion from the primary participant's household to the tour, accompanying them
    *
    * @param discreteDemands to register the companion in
@@ -572,8 +606,66 @@ public class MatsimSimpleDiscreteDemandWriterTest {
   }
 
   /**
+   * Mode chains are not collapsed by default: a walk to the station, the train and a walk on from the station are
+   * written as three legs, and no trip is counted as collapsed
+   * <pre>
+   *   HOME (zone0) --walk--> (zone3) --train--> (zone4) --walk--> WORK (zone2) --walk--> HOME (zone0)
+   *        08:00                 08:10               08:40                16:30
+   * </pre>
+   *
+   * @param outputDir to write the plans to
+   */
+  @Test
+  public void testModeChainsNotCollapsedByDefault(@TempDir Path outputDir) {
+    var networkAndZoning = createNetworkAndZoning();
+    var network = networkAndZoning.first();
+    var zoning = networkAndZoning.second();
+    var demandsAndTour = createWorkTourDemands(network, zoning);
+    var discreteDemands = demandsAndTour.first();
+    registerTrainJourneyToWorkAndWalkHome(discreteDemands, demandsAndTour.second(), network, zoning, "shopping");
+
+    var matsimPlansWriter = createPlansWriter(outputDir, network, zoning);
+    matsimPlansWriter.write(discreteDemands);
+
+    var plansStats = matsimPlansWriter.getWriterStats();
+    assertEquals(0, plansStats.getTripsCollapsedByModeChainRules());
+    assertEquals(4, plansStats.getLegsWritten());
+    assertEquals(1, plansStats.getLegsWritten("pt"));
+    assertEquals(3, plansStats.getLegsWritten("walk"));
+    assertEquals(0, plansStats.getActivitiesWithoutDescription());
+  }
+
+  /**
+   * An activity at the end of a trip without a purpose is written all the same, and counted as an activity without a
+   * description: here the activities at the station in zone3 and at the station in zone4, mode chains not being
+   * collapsed
+   * <pre>
+   *   HOME (zone0) --walk--> (zone3) --train--> (zone4) --walk--> WORK (zone2) --walk--> HOME (zone0)
+   *        08:00                 08:10               08:40                16:30
+   * </pre>
+   *
+   * @param outputDir to write the plans to
+   */
+  @Test
+  public void testActivitiesWithoutPurposeWrittenAndCounted(@TempDir Path outputDir) {
+    var networkAndZoning = createNetworkAndZoning();
+    var network = networkAndZoning.first();
+    var zoning = networkAndZoning.second();
+    var demandsAndTour = createWorkTourDemands(network, zoning);
+    var discreteDemands = demandsAndTour.first();
+    registerTrainJourneyToWorkAndWalkHome(discreteDemands, demandsAndTour.second(), network, zoning, null);
+
+    var matsimPlansWriter = createPlansWriter(outputDir, network, zoning);
+    matsimPlansWriter.write(discreteDemands);
+
+    var plansStats = matsimPlansWriter.getWriterStats();
+    assertEquals(4, plansStats.getLegsWritten());
+    assertEquals(2, plansStats.getActivitiesWithoutDescription());
+  }
+
+  /**
    * A walk to the station, the train and a walk on from the station form a single train journey, which the default
-   * collapse rules write as one pt leg. The two trips merged into it are counted
+   * collapse rules, switched on, write as one pt leg. The two trips merged into it are counted
    * <pre>
    *   HOME (zone0) --walk--> (zone3) --train--> (zone4) --walk--> WORK (zone2) --walk--> HOME (zone0)
    *        08:00                 08:10               08:40                16:30
@@ -588,29 +680,11 @@ public class MatsimSimpleDiscreteDemandWriterTest {
     var zoning = networkAndZoning.second();
     var demandsAndTour = createWorkTourDemands(network, zoning);
     var discreteDemands = demandsAndTour.first();
-    var tour = demandsAndTour.second();
-    var walkMode = network.getModes().get(PredefinedModeType.PEDESTRIAN);
-
-    boolean addToSchedule = true;
-    var toStation = discreteDemands.getTrips().getFactory().registerNew(tour, DirectionBound.OUTBOUND, addToSchedule);
-    toStation.setDestination(zoning.getOdZones().get(3));
-    toStation.setMode(walkMode);
-    toStation.syncStartTimeToTourStartTime();
-    var byTrain = discreteDemands.getTrips().getFactory().registerNew(tour, DirectionBound.OUTBOUND, addToSchedule);
-    byTrain.setOrigin(zoning.getOdZones().get(3));
-    byTrain.setDestination(zoning.getOdZones().get(4));
-    byTrain.setMode(network.getModes().get(PredefinedModeType.TRAIN));
-    byTrain.setStartTime(LocalTime.of(8, 10));
-    var fromStation = discreteDemands.getTrips().getFactory().registerNew(tour, DirectionBound.OUTBOUND, addToSchedule);
-    fromStation.setOrigin(zoning.getOdZones().get(4));
-    fromStation.setMode(walkMode);
-    fromStation.setStartTime(LocalTime.of(8, 40));
-    var toHome = discreteDemands.getTrips().getFactory().registerNew(tour, DirectionBound.INBOUND, addToSchedule);
-    toHome.setMode(walkMode);
-    toHome.syncStartTimeToTourEndWithNegativeOffset(Duration.of(30, ChronoUnit.MINUTES));
+    registerTrainJourneyToWorkAndWalkHome(discreteDemands, demandsAndTour.second(), network, zoning, "shopping");
 
     var matsimPlansWriter = createPlansWriter(outputDir, network, zoning);
     matsimPlansWriter.getSettings().setUseDisaggregateTransitModes(false);
+    matsimPlansWriter.getSettings().setCollapseModeChains(true);
     matsimPlansWriter.write(discreteDemands);
 
     var plansStats = matsimPlansWriter.getWriterStats();

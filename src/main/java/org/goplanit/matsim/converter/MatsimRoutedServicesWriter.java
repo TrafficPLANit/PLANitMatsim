@@ -30,15 +30,6 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
   /** track stats */
   private final MatsimRoutedServicesWriterStats writerStats = new MatsimRoutedServicesWriterStats();
 
-  /** the network settings to use required to sync our services references to zoning information */
-  protected final MatsimNetworkWriterSettings networkSettings;
-
-  /** the zoning settings to use required to sync our services references to zoning information */
-  protected final MatsimZoningWriterSettings zoningSettings;
-
-  /** reference zoning to extract pt stops from (rather than service nodes) */
-  protected final Zoning referenceZoning;
-
   /**
    * Validate the service network to make sure it is compatible with MATSim
    *
@@ -74,6 +65,15 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
 
     return true;
   }
+
+  /** the network settings to use required to sync our services references to zoning information */
+  protected final MatsimNetworkWriterSettings networkSettings;
+
+  /** the zoning settings to use required to sync our services references to zoning information */
+  protected final MatsimZoningWriterSettings zoningSettings;
+
+  /** reference zoning to extract pt stops from (rather than service nodes) */
+  protected final Zoning referenceZoning;
 
   /** Constructor.
    *
@@ -112,7 +112,7 @@ public class MatsimRoutedServicesWriter extends MatsimWriter<RoutedServices> imp
     //validateSettings();
 
     /* log settings */
-    getSettings().logSettingsWithoutModeMapping();
+    getSettings().logSettings();
 
     // todo: likely can be removed as no geo information is used during persistence to MATSim for PT services
     /* CRS */

@@ -1,0 +1,20 @@
+# The kind of these settings and the version of their keys
+planitMatsimWriterSettings: 1
+# --- standard ---
+# The country written for, by its full English name, such as Australia, whose projected coordinate reference system is
+# written in when destinationCrs is not given
+country: global
+# The coordinate reference system to write in, by its code, such as EPSG:28356; when not given, that of the country,
+# else that of the data read
+# destinationCrs:
+# The folder to write to, relative to this settings file
+# outputDirectory:
+# The name of the file to write, in the output directory, such as roads.xml
+fileName: output_transitschedule
+# Write the MATSim files gzipped, adding .gz to their names
+writeAsGZip: true
+# --- uncommon ---
+# The pattern numbers are written with, such as #.###, as Java's DecimalFormat reads it
+decimalFormat: '#0.00######'
+# Make every transit route wait at each stop until its scheduled departure time
+awaitDepartures: false

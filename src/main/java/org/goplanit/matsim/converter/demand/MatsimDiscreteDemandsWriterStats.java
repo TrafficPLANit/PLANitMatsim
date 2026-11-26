@@ -8,12 +8,7 @@ import java.util.TreeMap;
 /**
  * Collects statistics during MATSim plans writing.
  */
-public class MatsimPlansWriterStats {
-
-  /**
-   * Constructor.
-   */
-  public MatsimPlansWriterStats() {}
+public class MatsimDiscreteDemandsWriterStats {
 
   /**
    * Number of persons processed.
@@ -79,6 +74,11 @@ public class MatsimPlansWriterStats {
    * Number of legs written per MATSim mode.
    */
   private Map<String, Long> legsWrittenByMode = new TreeMap<>();
+
+  /**
+   * Constructor.
+   */
+  public MatsimDiscreteDemandsWriterStats() {}
 
   /**
    * Increment the number of persons processed.

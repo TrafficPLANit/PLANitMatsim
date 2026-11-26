@@ -153,6 +153,7 @@ public class MatsimLargeConversionWriterTest {
       // map plans to physical locations based on distance weighted random draws within the zone of the activity
       plansWriter.getSettings().setLocationGeneratorType(LocationGeneratorType.ZONE_LINKS_DISTANCE_WEIGHTED);
 
+      plansWriter.getSettings().setCollapseModeChains(true);
       plansWriter.getSettings().setConnectorFlagsForRule(
           PredefinedModeType.BUS, false, false);
       plansWriter.getSettings().setConnectorFlagsForRule(

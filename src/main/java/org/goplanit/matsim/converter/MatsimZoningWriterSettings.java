@@ -8,6 +8,9 @@ import org.goplanit.matsim.util.PlanitMatsimWriterSettings;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.utils.locale.CountryNames;
 import org.goplanit.utils.misc.LoggingUtils;
+import org.goplanit.utils.settings.annotations.SettingsKeyLevel;
+import org.goplanit.utils.settings.annotations.SettingsRead;
+import org.goplanit.utils.settings.annotations.SettingsWrite;
 
 /**
  * Settings specific to writing the zoning related output in MATSim format (pt)
@@ -43,20 +46,6 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
   protected double transferZoneAccessSpeedKmH = DEFAULT_TRANSFER_ZONE_ACCESS_SPEED_KM_H;
 
   /**
-   * Log settings
-   */
-  @Override
-  public void logSettings(int level) {
-    LOGGER.info(LoggingUtils.settingsHeader("MATSim zoning writer settings"));
-    super.logSettings(level);
-    LOGGER.info(LoggingUtils.settingsValue(
-        "Generate MATSim Matrix based PT routing file", isGenerateMatrixBasedPtRouterFiles(), level));
-    LOGGER.info(LoggingUtils.settingsValue("Write transfer zone access", isWriteTransferZoneAccess(), level));
-    LOGGER.info(LoggingUtils.settingsValue(
-        "Transfer zone access speed (km/h)", getTransferZoneAccessSpeedKmH(), level));
-  }
-
-  /**
    * Default setting for generating files required to run MATSim matrix based pt router
    */
   public static final boolean DEFAULT_GENERATE_MATRIX_BASED_PT_ROUTER_FILES = true;
@@ -71,6 +60,20 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
 
   /** Default free speed on transfer zone access links in km/h, an average walking pace */
   public static final double DEFAULT_TRANSFER_ZONE_ACCESS_SPEED_KM_H = 5.0;
+
+  /**
+   * Log settings
+   */
+  @Override
+  public void logSettings(int level) {
+    LOGGER.info(LoggingUtils.settingsHeader("MATSim zoning writer settings"));
+    super.logSettings(level);
+    LOGGER.info(LoggingUtils.settingsValue(
+        "Generate MATSim Matrix based PT routing file", isGenerateMatrixBasedPtRouterFiles(), level));
+    LOGGER.info(LoggingUtils.settingsValue("Write transfer zone access", isWriteTransferZoneAccess(), level));
+    LOGGER.info(LoggingUtils.settingsValue(
+        "Transfer zone access speed (km/h)", getTransferZoneAccessSpeedKmH(), level));
+  }
   
   /**
    * Default constructor using default output file name and Global country name
@@ -129,6 +132,7 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
   /** Collect the flag indicating if MATSim matrix based pt routing is supported by generating its files
    * @return flag, when true activated when false not activated
    */
+  @SettingsRead(key = "generateMatrixBasedPtRouterFiles")
   public boolean isGenerateMatrixBasedPtRouterFiles() {
     return generateMatrixBasedPtRouterFiles;
   }
@@ -136,6 +140,8 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
   /** Set the flag to indicate if MATSim matrix based pt routing is to be supported by generating its files
    * @param generateMatrixBasedPtRouterFiles when true activate, when false do not
    */
+  @SettingsWrite(key = "generateMatrixBasedPtRouterFiles", level = SettingsKeyLevel.UNCOMMON,
+      description = "Write the files MATSim's matrix based public transport router needs")
   public void setGenerateMatrixBasedPtRouterFiles(boolean generateMatrixBasedPtRouterFiles) {
     this.generateMatrixBasedPtRouterFiles = generateMatrixBasedPtRouterFiles;
   }  
@@ -145,6 +151,8 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
    */
   @Override
   public void reset() {
+    super.reset();
+    setFileName(DEFAULT_TRANSIT_SCHEDULE_FILE_NAME);
     this.generateMatrixBasedPtRouterFiles = DEFAULT_GENERATE_MATRIX_BASED_PT_ROUTER_FILES;
     this.ptBlockingAtStopFacility = PT_BLOCKING_AT_STOP_DEFAULT;
     this.writeTransferZoneAccess = DEFAULT_WRITE_TRANSFER_ZONE_ACCESS;
@@ -156,6 +164,7 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
    *
    * @return is pt blocking flag
    */
+  @SettingsRead(key = "ptBlockingAtStopFacility")
   public boolean isPtBlockingAtStopFacility() {
     return ptBlockingAtStopFacility;
   }
@@ -165,6 +174,8 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
    *
    * @param ptBlockingAtStopFacility set flag
    */
+  @SettingsWrite(key = "ptBlockingAtStopFacility", level = SettingsKeyLevel.UNCOMMON,
+      description = "Write every stop facility as blocking, so a vehicle stopping there holds up the traffic behind it")
   public void setPtBlockingAtStopFacility(boolean ptBlockingAtStopFacility) {
     this.ptBlockingAtStopFacility = ptBlockingAtStopFacility;
   }
@@ -173,6 +184,7 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
    *
    * @return flag, when true transfer zone access is written, when false it is not
    */
+  @SettingsRead(key = "writeTransferZoneAccess")
   public boolean isWriteTransferZoneAccess() {
     return writeTransferZoneAccess;
   }
@@ -182,6 +194,9 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
    *
    * @param writeTransferZoneAccess when true activate, when false do not
    */
+  @SettingsWrite(key = "writeTransferZoneAccess", level = SettingsKeyLevel.STANDARD,
+      description = "Write the access to each stop as MATSim nodes and links; without it, stops not on the road "
+          + "network cannot be reached on foot in MATSim")
   public void setWriteTransferZoneAccess(boolean writeTransferZoneAccess) {
     this.writeTransferZoneAccess = writeTransferZoneAccess;
   }
@@ -190,6 +205,7 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
    *
    * @return speed in km/h
    */
+  @SettingsRead(key = "transferZoneAccessSpeedKmH")
   public double getTransferZoneAccessSpeedKmH() {
     return transferZoneAccessSpeedKmH;
   }
@@ -199,6 +215,9 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
    *
    * @param transferZoneAccessSpeedKmH to use, in km/h
    */
+  @SettingsWrite(key = "transferZoneAccessSpeedKmH", level = SettingsKeyLevel.UNCOMMON,
+      description = "The free speed written on the links giving access to the stops, in km/h, whatever the modes "
+          + "allowed, as these links stand for walking to and from a stop")
   public void setTransferZoneAccessSpeedKmH(double transferZoneAccessSpeedKmH) {
     this.transferZoneAccessSpeedKmH = transferZoneAccessSpeedKmH;
   }

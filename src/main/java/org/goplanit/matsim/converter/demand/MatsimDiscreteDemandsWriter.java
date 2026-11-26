@@ -19,8 +19,8 @@ import org.goplanit.matsim.xml.*;
 import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.utils.exceptions.PlanItRunTimeException;
 import org.goplanit.utils.geo.PlanitJtsUtils;
-import org.goplanit.utils.graph.directed.DirectedVertex;
 import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
+import org.goplanit.utils.network.layer.physical.LinkSegmentUtils;
 import org.goplanit.utils.id.ExternalIdAbleUtils;
 import org.goplanit.utils.id.IdMapperType;
 import org.goplanit.utils.misc.HashUtils;
@@ -55,8 +55,99 @@ import static org.goplanit.utils.time.LocalTimeUtils.SECONDS_IN_DAY;
  */
 public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> implements DiscreteDemandsWriter{
 
+  /**
+   * The place an activity is performed, being a point and, where one carries it, the link segment it sits on
+   */
+  private static class MatsimPinnedActivityLocation {
+
+    /** the point the activity is performed at */
+    private final double x;
+
+    /** the point the activity is performed at */
+    private final double y;
+
+    /** the link segment carrying the point, null when the point is not on one */
+    private final MacroscopicLinkSegment linkSegment;
+
+    /**
+     * Constructor
+     *
+     * @param x of the point
+     * @param y of the point
+     * @param linkSegment carrying it, may be null
+     */
+    private MatsimPinnedActivityLocation(double x, double y, MacroscopicLinkSegment linkSegment) {
+      this.x = x;
+      this.y = y;
+      this.linkSegment = linkSegment;
+    }
+  }
+
   /** the logger to use */
   private static final Logger LOGGER = Logger.getLogger(MatsimDiscreteDemandsWriter.class.getCanonicalName());
+
+  /** fixed part of the seed of each activity location's draw, so every write of the same input gives the same
+   * locations */
+  private static final long DEFAULT_SIMULATION_SEED = 42L;
+
+  /** number of draws allowed when looking for an activity location that can also be departed from */
+  private static final int MAX_ACTIVITY_LOCATION_DRAWS = 10;
+
+  /** an activity placed at the anchor the person's day departs from and returns to, being their household's home */
+  private static final boolean AT_HOME_ANCHOR = true;
+
+  /** an activity placed somewhere the person travelled to */
+  private static final boolean AWAY_FROM_HOME = false;
+
+  /**
+   * Determine the mode whose links place an activity reached or left by a public mode. A public mode has stops rather
+   * than activity locations, so placing on its own links puts people on the track itself, where no activity belongs
+   * and from where nothing but the same public mode can leave. Walking is what a passenger does at either end of a
+   * public leg, so the pedestrian network is the natural stand-in, the transfer links written into the network
+   * carrying them on to the stop from there. Where no active mode is modelled the road network is the next best
+   * thing, being connected to the stops rather than being them.
+   *
+   * @param activatedAvailableModes to choose from
+   * @return the mode to place with, null when neither is available, in which case the zone centroid remains
+   */
+  private static Mode resolvePublicModePlacementMode(Set<Mode> activatedAvailableModes) {
+    var substitute = activatedAvailableModes.stream().filter(
+        m -> m.isPredefinedModeType(PredefinedModeType.PEDESTRIAN)).findFirst();
+    if (substitute.isEmpty()) {
+      substitute = activatedAvailableModes.stream().filter(
+          m -> m.isPredefinedModeType(PredefinedModeType.CAR)).findFirst();
+      substitute.ifPresent(m -> LOGGER.info(
+          "No pedestrian mode activated, placing activities of public mode legs on car links instead"));
+    }
+    if (substitute.isEmpty()) {
+      LOGGER.warning(
+          "Neither pedestrian nor car activated, activities of public mode legs fall back on their zone centroid");
+    }
+    return substitute.orElse(null);
+  }
+
+  /**
+   * The household whose dwelling this activity takes place in, being the household of the person when the activity
+   * sits at the anchor their day departs from and returns to, in the zone their household lives in. Anything else is
+   * a location of the person rather than of the household, and a person without a household, without a zone to live
+   * in, or anchored somewhere other than that zone has no dwelling to share
+   *
+   * @param person performing the activity
+   * @param atHomeAnchor whether the caller is placing the anchor of the person's day rather than somewhere they
+   *                     travelled to
+   * @param activeZone the activity takes place in
+   * @return the household at home here, null when this activity is not one
+   */
+  private static Household collectHouseholdAtHome(Person person, boolean atHomeAnchor, OdZone activeZone) {
+    if (!atHomeAnchor) {
+      return null;
+    }
+    var household = person.getHousehold();
+    if (household == null || household.getZone() == null || !household.getZone().equals(activeZone)) {
+      return null;
+    }
+    return household;
+  }
 
   /** ref network */
   private MacroscopicNetwork referenceNetwork;
@@ -65,11 +156,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   private Zoning referenceZoning;
 
   /** track stats */
-  private MatsimPlansWriterStats writerStats = new MatsimPlansWriterStats();
-
-  /** fixed part of the seed of each activity location's draw, so every write of the same input gives the same
-   * locations */
-  private static final long DEFAULT_SIMULATION_SEED = 42L;
+  private MatsimDiscreteDemandsWriterStats writerStats = new MatsimDiscreteDemandsWriterStats();
 
   /** LocationGenerator:ZONE_LINKS_DISTANCE_WEIGHTED requires
    * Pre-indexed mapping of zone weights by mode for sampling (if we use link weighted sampling within zone) */
@@ -84,9 +171,6 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   /** cached outcome of searching a zone in full for a location reachable by one mode and departable by another, keyed
    * on that combination. A null value marks a combination known to have no such location */
   private Map<Triple<Long, Mode, Mode>, LocationGeneratorUtils.ZoneLinkWeights> departureCompatibleWeightsCache;
-
-  /** number of draws allowed when looking for an activity location that can also be departed from */
-  private static final int MAX_ACTIVITY_LOCATION_DRAWS = 10;
 
   /** contains the Persons' schedules that we will ignore. This is populated based on having schedules that are not
    * based on the settings provided, e.g., contains modes deactivated in the mapping for example */
@@ -122,12 +206,6 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    * home. Everyone living there comes home to the same address rather than to their own point in the shared zone */
   private Map<Long, MatsimPinnedActivityLocation> drawnHomeLocations;
 
-  /** an activity placed at the anchor the person's day departs from and returns to, being their household's home */
-  private static final boolean AT_HOME_ANCHOR = true;
-
-  /** an activity placed somewhere the person travelled to */
-  private static final boolean AWAY_FROM_HOME = false;
-
   /**
    * validate the settings making sure minimal output information is available
    */
@@ -143,11 +221,6 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
 
     return true;
   }
-
-  /**
-   * MATSIM writer settings
-   */
-  protected final MatsimDiscreteDemandsWriterSettings settings;
 
   /**
    * Check for activity to intersperse travel legs:
@@ -439,7 +512,8 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     for (int attempt = 0; attempt < MAX_ACTIVITY_LOCATION_DRAWS; ++attempt) {
       selectedSegment = weights.drawRandomSegment(random);
       if (selectedSegment == null || departureMode == null ||
-          hasExitSegmentAllowingMode(selectedSegment.getDownstreamVertex(), departureMode)) {
+          selectedSegment.getDownstreamVertex().streamExitSegments().anyMatch(
+              LinkSegmentUtils.permitsMode(departureMode))) {
         return selectedSegment;
       }
     }
@@ -450,7 +524,8 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     var cacheKey = Triple.of(activeZone.getId(), arrivalMode, departureMode);
     if (!departureCompatibleWeightsCache.containsKey(cacheKey)) {
       var searchedWeights = weights.createFilteredCopy(
-          segment -> hasExitSegmentAllowingMode(segment.getDownstreamVertex(), departureMode));
+          segment -> segment.getDownstreamVertex().streamExitSegments().anyMatch(
+              LinkSegmentUtils.permitsMode(departureMode)));
       departureCompatibleWeightsCache.put(cacheKey, searchedWeights);
       if (searchedWeights == null) {
         LOGGER.warning(String.format(
@@ -466,53 +541,6 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   }
 
   /**
-   * Verify whether any segment leaving the given vertex allows the given mode
-   *
-   * @param vertex to check the exits of
-   * @param mode to check for
-   * @return true when at least one exit allows the mode
-   */
-  private static boolean hasExitSegmentAllowingMode(DirectedVertex vertex, Mode mode) {
-    if (vertex == null) {
-      return false;
-    }
-    for (var exitSegment : vertex.getExitEdgeSegments()) {
-      if (exitSegment instanceof MacroscopicLinkSegment &&
-          ((MacroscopicLinkSegment) exitSegment).isModeAllowed(mode)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Determine the mode whose links place an activity reached or left by a public mode. A public mode has stops rather
-   * than activity locations, so placing on its own links puts people on the track itself, where no activity belongs
-   * and from where nothing but the same public mode can leave. Walking is what a passenger does at either end of a
-   * public leg, so the pedestrian network is the natural stand-in, the transfer links written into the network
-   * carrying them on to the stop from there. Where no active mode is modelled the road network is the next best
-   * thing, being connected to the stops rather than being them.
-   *
-   * @param activatedAvailableModes to choose from
-   * @return the mode to place with, null when neither is available, in which case the zone centroid remains
-   */
-  private static Mode resolvePublicModePlacementMode(Set<Mode> activatedAvailableModes) {
-    var substitute = activatedAvailableModes.stream().filter(
-        m -> m.isPredefinedModeType(PredefinedModeType.PEDESTRIAN)).findFirst();
-    if (substitute.isEmpty()) {
-      substitute = activatedAvailableModes.stream().filter(
-          m -> m.isPredefinedModeType(PredefinedModeType.CAR)).findFirst();
-      substitute.ifPresent(m -> LOGGER.info(
-          "No pedestrian mode activated, placing activities of public mode legs on car links instead"));
-    }
-    if (substitute.isEmpty()) {
-      LOGGER.warning(
-          "Neither pedestrian nor car activated, activities of public mode legs fall back on their zone centroid");
-    }
-    return substitute.orElse(null);
-  }
-
-  /**
    * The mode to place an activity with, being the mode itself unless it is public, see
    * {@link #resolvePublicModePlacementMode(Set)}
    *
@@ -524,57 +552,6 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       return mode;
     }
     return this.publicModePlacementMode;
-  }
-
-  /**
-   * The household whose dwelling this activity takes place in, being the household of the person when the activity
-   * sits at the anchor their day departs from and returns to, in the zone their household lives in. Anything else is
-   * a location of the person rather than of the household, and a person without a household, without a zone to live
-   * in, or anchored somewhere other than that zone has no dwelling to share
-   *
-   * @param person performing the activity
-   * @param atHomeAnchor whether the caller is placing the anchor of the person's day rather than somewhere they
-   *                     travelled to
-   * @param activeZone the activity takes place in
-   * @return the household at home here, null when this activity is not one
-   */
-  private static Household collectHouseholdAtHome(Person person, boolean atHomeAnchor, OdZone activeZone) {
-    if (!atHomeAnchor) {
-      return null;
-    }
-    var household = person.getHousehold();
-    if (household == null || household.getZone() == null || !household.getZone().equals(activeZone)) {
-      return null;
-    }
-    return household;
-  }
-
-  /**
-   * The place an activity is performed, being a point and, where one carries it, the link segment it sits on
-   */
-  private static class MatsimPinnedActivityLocation {
-
-    /** the point the activity is performed at */
-    private final double x;
-
-    /** the point the activity is performed at */
-    private final double y;
-
-    /** the link segment carrying the point, null when the point is not on one */
-    private final MacroscopicLinkSegment linkSegment;
-
-    /**
-     * Constructor
-     *
-     * @param x of the point
-     * @param y of the point
-     * @param linkSegment carrying it, may be null
-     */
-    private MatsimPinnedActivityLocation(double x, double y, MacroscopicLinkSegment linkSegment) {
-      this.x = x;
-      this.y = y;
-      this.linkSegment = linkSegment;
-    }
   }
 
   /**
@@ -717,7 +694,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     // activity end point
     xmlWriter.writeEmptyElement(MatsimPlansElements.ACTIVITY);
     // purpose -> activity type
-    xmlWriter.writeAttribute(MatsimAttributes.TYPE, activityDescription);
+    xmlWriter.writeAttribute(MatsimAttributes.TYPE, activityDescription == null ? "" : activityDescription);
     // location
     xmlWriter.writeAttribute(MatsimAttributes.X, String.valueOf(finalX));
     xmlWriter.writeAttribute(MatsimAttributes.Y, String.valueOf(finalY));
@@ -823,14 +800,15 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
 
       ActivitySchedule processedSchedule;
       if (getSettings().isUseDisaggregateTransitModes()
+          || !getSettings().isCollapseModeChains()
           || !ScheduleCollapsingUtils.requiresScheduleCollapsing(
-              scheduleToWrite, getSettings().getModeCollapseRules())) {
+              scheduleToWrite, getSettings().getModeCollapseRules().values())) {
         // pass-through: reuses the original reference
         processedSchedule = scheduleToWrite;
       } else {
         // Groups complex (multi-)transfer chains non-destructively via peeking views
         processedSchedule = ScheduleCollapsingUtils.collapseContiguousTripChainsByModeRules(
-            scheduleToWrite, getSettings().getModeCollapseRules());
+            scheduleToWrite, getSettings().getModeCollapseRules().values());
         // every trip no longer a leg of its own is merged into another's
         writerStats.addTripsCollapsedByModeChainRules(
             scheduleToWrite.sizeUnrolled(true) - processedSchedule.sizeUnrolled(true));
@@ -900,123 +878,6 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
       return false;
     }
     return true;
-  }
-
-  /**
-   * Write persons element and then trigger writing all individual persons
-   *
-   * @param xmlWriter to use
-   * @param discreteDemands to use
-   */
-  protected void writeMatsimPersons(XMLStreamWriter xmlWriter, DiscreteDemands discreteDemands) {
-    var modeMapping = getSettings().collectActivatedPlanitModeToMatsimModeMapping(
-        getReferenceNetwork().getTransportLayers().getFirst());
-
-    try{
-
-      for(var person : discreteDemands.getPersons()){
-        writerStats.incrementPersonsProcessed();
-
-        if(personSchedulesToIgnore.contains(person)){
-          continue;
-        }
-
-        if(!hasHomeLocation(person)){
-          continue;
-        }
-
-        var initialActivity = person.getSchedule() != null ? person.getSchedule().getFirst() : null;
-        if(initialActivity == null){
-          writerStats.incrementPersonsSkippedNoTours();
-          continue;
-        }
-
-        // person
-        writeStartElement(xmlWriter, MatsimPlansElements.PERSON, true /* add indentation*/);
-
-        // id
-        xmlWriter.writeAttribute(MatsimAttributes.ID, getPrimaryIdMapper().getPersonClassIdMapper().apply(person));
-        writeNewLine(xmlWriter);
-
-        // attributes - Inside the person block right before initializing the <plan> tag
-        writeStartElementNewLine(xmlWriter, MatsimElements.ATTRIBUTES, true /* add indentation*/);
-
-        // subpopulation
-        writeMatsimCustomAttributeEntry(
-            xmlWriter, MatsimPlansAttributes.SUBPOPULATION, MatsimAttributes.STRING_CLASS_VALUE,
-            MatsimDiscreteDemandsWriterSettings.DEFAULT_PERSON_SUBPOPULATION);
-
-        // external id
-        if(person.hasExternalId()){
-          writeMatsimCustomAttributeEntry(
-              xmlWriter, "externalId", MatsimAttributes.STRING_CLASS_VALUE, person.getExternalId());
-        }
-
-        writeEndElementNewLine(xmlWriter, true /* undo indentation */ );
-
-        // plan
-        writePersonPlan(xmlWriter, person, modeMapping, discreteDemands);
-
-        writeEndElementNewLine(xmlWriter, true /* undo indentation */ );
-
-        writerStats.incrementPersonsWritten();
-      }
-    } catch (XMLStreamException e) {
-      LOGGER.severe(e.getMessage());
-      throw new PlanItRunTimeException("Error while writing MATSim population XML element");
-    }
-  }
-
-  /**
-   * Write top level population elements and then the plans per person. For now we only support a single plan per
-   * person
-   *
-   * @param xmlWriter       write to use
-   * @param discreteDemands demands to extract from
-   */
-  protected void writeMatsimPopulationXML(XMLStreamWriter xmlWriter, DiscreteDemands discreteDemands){
-
-    try{
-      // population
-      writeStartElementNewLine(xmlWriter, MatsimPlansElements.POPULATION, true /* add indentation*/);
-
-      //todo: add CRS attribute
-
-      writeMatsimPersons(xmlWriter, discreteDemands);
-
-      writeEndElementNewLine(xmlWriter, true /* undo indentation */ );
-    } catch (XMLStreamException e) {
-      LOGGER.severe(e.getMessage());
-      throw new PlanItRunTimeException("Error while writing MATSim population XML element");
-    }
-  }
-
-  /**
-   * write the xml MATSIM network
-   *
-   * @param discreteDemands to draw from
-   * @param asGZip flag indicating whether to write out as gzipped XML or not
-   */
-  protected void writeXmlPlansFile(DiscreteDemands discreteDemands, boolean asGZip){
-    Path matsimPlansPath =
-        Paths.get(getSettings().getOutputDirectory(), getSettings().getFileName().concat(DEFAULT_FILE_NAME_EXTENSION));
-    Pair<XMLStreamWriter,Writer> xmlFileWriterPair =
-        PlanitXmlWriterUtils.createXMLWriter(matsimPlansPath, asGZip);
-
-    try {
-      /* start */
-      PlanitXmlWriterUtils.startXmlDocument(xmlFileWriterPair.first(), PLANS_DOCTYPE);
-
-      /* body */
-      writeMatsimPopulationXML(xmlFileWriterPair.first(), discreteDemands);
-
-      /* end */
-      PlanitXmlWriterUtils.endXmlDocument(xmlFileWriterPair);
-    }catch (Exception e) {
-      LOGGER.severe(e.getMessage());
-      e.printStackTrace();
-      throw new PlanItRunTimeException(String.format("error while persisting MATSIM plans to %s", matsimPlansPath));
-    }
   }
 
   /**
@@ -1221,6 +1082,128 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
   }
 
   /**
+   * MATSIM writer settings
+   */
+  protected final MatsimDiscreteDemandsWriterSettings settings;
+
+  /**
+   * Write persons element and then trigger writing all individual persons
+   *
+   * @param xmlWriter to use
+   * @param discreteDemands to use
+   */
+  protected void writeMatsimPersons(XMLStreamWriter xmlWriter, DiscreteDemands discreteDemands) {
+    var modeMapping = getSettings().collectActivatedPlanitModeToMatsimModeMapping(
+        getReferenceNetwork().getTransportLayers().getFirst());
+
+    try{
+
+      for(var person : discreteDemands.getPersons()){
+        writerStats.incrementPersonsProcessed();
+
+        if(personSchedulesToIgnore.contains(person)){
+          continue;
+        }
+
+        if(!hasHomeLocation(person)){
+          continue;
+        }
+
+        var initialActivity = person.getSchedule() != null ? person.getSchedule().getFirst() : null;
+        if(initialActivity == null){
+          writerStats.incrementPersonsSkippedNoTours();
+          continue;
+        }
+
+        // person
+        writeStartElement(xmlWriter, MatsimPlansElements.PERSON, true /* add indentation*/);
+
+        // id
+        xmlWriter.writeAttribute(MatsimAttributes.ID, getPrimaryIdMapper().getPersonClassIdMapper().apply(person));
+        writeNewLine(xmlWriter);
+
+        // attributes - Inside the person block right before initializing the <plan> tag
+        writeStartElementNewLine(xmlWriter, MatsimElements.ATTRIBUTES, true /* add indentation*/);
+
+        // subpopulation
+        writeMatsimCustomAttributeEntry(
+            xmlWriter, MatsimPlansAttributes.SUBPOPULATION, MatsimAttributes.STRING_CLASS_VALUE,
+            MatsimDiscreteDemandsWriterSettings.DEFAULT_PERSON_SUBPOPULATION);
+
+        // external id
+        if(person.hasExternalId()){
+          writeMatsimCustomAttributeEntry(
+              xmlWriter, "externalId", MatsimAttributes.STRING_CLASS_VALUE, person.getExternalId());
+        }
+
+        writeEndElementNewLine(xmlWriter, true /* undo indentation */ );
+
+        // plan
+        writePersonPlan(xmlWriter, person, modeMapping, discreteDemands);
+
+        writeEndElementNewLine(xmlWriter, true /* undo indentation */ );
+
+        writerStats.incrementPersonsWritten();
+      }
+    } catch (XMLStreamException e) {
+      LOGGER.severe(e.getMessage());
+      throw new PlanItRunTimeException("Error while writing MATSim population XML element");
+    }
+  }
+
+  /**
+   * Write top level population elements and then the plans per person. For now we only support a single plan per
+   * person
+   *
+   * @param xmlWriter       write to use
+   * @param discreteDemands demands to extract from
+   */
+  protected void writeMatsimPopulationXML(XMLStreamWriter xmlWriter, DiscreteDemands discreteDemands){
+
+    try{
+      // population
+      writeStartElementNewLine(xmlWriter, MatsimPlansElements.POPULATION, true /* add indentation*/);
+
+      //todo: add CRS attribute
+
+      writeMatsimPersons(xmlWriter, discreteDemands);
+
+      writeEndElementNewLine(xmlWriter, true /* undo indentation */ );
+    } catch (XMLStreamException e) {
+      LOGGER.severe(e.getMessage());
+      throw new PlanItRunTimeException("Error while writing MATSim population XML element");
+    }
+  }
+
+  /**
+   * write the xml MATSIM network
+   *
+   * @param discreteDemands to draw from
+   * @param asGZip flag indicating whether to write out as gzipped XML or not
+   */
+  protected void writeXmlPlansFile(DiscreteDemands discreteDemands, boolean asGZip){
+    Path matsimPlansPath =
+        Paths.get(getSettings().getOutputDirectory(), getSettings().getFileName().concat(DEFAULT_FILE_NAME_EXTENSION));
+    Pair<XMLStreamWriter,Writer> xmlFileWriterPair =
+        PlanitXmlWriterUtils.createXMLWriter(matsimPlansPath, asGZip);
+
+    try {
+      /* start */
+      PlanitXmlWriterUtils.startXmlDocument(xmlFileWriterPair.first(), PLANS_DOCTYPE);
+
+      /* body */
+      writeMatsimPopulationXML(xmlFileWriterPair.first(), discreteDemands);
+
+      /* end */
+      PlanitXmlWriterUtils.endXmlDocument(xmlFileWriterPair);
+    }catch (Exception e) {
+      LOGGER.severe(e.getMessage());
+      e.printStackTrace();
+      throw new PlanItRunTimeException(String.format("error while persisting MATSIM plans to %s", matsimPlansPath));
+    }
+  }
+
+  /**
    * Constructor
    *
    * @param settings to use
@@ -1299,7 +1282,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
    *
    * @return the statistics of the most recent write
    */
-  public MatsimPlansWriterStats getWriterStats() {
+  public MatsimDiscreteDemandsWriterStats getWriterStats() {
     return writerStats;
   }
 
