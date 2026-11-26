@@ -6,17 +6,14 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.logging.Logger;
 
 import org.goplanit.converter.utils.PlanitToExternalModeMapping;
-import org.goplanit.network.MacroscopicNetwork;
 import org.goplanit.utils.exceptions.ExceptionUtils;
 import org.goplanit.utils.misc.LoggingUtils;
 import org.goplanit.utils.misc.StringUtils;
-import org.goplanit.utils.mode.Mode;
-import org.goplanit.utils.mode.Modes;
 import org.goplanit.utils.mode.PredefinedModeType;
-import org.goplanit.utils.settings.annotations.NoSettingsKey;
 import org.goplanit.utils.settings.annotations.SettingsKeyLevel;
 import org.goplanit.utils.settings.annotations.SettingsRead;
 import org.goplanit.utils.settings.annotations.SettingsWrite;
@@ -139,34 +136,20 @@ public abstract class PlanitMatsimWriterModeMappingYamlKeyedSettings extends Pla
   }
 
   /**
-   * Log the settings, then each mode of the network with the MATSim mode it is written as, or that it is not written,
-   * for which the network's modes are needed
+   * Log the settings, then each mode written with the MATSim mode it is written as, and each mode switched on by
+   * default that is switched off, as not written. Modes never switched on are not listed
    *
-   * @param macroscopicNetwork whose modes are logged
    * @param level indentation level to apply
    */
-  @NoSettingsKey(reason = "logs the settings")
-  public void logSettings(MacroscopicNetwork macroscopicNetwork, int level) {
-    logSettings(level);
-
+  @Override
+  public void logSettings(int level) {
+    super.logSettings(level);
     LOGGER.info(LoggingUtils.settingsSection("Mode mappings", level));
-    Modes planitModes = macroscopicNetwork.getModes();
-    for (Mode planitMode : planitModes) {
-      if (!planitMode.isPredefinedModeType()) {
-        LOGGER.warning(String.format("[IGNORED] MATSim writer is only compatible with predefined PLANit modes, " +
-            "found custom mode with name %s, ignored", planitMode.getName()));
-        continue;
-      }
-
-      PredefinedModeType type = planitMode.getPredefinedModeType();
-      if (!modeMapping.isMapped(type)) {
-        LOGGER.info(LoggingUtils.settingsMapping(
-            "PLANit mode: "+type.value(), "[DEACTIVATED]", level + 1));
-      } else {
-        LOGGER.info(LoggingUtils.settingsMapping(
-            "PLANit mode: "+type.value(), "MATSIM mode: " + modeMapping.getMappedMode(type), level + 1));
-      }
-    }
+    var modesToLog = new TreeSet<PredefinedModeType>(Comparator.comparing(PredefinedModeType::name));
+    modesToLog.addAll(modeMapping.getActivePlanitModes());
+    modesToLog.addAll(DEFAULT_ACTIVATED_MODES);
+    modesToLog.forEach(type -> LOGGER.info(LoggingUtils.settingsMapping("PLANit mode: " + type.value(),
+        modeMapping.isMapped(type) ? "MATSIM mode: " + modeMapping.getMappedMode(type) : "[DEACTIVATED]", level + 1)));
   }
 
   /**

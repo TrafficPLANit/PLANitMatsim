@@ -28,9 +28,9 @@ import org.goplanit.matsim.converter.MatsimWriterSettingsFactory;
 import org.goplanit.matsim.converter.MatsimZoningWriterSettings;
 import org.goplanit.matsim.converter.demand.MatsimDiscreteDemandsWriterSettings;
 import org.goplanit.matsim.converter.network.MatsimNetworkWriterSettings;
-import org.goplanit.matsim.util.MatsimWriterSettingsSchema;
 import org.goplanit.matsim.util.ModeChainCollapseRule;
 import org.goplanit.matsim.util.PlanitMatsimWriterModeMappingSettings;
+import org.goplanit.matsim.util.PlanitMatsimWriterSettings;
 import org.goplanit.utils.locale.CountryNames;
 import org.goplanit.utils.mode.PredefinedModeType;
 import org.goplanit.utils.settings.SettingsFileContentType;
@@ -85,7 +85,7 @@ public class MatsimSettingsFilesTest {
    * @return the source
    */
   private static SettingsSource text(String keys) {
-    return SettingsSource.ofText(MatsimWriterSettingsSchema.SCHEMA, keys);
+    return SettingsSource.ofText(PlanitMatsimWriterSettings.SCHEMA, keys);
   }
 
   /**
@@ -142,21 +142,21 @@ public class MatsimSettingsFilesTest {
   }
 
   /**
-   * Verify a part's file written by intermodal settings is the file the part's settings write when made on their own
-   * from the part's file of every key not at its default
+   * Verify a file of nested settings written by intermodal settings is the file the nested settings write when made on
+   * their own from their file of every key not at its default
    *
-   * @param fromYaml makes the part's settings from sources
-   * @param writer of the part, as the names of its settings files have it
-   * @param partFile written by the intermodal settings
+   * @param fromYaml makes the nested settings from sources
+   * @param writer of the nested settings, as the names of its settings files have it
+   * @param nestedSettingsFile written by the intermodal settings
    * @throws IOException when a file cannot be written or read
    */
-  private void assertPartWrittenAsOnItsOwn(
-      Function<List<SettingsSource>, ? extends YamlWriteSettingsSupport> fromYaml, String writer, Path partFile)
-      throws IOException {
+  private void assertNestedSettingsWrittenAsOnTheirOwn(
+      Function<List<SettingsSource>, ? extends YamlWriteSettingsSupport> fromYaml, String writer,
+      Path nestedSettingsFile) throws IOException {
     var onItsOwn = tempDir.resolve(writer + "_on_its_own.yaml");
     fromYaml.apply(List.of(SettingsSource.ofFile(everyKeyNotDefaultFileOf(writer))))
         .writeSettingsFile(onItsOwn, SettingsFileContentType.ALL_KEYS, true);
-    assertEquals(Files.readAllLines(onItsOwn), Files.readAllLines(partFile), writer);
+    assertEquals(Files.readAllLines(onItsOwn), Files.readAllLines(nestedSettingsFile), writer);
   }
 
   /** folder for the test files */
@@ -223,24 +223,25 @@ public class MatsimSettingsFilesTest {
   }
 
   /**
-   * Intermodal settings made from a file naming its parts' files of every key not at its default write a file naming a
-   * file per part, the same as at their defaults, and each part's file as the part's settings write it on their own;
-   * made from the files written, they hold the parts' values
+   * Intermodal settings made from a file naming the files of their nested settings of every key not at its default
+   * write a file naming a file for each of their nested settings, the same as at their defaults, and each of those
+   * files as the nested settings write it on their own; made from the files written, they hold the values of the
+   * nested settings
    */
   @Test
-  public void intermodalWrittenWithItsParts() throws IOException {
+  public void intermodalWrittenWithItsNestedSettings() throws IOException {
     var settings = MatsimWriterSettingsFactory.createIntermodalWriterSettingsFromYaml(
         List.of(SettingsSource.ofFile(everyKeyNotDefaultFileOf("intermodal"))));
     var file = tempDir.resolve("intermodal.yaml");
     settings.writeSettingsFile(file, SettingsFileContentType.ALL_KEYS, true);
 
     assertEquals(Files.readAllLines(globalDefaultsFileOf("intermodal")), Files.readAllLines(file));
-    assertPartWrittenAsOnItsOwn(MatsimWriterSettingsFactory::createNetworkWriterSettingsFromYaml, "network",
-        file.resolveSibling("network.yaml"));
-    assertPartWrittenAsOnItsOwn(MatsimWriterSettingsFactory::createZoningWriterSettingsFromYaml, "zoning",
-        file.resolveSibling("zoning.yaml"));
-    assertPartWrittenAsOnItsOwn(MatsimWriterSettingsFactory::createPtServicesWriterSettingsFromYaml, "pt_services",
-        file.resolveSibling("ptServices.yaml"));
+    assertNestedSettingsWrittenAsOnTheirOwn(MatsimWriterSettingsFactory::createNetworkWriterSettingsFromYaml,
+        "network", file.resolveSibling("intermodal_network.yaml"));
+    assertNestedSettingsWrittenAsOnTheirOwn(MatsimWriterSettingsFactory::createZoningWriterSettingsFromYaml,
+        "zoning", file.resolveSibling("intermodal_zoning.yaml"));
+    assertNestedSettingsWrittenAsOnTheirOwn(MatsimWriterSettingsFactory::createPtServicesWriterSettingsFromYaml,
+        "pt_services", file.resolveSibling("intermodal_ptServices.yaml"));
 
     var readBack =
         MatsimWriterSettingsFactory.createIntermodalWriterSettingsFromYaml(List.of(SettingsSource.ofFile(file)));
@@ -250,26 +251,27 @@ public class MatsimSettingsFilesTest {
   }
 
   /**
-   * Intermodal settings at their defaults write a file naming a file per part, and each part's file as the global
-   * defaults of that part; made from those files, they write them again
+   * Intermodal settings at their defaults write a file naming a file for each of their nested settings, and each of
+   * those files as the global defaults of those nested settings; made from those files, they write them again
    */
   @Test
-  public void intermodalAtItsDefaultsWrittenWithItsParts() throws IOException {
+  public void intermodalAtItsDefaultsWrittenWithItsNestedSettings() throws IOException {
     var file = tempDir.resolve("intermodal.yaml");
     new MatsimIntermodalWriterSettings().writeSettingsFile(file, SettingsFileContentType.ALL_KEYS, true);
 
     assertEquals(Files.readAllLines(globalDefaultsFileOf("intermodal")), Files.readAllLines(file));
     assertEquals(Files.readAllLines(globalDefaultsFileOf("network")),
-        Files.readAllLines(file.resolveSibling("network.yaml")));
+        Files.readAllLines(file.resolveSibling("intermodal_network.yaml")));
     assertEquals(Files.readAllLines(globalDefaultsFileOf("zoning")),
-        Files.readAllLines(file.resolveSibling("zoning.yaml")));
+        Files.readAllLines(file.resolveSibling("intermodal_zoning.yaml")));
     assertEquals(Files.readAllLines(globalDefaultsFileOf("pt_services")),
-        Files.readAllLines(file.resolveSibling("ptServices.yaml")));
+        Files.readAllLines(file.resolveSibling("intermodal_ptServices.yaml")));
 
     var again = tempDir.resolve("again").resolve("intermodal.yaml");
     MatsimWriterSettingsFactory.createIntermodalWriterSettingsFromYaml(List.of(SettingsSource.ofFile(file)))
         .writeSettingsFile(again, SettingsFileContentType.ALL_KEYS, true);
-    for (var name : List.of("intermodal.yaml", "network.yaml", "zoning.yaml", "ptServices.yaml")) {
+    for (var name : List.of(
+        "intermodal.yaml", "intermodal_network.yaml", "intermodal_zoning.yaml", "intermodal_ptServices.yaml")) {
       assertEquals(Files.readAllLines(file.resolveSibling(name)), Files.readAllLines(again.resolveSibling(name)), name);
     }
   }
@@ -311,9 +313,9 @@ public class MatsimSettingsFilesTest {
   }
 
   /**
-   * An intermodal file naming, for the network, a file every part shares followed by the network's own file, and the
-   * shared file for the zoning and the services: each part takes the shared keys and the network its own too, a key in
-   * both files taken from the later
+   * An intermodal file naming, for the network, a file all its nested settings share followed by the network's own
+   * file, and the shared file for the zoning and the services: each of the nested settings takes the shared keys and
+   * the network its own too, a key in both files taken from the later
    */
   @Test
   public void sharedFileAndThePartsOwnFileAsAList() throws IOException {
@@ -487,7 +489,7 @@ public class MatsimSettingsFilesTest {
     assertEquals(MatsimPtServicesWriterSettings.AWAIT_DEPARTURE_DEFAULT, settings.isAwaitDepartures());
   }
 
-  /** Settings made with no arguments use the global country, in each part of the intermodal settings too */
+  /** Settings made with no arguments use the global country, in each of the nested intermodal settings too */
   @Test
   public void testSettingsMadeWithNoArguments() {
     assertEquals(CountryNames.GLOBAL, new MatsimNetworkWriterSettings().getCountry());

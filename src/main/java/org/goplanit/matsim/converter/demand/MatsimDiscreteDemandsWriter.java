@@ -1239,7 +1239,7 @@ public class MatsimDiscreteDemandsWriter extends MatsimWriter<DiscreteDemands> i
     getComponentIdMappers().populateMissingIdMappers(getIdMapperType());
 
     /* log configuration */
-    settings.logSettings(getReferenceNetwork(), 0);
+    settings.logSettings();
 
     /* prep */
     initialise(demands);

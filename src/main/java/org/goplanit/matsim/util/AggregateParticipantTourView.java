@@ -8,13 +8,12 @@ import org.goplanit.demands.discrete.tour.TourParticipantRole;
 import java.util.Objects;
 
 /**
- * A non-destructive wrapper decorator view for a {@link ParticipantTour}, pairing the original participation with an
- * {@link AggregateTourView} of the tour it is a participation in, so a collapsed schedule can be put in a person's
- * schedule without touching the underlying PLANit memory model.
+ * A view of a {@link ParticipantTour}, pairing the participation with an {@link AggregateTourView} of its tour, so a
+ * collapsed schedule can go in a person's schedule without changing the PLANit memory model.
  * <p>
- * Only the tour is substituted. Everything a participation exposes beyond who takes part and in what role is defined
- * in terms of {@link ParticipantTour#getTour()}, so the collapsed schedule, the modes derived from it and the times
- * follow from replacing the tour alone
+ * Only the tour is replaced. Apart from who takes part and in what role, everything a participation exposes is derived
+ * from {@link ParticipantTour#getTour()}, so the collapsed schedule, its modes and its times follow from replacing the
+ * tour
  * </p>
  *
  * @author markr

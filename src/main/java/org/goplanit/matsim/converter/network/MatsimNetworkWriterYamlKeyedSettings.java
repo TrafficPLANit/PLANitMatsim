@@ -23,24 +23,21 @@ public abstract class MatsimNetworkWriterYamlKeyedSettings extends PlanitMatsimW
   /** logger to use */
   private static final Logger LOGGER = Logger.getLogger(MatsimNetworkWriterYamlKeyedSettings.class.getCanonicalName());
 
-  /** when set to true, a separate detailed geometry file is generated that provides the detailed geometry of each link
-   * it can be used in the VIA viewer to enhance the look of the network which otherwise only depicts the end and
-   * start node, default is false
+  /** when true, a separate file with the detailed geometry of each link is written, for the VIA viewer, which otherwise
+   * only shows each link's start and end node. Default false
    */
   private boolean generateDetailedLinkGeometryFile = DEFAULT_GENERATE_DETAILED_LINK_GEOMETRY;
 
-  /** Flag that indicates if a link's physical speed limit is to be reduced in case only modes with a lower top
-   * speed than the speed limit are included on this link. for example when a bus only network is generated, the
-   * bus max speed might be lower than the link speed limit. When set to true the speed limit is the minimum
-   * of the physical and mode speed limit. When false the physical speed limit it used.
+  /** When true a link's speed limit is the minimum of its physical and mode speed limit, which matters when only modes
+   * slower than the speed limit use it, such as buses in a bus only network. When false the physical speed limit is
+   * used
    */
   private boolean restrictLinkSpeedBySupportedModes = DEFAULT_RESTRICT_SPEED_LIMIT_BY_SUPPORTED_MODE;
 
-  /** Minimum length in meters written for any MATSim link. Link lengths can legitimately end up as zero, for example
-   * a transfer connectoid whose stop sits exactly on its access node, or a physical link whose geometry collapsed.
-   * MATSim derives a travel time by dividing by the length, so a zero length link is not usable and the length is
-   * raised to this floor instead of being written out as is. Note this is in meters, whereas PLANit tracks lengths in
-   * km, so it is to be applied only after conversion to meters.
+  /** Minimum length in meters written for any MATSim link. A length can be zero, for example for a transfer connectoid
+   * whose stop sits on its access node, or a physical link whose geometry collapsed. MATSim derives travel times by
+   * dividing by the length, so a zero length is unusable and is raised to this minimum. PLANit lengths are in km, so
+   * apply it only after conversion to meters.
    */
   private double minimumLinkLengthMeters = DEFAULT_MINIMUM_LINK_LENGTH_METERS;
 

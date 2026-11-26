@@ -174,8 +174,8 @@ public class MatsimTransferZoneRoadAccessTest {
 
   /**
    * Written with intermodal writer settings made from settings files, the terminal is written as with the settings
-   * made in code: the same files, each with the same lines. The files name one file for every part, setting the folder
-   * written to, relative to that file, and the files written as not gzipped
+   * made in code: the same files, each with the same lines. The files name one file for all the nested settings,
+   * setting the folder written to, relative to that file, and the files written as not gzipped
    *
    * @throws IOException when a settings file cannot be written or a file written cannot be read
    */
@@ -189,10 +189,10 @@ public class MatsimTransferZoneRoadAccessTest {
     /* a conversion of its own, from the network and zoning built afresh */
     setUp();
     var fromFiles = Files.createDirectories(outputDir.resolve("fromFiles"));
-    Files.writeString(outputDir.resolve("parts.yaml"),
+    Files.writeString(outputDir.resolve("nested_settings.yaml"),
         "planitMatsimWriterSettings: 1\noutputDirectory: fromFiles\nwriteAsGZip: false\n");
-    var intermodalFile = Files.writeString(outputDir.resolve("intermodal.yaml"),
-        "planitMatsimWriterSettings: 1\nnetwork: parts.yaml\nzoning: parts.yaml\nptServices: parts.yaml\n");
+    var intermodalFile = Files.writeString(outputDir.resolve("intermodal.yaml"), "planitMatsimWriterSettings: 1\n"
+        + "network: nested_settings.yaml\nzoning: nested_settings.yaml\nptServices: nested_settings.yaml\n");
     MatsimIntermodalWriterFactory.create(MatsimWriterSettingsFactory.createIntermodalWriterSettingsFromYaml(
         List.of(SettingsSource.ofFile(intermodalFile)))).write(network, zoning);
 

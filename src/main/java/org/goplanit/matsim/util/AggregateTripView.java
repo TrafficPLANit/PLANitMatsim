@@ -5,6 +5,7 @@ import org.goplanit.demands.discrete.tour.Tour;
 import org.goplanit.demands.discrete.tour.TourImpl;
 import org.goplanit.demands.discrete.trip.Trip;
 import org.goplanit.demands.discrete.util.DirectionBound;
+import org.goplanit.utils.exceptions.ExceptionUtils;
 import org.goplanit.utils.id.IdAble;
 import org.goplanit.utils.id.IdGroupingToken;
 import org.goplanit.utils.mode.Mode;
@@ -45,12 +46,10 @@ public final class AggregateTripView implements Trip {
     this.primaryVehicleTrip =
         Objects.requireNonNull(primaryVehicleTrip, "Primary vehicle trip cannot be null");
 
-    if (this.collapsedTrips.isEmpty()) {
-      throw new IllegalArgumentException("An aggregate trip view chain must contain at least one trip.");
-    }
-    if (!this.collapsedTrips.contains(primaryVehicleTrip)) {
-      throw new IllegalArgumentException("The collapsed trips chain must include the designated primary vehicle trip.");
-    }
+    ExceptionUtils.throwIllegalArgumentIf(this.collapsedTrips.isEmpty(),
+        "An aggregate trip view chain must contain at least one trip.");
+    ExceptionUtils.throwIllegalArgumentIf(!this.collapsedTrips.contains(primaryVehicleTrip),
+        "The collapsed trips chain must include the designated primary vehicle trip.");
   }
 
   /**

@@ -12,23 +12,21 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Point;
 
 /**
- * Contributes the MATSim nodes and links that make PLANit transfer zones reachable to a MATSim network file that is
- * being written by someone else.
+ * Adds the MATSim nodes and links that make PLANit transfer zones reachable to a MATSim network file another writer is
+ * writing.
  * <p>
- * Transfer zones belong to the zoning half of the PLANit memory model, so deciding what their access looks like sits
- * with whoever writes the zoning. The nodes and links expressing it however have to end up in the MATSim network file,
- * because MATSim has no separate place to put them. This interface is that hand-over: the network file's author invites
- * the contribution at the right two points and supplies the writing context, without needing to know what a transfer
- * zone is.
+ * Transfer zones are part of the zoning, so the zoning writer decides what their access looks like. The nodes and
+ * links must still go in the MATSim network file, as MATSim has no other place for them. The network writer calls
+ * this at the right two points and passes the writing context, without knowing what a transfer zone is.
  * </p>
  * <p>
- * The writing context is passed in rather than taken from the implementation's own state on purpose. Both writers hold
- * their own coordinate reference system, indentation and id mappings, and only the network file's author has those in
- * the correct state at the moment its nodes and links are being written.
+ * The context is passed in, not taken from the implementation's own state, because both writers hold their own
+ * coordinate reference system, indentation and id mappings, and only the network writer has them in the right state
+ * while its nodes and links are written.
  * </p>
  * <p>
- * This is internal wiring between the MATSim writers rather than something to be implemented or invoked by a user. It
- * is public only because the writers involved live in different packages.
+ * This is internal wiring between the MATSim writers, not for users to implement or call. It is public only because
+ * the writers are in different packages.
  * </p>
  *
  * @author markr

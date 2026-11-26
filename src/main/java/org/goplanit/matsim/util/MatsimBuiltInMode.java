@@ -69,24 +69,18 @@ public enum MatsimBuiltInMode {
   }
 
   /**
-   * The default MATSim built-in mode of a PLANit PredefinedModeType, written when no MATSim mode is given for it.
-   * <p>
-   * Mapping behavior details:
-   * </p>
+   * The default MATSim built-in mode of a PLANit PredefinedModeType, written when no MATSim mode is given for it:
    * <ul>
-   *   <li><strong>BUS:</strong> Maps to {@link #BUS} when disaggregate transit modes are enabled, otherwise falls back
-   *       to {@link #PT}.</li>
-   *   <li><strong>SUBWAY, TRAM, LIGHTRAIL, TRAIN:</strong> Map to {@link #TRAIN} when disaggregate transit modes are
-   *       enabled (grouping rail/fixed-guideway modes under train in standard practice), otherwise fall back to
-   *       {@link #PT}.</li>
-   *   <li><strong>FERRY:</strong> Maps to {@link #BUS} when disaggregate transit modes are enabled (treating waterborne
-   *       public transport under road-based equivalents for core simulation compatibility), otherwise falls back to
-   *       {@link #PT}.</li>
-   *   <li><strong>PEDESTRIAN:</strong> Maps directly to {@link #WALK}.</li>
-   *   <li><strong>BICYCLE:</strong> Maps directly to {@link #BIKE}.</li>
-   *   <li><strong>GOODS_VEHICLE, HEAVY_GOODS_VEHICLE, LARGE_HEAVY_GOODS_VEHICLE:</strong> Map to {@link #FREIGHT}.</li>
-   *   <li><strong>TAXI, RIDE_SHARE:</strong> Map to {@link #DRT} (Demand-Responsive Transport).</li>
-   *   <li><strong>Default:</strong> Any unrecognised or private motorized modes fall back to {@link #CAR}.</li>
+   *   <li>BUS: {@link #BUS} with disaggregate transit modes, else {@link #PT}</li>
+   *   <li>SUBWAY, TRAM, LIGHTRAIL, TRAIN: {@link #TRAIN} with disaggregate transit modes, rail modes being grouped
+   *       under train as is standard practice, else {@link #PT}</li>
+   *   <li>FERRY: {@link #BUS} with disaggregate transit modes, like road based pt for compatibility with the core
+   *       simulation, else {@link #PT}</li>
+   *   <li>PEDESTRIAN: {@link #WALK}</li>
+   *   <li>BICYCLE: {@link #BIKE}</li>
+   *   <li>GOODS_VEHICLE, HEAVY_GOODS_VEHICLE, LARGE_HEAVY_GOODS_VEHICLE: {@link #FREIGHT}</li>
+   *   <li>TAXI, RIDE_SHARE: {@link #DRT} (demand responsive transport)</li>
+   *   <li>any other mode, such as private motorised ones: {@link #CAR}</li>
    * </ul>
    *
    * @param planitMode the PLANit {@link PredefinedModeType} to map

@@ -2,7 +2,6 @@ package org.goplanit.matsim.converter;
 
 import org.goplanit.converter.ConverterWriterSettings;
 import org.goplanit.matsim.converter.network.MatsimNetworkWriterSettings;
-import org.goplanit.matsim.util.MatsimWriterSettingsSchema;
 import org.goplanit.matsim.util.PlanitMatsimWriterSettings;
 import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.goplanit.utils.locale.CountryNames;
@@ -25,8 +24,8 @@ import java.util.logging.Logger;
  * </p>
  * <p>
  * Its settings file names the settings files of the writers it holds, each relative to it, and holds none of their
- * keys. A part takes one file or a list of files, applied in order, a later file winning, so the keys the parts share
- * can be given once, in a file each part names first, such as
+ * keys. Each of the nested settings takes one file or a list of files, applied in order, a later file winning, so the
+ * keys they share can be given once, in a file each of them names first, such as
  * </p>
  * <pre>
  * planitMatsimWriterSettings: 1
@@ -36,7 +35,7 @@ import java.util.logging.Logger;
  * </pre>
  * <p>
  * A writer whose file is not named keeps its defaults. Written out, it writes its file and one file per writer next
- * to it, named after the key.
+ * to it, named after its own file followed by the key, such as {@code matsim_network.yaml} for {@code matsim.yaml}.
  * </p>
  *
  * @author markr
@@ -58,7 +57,7 @@ public class MatsimIntermodalWriterSettings implements ConverterWriterSettings, 
   protected final MatsimPtServicesWriterSettings ptServicesSettings;
 
   /**
-   * Constructor taking the settings of each part
+   * Constructor taking each of the nested settings
    *
    *  @param networkWriterSettings writer settings to use
    *  @param zoningWriterSettings writer settings to use
@@ -228,6 +227,6 @@ public class MatsimIntermodalWriterSettings implements ConverterWriterSettings, 
    */
   @Override
   public SettingsSchema getSettingsSchema() {
-    return MatsimWriterSettingsSchema.SCHEMA;
+    return PlanitMatsimWriterSettings.SCHEMA;
   }
 }

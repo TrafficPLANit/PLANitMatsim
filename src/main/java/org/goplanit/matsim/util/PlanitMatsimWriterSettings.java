@@ -76,6 +76,14 @@ public abstract class PlanitMatsimWriterSettings extends SingleFileBasedConverte
   public static final boolean DEFAULT_WRITE_GZIP = true;
 
   /**
+   * The schema of every MATSim writer settings source: the header of these settings,
+   * {@code planitMatsimWriterSettings: 1}, and every key of a writer at the top level, or, for the intermodal writer,
+   * the settings files of the writers it holds. One schema serves every MATSim writer, the discrete demands writer
+   * included; a key another writer takes is unknown to a writer that does not
+   */
+  public static final SettingsSchema SCHEMA = new SettingsSchema(PlanitMatsimWriterSettings.class);
+
+  /**
    * Default constructor 
    */
   public PlanitMatsimWriterSettings() {
@@ -157,6 +165,6 @@ public abstract class PlanitMatsimWriterSettings extends SingleFileBasedConverte
    */
   @Override
   public SettingsSchema getSettingsSchema() {
-    return MatsimWriterSettingsSchema.SCHEMA;
+    return SCHEMA;
   }
 }

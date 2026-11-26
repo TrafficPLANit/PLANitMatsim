@@ -38,10 +38,9 @@ public class MatsimZoningWriterSettings extends PlanitMatsimWriterSettings{
    */
   protected boolean writeTransferZoneAccess = DEFAULT_WRITE_TRANSFER_ZONE_ACCESS;
 
-  /** Free speed in km/h written on the MATSim links providing access to a transfer zone. These links stand in for
-   * walking between the stop and the network rather than for real infrastructure, so a single walking speed applies
-   * regardless of which modes the underlying connectoid entry allows. Kept as a setting so it is visible and can be
-   * made more granular later if that turns out to matter.
+  /** Free speed in km/h on the MATSim links giving access to a transfer zone. These links stand for the walk between
+   * stop and network, not for real infrastructure, so one walking speed applies whatever modes the connectoid entry
+   * allows. A setting so it is visible and can be made finer later if needed.
    */
   protected double transferZoneAccessSpeedKmH = DEFAULT_TRANSFER_ZONE_ACCESS_SPEED_KM_H;
 

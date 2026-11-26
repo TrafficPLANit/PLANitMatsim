@@ -48,22 +48,21 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter, M
 
 
   /**
-   * Identify the transfer zones that cannot be reached from road based infrastructure, which MATSim needs to get
-   * anyone to or from a stop once pt is enabled.
+   * Identify the transfer zones that cannot be reached by road, which MATSim needs to get anyone to or from a stop
+   * once pt is enabled.
    * <p>
-   * Rail platforms and ferry terminals only qualify when access/egress entries towards the road network were created
-   * for them. Bus stops qualify trivially, their pt vehicle stop entry already being on a road. The modes on an entry
-   * are what tells us which network it attaches to, so no traversal of the network is needed here.
+   * Rail platforms and ferry terminals are reachable only when access/egress entries towards the road network were
+   * created for them. Bus stops always are, their pt vehicle stop entry being on a road. An entry's modes tell which
+   * network it attaches to, so the network is not traversed.
    * </p>
    * <p>
-   * Individual stops that could not be connected are a fact of parsed data, a stop near the edge of an extract may
-   * simply have no road within reach, so those are reported and skipped. None of them being connected is a different
-   * matter, that means the connections were never made at all, and there is no point writing a pt network nobody can
-   * enter.
+   * Some stops not being connected is normal in parsed data: a stop near the edge of an extract may have no road
+   * within reach, so those are reported and skipped. None being connected means the connections were never made, and
+   * there is no point writing a pt network nobody can enter.
    * </p>
    * <p>
-   * We deliberately do not create the missing connections here. PLANit provides that capability, so it stays with
-   * whoever builds the zoning.
+   * The missing connections are not created here: PLANit can create them, so that stays with whoever builds the
+   * zoning.
    * </p>
    *
    * @param zoning to inspect
@@ -146,16 +145,14 @@ class MatsimZoningWriter extends MatsimWriter<Zoning> implements ZoningWriter, M
   }
 
   /**
-   * Prepare the transfer zone access so it can be contributed to a MATSim network file that is about to be written.
+   * Prepare the transfer zone access for a MATSim network file about to be written.
    * <p>
-   * Done as a separate step because the network file is written before the zoning is, so what goes into it has to be
-   * known ahead of {@link #write(Zoning)}. Calling this more than once simply rebuilds the description, it holds no
-   * state beyond it.
+   * A separate step because the network file is written before the zoning, so its content must be known ahead of
+   * {@link #write(Zoning)}. Calling this again rebuilds the description; it holds no other state.
    * </p>
    * <p>
-   * Stops only need to be reachable from the road network when a road based mode, walking included, is written. When
-   * none is, for example a network with ferries only, nobody reaches a stop by road: no access is built, and stops
-   * without road access are neither left out nor a reason to abort.
+   * Stops need road access only when a road based mode, walking included, is written. When none is, such as a ferry
+   * only network, no access is built, and stops without road access are neither left out nor a reason to abort.
    * </p>
    *
    * @param zoning to derive the transfer zone access from

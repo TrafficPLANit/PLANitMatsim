@@ -120,10 +120,8 @@ public class MatsimDiscreteDemandsWriterSettings extends MatsimDiscreteDemandsWr
   }
 
   /**
-   * Remove all mode chain collapse rules. This ensures that no chains get collapsed. This can be useful if
-   * the original input has more detailed main modes but it already has collapsed its access/egress for example, so no
-   * further collapsing is required but the mapping to a more aggregate PT mode still needs to happen.
-   *
+   * Remove all mode chain collapse rules, so no chains get collapsed. Useful, for example, when the input already
+   * collapsed its access/egress but its more detailed main modes still need mapping to a more aggregate PT mode.
    */
   @CoveredBySettingsKey("modeCollapseRules")
   public void removeAllModeCollapseRules() {

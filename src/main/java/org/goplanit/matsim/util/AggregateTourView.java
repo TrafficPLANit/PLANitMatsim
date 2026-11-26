@@ -16,13 +16,12 @@ import java.util.Objects;
 import java.util.function.Predicate;
 
 /**
- * A non-destructive wrapper decorator view for a {@link Tour} instance to support
- * nested timeline schedule collapsing without mutating the underlying PLANit memory model
- * or triggering cloned tracking identity mismatches.
+ * A view of a {@link Tour} for collapsing its schedule, nested schedules included, without changing the PLANit memory
+ * model and without the identity mismatches a clone would cause.
  * <p>
- * A tour is not itself a schedule element, a person's participation in it is, so this view is not placed on a
- * schedule directly. It is reached through {@link AggregateParticipantTourView}, whose delegation to
- * {@link ParticipantTour#getTour()} is what carries the collapsed schedule to the participation
+ * A tour is not a schedule element itself, a person's participation in it is, so this view is reached through
+ * {@link AggregateParticipantTourView}, whose {@link ParticipantTour#getTour()} carries the collapsed schedule to the
+ * participation
  * </p>
  *
  * @author markr

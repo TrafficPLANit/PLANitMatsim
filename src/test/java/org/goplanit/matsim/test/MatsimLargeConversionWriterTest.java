@@ -101,15 +101,13 @@ public class MatsimLargeConversionWriterTest {
 
 
   /**
-   * Test case which parses all PLANit inputs and then construct full MATSim outputs (no config file, just the raw
-   * components; network, and plans currently)
+   * Read all PLANit inputs and write the raw MATSim components, currently the network and plans, without a config file
    * <p>
    * Sources:
-   *  (i) zoning is based on the zones created in the PlanitGeoIO repo ZoningReaderTest,
-   *  (ii) PLANit network is based on OSM network truncated by the boundary of the zones filtered by external id <7000,
-   *  the OSM file used is in the SydneyGMA repo (not yet public), and fidelity is set to LOW
-   *  (iii) PLANit Discrete demands are based on a converted synthetic ActivitySim sample from the
-   *  PLANitActivitySim repo (not yet public)
+   *  (i) zoning: the zones created in the PlanitGeoIO repo ZoningReaderTest,
+   *  (ii) network: the OSM network within the boundary of the zones with external id <7000, from the OSM file in the
+   *  SydneyGMA repo (not yet public), at LOW fidelity
+   *  (iii) discrete demands: a converted synthetic ActivitySim sample from the PLANitActivitySim repo (not yet public)
    * </p>
    */
   @Test

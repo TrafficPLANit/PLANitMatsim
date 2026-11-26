@@ -9,8 +9,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Defines a versatile configuration rule that bounds a target primary vehicle mode
- * by a list of required preceding and succeeding connector modes.
+ * A rule naming a main mode with the connector modes required before and after it.
  * <p>
  * In a settings file a rule is a value of the discrete demands writer's {@code modeCollapseRules} key, under its main
  * mode, such as {@code TRAIN: {fromConnectors: [PEDESTRIAN], toConnectors: [PEDESTRIAN]}}; what it leaves out keeps

@@ -1,9 +1,9 @@
 package org.goplanit.matsim.converter.demand;
 
 /**
- * Defines the strategy used to allocate geographic locations (coordinates or links)
- * for activities in the MATSim plans writer.
- * * @author markr
+ * How the MATSim plans writer places activities: at coordinates or on links.
+ *
+ * @author markr
  */
 public enum LocationGeneratorType {
   /** Draw a link within the zone, weighted by link length, fallback if no links in zone is the geometry's

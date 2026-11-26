@@ -2,9 +2,9 @@
 planitMatsimWriterSettings: 1
 # --- standard ---
 # The settings file of the network writer, relative to this settings file
-network: network.yaml
+network: intermodal_network.yaml
 # --- uncommon ---
 # The settings file of the public transport services writer, relative to this settings file
-ptServices: ptServices.yaml
+ptServices: intermodal_ptServices.yaml
 # The settings file of the zoning writer, relative to this settings file
-zoning: zoning.yaml
+zoning: intermodal_zoning.yaml

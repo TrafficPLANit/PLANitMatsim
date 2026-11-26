@@ -17,14 +17,14 @@ import org.goplanit.utils.id.IdMapperType;
 import org.goplanit.zoning.Zoning;
 
 /**
- * A class that takes a PLANit intermodal network and writes it as a MATSim intermodal network.
- * Since an intermodal mapper requires transit elements to reference network elements, the only valid id mapping that
- * we allow is either PLANit internal ids (default), or PLANit XML ids. External ids cannot be used since they cannot
- * be guaranteed to be unique causing problems with references between links and stop facility link references. If
- * the user still wants to check against the original external ids in MATSim, we still write then as orig ids.
+ * Writes a PLANit intermodal network as a MATSim intermodal network.
+ * <p>
+ * Transit elements reference network elements, so only PLANit internal ids (default) or XML ids can be used. External
+ * ids are not guaranteed unique, which would break the stop facilities' link references; they are still written as
+ * orig ids, so users can check against them in MATSim.
+ * </p>
  *
  * @author markr
- *
  */
 public class MatsimIntermodalWriter implements IntermodalWriter<ServiceNetwork, RoutedServices> {
 

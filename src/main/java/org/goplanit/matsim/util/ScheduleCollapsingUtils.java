@@ -15,13 +15,10 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * Utility pipeline orchestrator designed to evaluate an agent's active schedule timeline
- * and generate a non-destructive aggregated view profile list leveraging type-safe {@link Trip} implementations.
+ * Utilities collapsing a person's schedule into aggregate {@link Trip} views, without changing the PLANit memory model.
  * <p>
- * It compresses multi-stage transit access/egress chunks down to a single travel leg
- * according to user-defined {@link ModeChainCollapseRule} parameters. Spatial boundaries and
- * departure start times are automatically resolved from the composite chain, completely
- * bypassing memory mutation risks against the shared core PLANit model.
+ * A transit trip with its access and egress trips is collapsed into a single trip according to the
+ * {@link ModeChainCollapseRule}s given. Its origin, destination and departure time are taken from the chain.
  * </p>
  *
  * @author markr
@@ -245,9 +242,8 @@ public class ScheduleCollapsingUtils {
   }
 
   /**
-   * Evaluates a schedule container and all of its recursively nested sub-tour schedules,
-   * creating a non-destructive collapsed ActivitySchedule supporting arbitrary connector lengths
-   * and conditional missing connector options.
+   * Collapse a schedule and all its nested sub-tour schedules into an ActivitySchedule, leaving the original unchanged.
+   * Connector chains can be of any length, and a connector may be missing on one side where its rule allows.
    */
   public static ActivitySchedule collapseContiguousTripChainsByModeRules(
       ActivitySchedule originalSchedule, Collection<ModeChainCollapseRule> collapseRules) {

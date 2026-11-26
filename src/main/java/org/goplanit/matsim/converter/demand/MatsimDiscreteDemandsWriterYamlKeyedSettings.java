@@ -98,9 +98,7 @@ public abstract class MatsimDiscreteDemandsWriterYamlKeyedSettings extends Plani
       description = "How each activity is placed in its zone: on a link of the zone, drawn by link length, or on the "
           + "centroid of the zone")
   public void setLocationGeneratorType(LocationGeneratorType locationGeneratorType) {
-    if (locationGeneratorType == null) {
-      throw new IllegalArgumentException("Location generator type cannot be null");
-    }
+    ExceptionUtils.throwIllegalArgumentIf(locationGeneratorType == null, "Location generator type cannot be null");
     this.locationGeneratorType = locationGeneratorType;
   }
 

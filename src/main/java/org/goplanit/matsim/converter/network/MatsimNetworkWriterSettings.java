@@ -12,21 +12,21 @@ import org.goplanit.utils.misc.LoggingUtils;
 import org.goplanit.utils.network.layer.macroscopic.MacroscopicLinkSegment;
 import org.goplanit.utils.settings.annotations.NoSettingsKey;
 
-/** Settings for the MATSIM writer
- * 
+/** Settings for the MATSim network writer.
+ * <p>
  * By default the {@link #DEFAULT_ACTIVATED_MODES} are written, each as its default MATSim mode; other predefined modes
  * are written once switched on, and custom modes never.
- * 
- * The CRS used for the writer is based on the CRS defined in the settings, if this is not set, we utilise the
- * CRS corresponding to the provided country, if no country is provided, it will retain the CRS of the network
- * provided. If the network has no CRS an exception will be thrown
+ * </p>
+ * <p>
+ * The CRS written is the one in the settings, else that of the country, else the network's own, with an exception
+ * when the network has none.
+ * </p>
  * <p>
  * The keys a settings file can set are on {@link MatsimNetworkWriterYamlKeyedSettings}; the functions filling a link's
  * attributes are set in code only.
  * </p>
  *
  * @author markr
- *
  */
 public class MatsimNetworkWriterSettings extends MatsimNetworkWriterYamlKeyedSettings
     implements ConverterWriterSettings {

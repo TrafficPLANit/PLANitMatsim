@@ -30,7 +30,8 @@ import java.util.stream.Collectors;
 /**
  * Utility class to handle spatial location generation and length-weighted link sampling
  * for MATSim activity locations based on PLANit zoning and network layers.
- * * @author markr
+ *
+ * @author markr
  */
 public class LocationGeneratorUtils {
 
@@ -39,10 +40,9 @@ public class LocationGeneratorUtils {
   /**
    * Pre-index a mapping from zone to the length weighted link segments within it supporting each of the given modes.
    * <p>
-   * Indexed across all modes in a single pass over the zones. The costly part is geometric, clipping each candidate
-   * link to the zone to establish its length inside it, and that outcome is the same whatever mode is asked for. Only
-   * segment eligibility differs per mode, so the geometry is done once per zone and the modes are separated out from
-   * the result.
+   * All modes are indexed in one pass over the zones. The costly part, clipping each candidate link to the zone to find
+   * its length inside it, is the same for every mode; only which segments qualify differs. So the geometry is done once
+   * per zone and split by mode afterwards.
    * </p>
    *
    * @param modes to index for, any mode unsupported by the layer is omitted from the result
@@ -230,9 +230,8 @@ public class LocationGeneratorUtils {
   }
 
   /**
-   * The part of a link that falls within a zone, holding what is the same for every mode so that the geometry behind
-   * it is only established once. A segment is held only when it is the one an activity would be placed on, meaning
-   * its downstream vertex falls within the zone.
+   * The part of a link within a zone, holding what is the same for every mode so its geometry is worked out once. It
+   * holds a segment only when an activity would be placed on it, that is when its downstream vertex is in the zone.
    */
   private static class ZoneLinkPortion {
     private final MacroscopicLinkSegment segmentAb;

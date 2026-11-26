@@ -24,22 +24,22 @@ import org.goplanit.zoning.Zoning;
 import org.locationtech.jts.geom.Point;
 
 /**
- * Derives the MATSim nodes and links needed to make PLANit transfer zones reachable, so a traveller can get off a train
- * or bus and continue on the road network, and the other way around.
+ * Derives the MATSim nodes and links that make PLANit transfer zones reachable, so a traveller can get off a train or
+ * bus and continue on the road network, and the other way around.
  * <p>
- * PLANit models this transition as a transfer zone plus one or more transfer connectoids, where each connectoid access
- * zone entry records where the stop meets the network and which modes may use that entry. MATSim has no equivalent and
- * only understands nodes and links, so the transition has to be materialised as dummy infrastructure: one node per
- * transfer zone, and a pair of links per access node connecting that node to the physical network.
+ * PLANit models this as a transfer zone with transfer connectoids, each connectoid access zone entry recording where
+ * the stop meets the network and which modes may use it. MATSim only has nodes and links, so this becomes dummy
+ * infrastructure: one node per transfer zone, and a pair of links per access node connecting the zone's node to the
+ * physical network.
  * </p>
  * <p>
- * Nothing is inferred spatially. Only the entries PLANit already recorded are consumed, so a stop that was never
- * connected on the PLANit side stays unconnected here rather than being silently invented. Deciding which stops to
- * leave out, and reporting them, is the caller's to make and arrives as the excluded transfer zones.
+ * Nothing is inferred spatially: only the entries PLANit recorded are used, so a stop not connected in PLANit stays
+ * unconnected here. The caller decides which stops to leave out and reports them, passing them as the excluded
+ * transfer zones.
  * </p>
  * <p>
- * The result is a plain description of what to write, deliberately holding no reference to an XML writer, since
- * deciding what the transition looks like belongs here whereas the file structure does not.
+ * The result is a plain description of what to write, with no reference to an XML writer: what the access looks like
+ * is decided here, the file structure is not.
  * </p>
  *
  * @author markr
@@ -80,9 +80,8 @@ class TransferAccessBuilder {
   }
 
   /**
-   * A dummy MATSim link standing in for one direction of the connection between a transfer zone and one of its access
-   * nodes. It has no counterpart in the physical PLANit network, it represents the walk between a stop and the network
-   * rather than infrastructure
+   * A dummy MATSim link for one direction between a transfer zone and one of its access nodes. It stands for the walk
+   * between stop and network, and has no counterpart in the physical PLANit network
    */
   static class MatsimDummyTransferLink {
 
@@ -170,10 +169,9 @@ class TransferAccessBuilder {
   /**
    * Collect the MATSim modes for the links to a stop.
    * <p>
-   * Walk is always present: it is how a passenger covers the gap between the platform and the vehicle, and so is what
-   * a pt vehicle stop entry contributes here. Its mode names the vehicle serving the stop rather than anything that
-   * traverses the walk to it, so it has no further say. Beyond walk the access and egress entries decide, they being
-   * the record of which passengers can reach the stop and how, which is exactly what the link is being written for.
+   * Walk is always present: it covers the gap between platform and vehicle, and is all a pt vehicle stop entry adds,
+   * as its mode names the vehicle serving the stop, not anything using the link. The other modes come from the access
+   * and egress entries, as they record which passengers can reach the stop and how.
    * </p>
    *
    * @param entries to collect the allowed modes from
@@ -202,11 +200,10 @@ class TransferAccessBuilder {
   /**
    * Determine the length of a transfer link in meters.
    * <p>
-   * The recorded length is preferred, but it is regularly absent: pt vehicle stop entries are never given one by the
-   * parsers, and the injector only sets one on the entries it creates itself. So the distance between the stop and its
-   * access node is computed as a fallback. Even that can legitimately come out as zero when the stop sits exactly on
-   * its access node, hence the minimum, since a zero length link makes MATSim divide by zero when deriving a travel
-   * time. Note the recorded length is in km whereas everything returned here is in meters.
+   * The recorded length is used when present, but it is often absent: the parsers never give pt vehicle stop entries
+   * one, and the injector sets one only on the entries it creates. Otherwise the distance between the stop and its
+   * access node is used. That is zero when the stop sits on its access node, hence the minimum, as MATSim would divide
+   * by zero deriving a travel time. The recorded length is in km, the result in meters.
    * </p>
    *
    * @param entries to take the recorded length from, all describing the same physical gap

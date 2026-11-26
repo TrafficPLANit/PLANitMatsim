@@ -16,12 +16,11 @@ import java.util.logging.Logger;
  * Settings of the MATSim writers that write PLANit modes as MATSim modes: the network and discrete demands writers
  * <p>
  * The modes key a settings file sets is on {@link PlanitMatsimWriterModeMappingYamlKeyedSettings}. The methods here are
- * for code: they switch modes on and off and give MATSim modes one by one, a mode switched on without a MATSim mode
- * given being written as its default MATSim mode, which follows the choice of disaggregating transit modes.
+ * for code: they switch modes on and off and give MATSim modes one by one. A mode switched on without a MATSim mode is
+ * written as its default MATSim mode, which depends on whether transit modes are disaggregated.
  * </p>
  *
  * @author markr
- *
  */
 public abstract class PlanitMatsimWriterModeMappingSettings
     extends PlanitMatsimWriterModeMappingYamlKeyedSettings implements ConverterWriterSettings {
@@ -29,10 +28,9 @@ public abstract class PlanitMatsimWriterModeMappingSettings
   private static final Logger LOGGER = Logger.getLogger(
       PlanitMatsimWriterModeMappingSettings.class.getCanonicalName());
 
-  /** switches between pt (aggregate) and bus/train based mode mapping and also affects how multi-trip (single
-   * direction tour chains are handled, e.g., if aggregate then a walk->bus->walk outbound chain of three trips
-   * collapses to a single pt trip. If disaggregate, the plan would retain the three distinct trips with an activity
-   * interspersed between each of the trips.
+  /** switches between pt (aggregate) and bus/train mode mapping. It also decides how trip chains in one direction are
+   * written: aggregate, a walk->bus->walk outbound chain of three trips collapses to one pt trip; disaggregate, the
+   * plan keeps the three trips with an activity between each.
    */
   protected boolean useDisaggregateTransitModes = DEFAULT_USE_DISAGGREGATE_TRANSIT_MODES;
 
@@ -207,10 +205,9 @@ public abstract class PlanitMatsimWriterModeMappingSettings
   }
 
   /**
-   * Switch to the disaggregated default MATSim modes of the public transport modes, or back: when true bus and ferry
-   * default to bus and train, subway, tram and light rail to train, when false they all default to pt. A mode is
-   * written as its default only when no MATSim mode was given for it explicitly; which modes are switched on stays as
-   * it is
+   * Switch the default MATSim modes of the public transport modes: when true bus and ferry default to bus, and train,
+   * subway, tram and light rail to train; when false they all default to pt. A default is used only when no MATSim
+   * mode was given for the mode; which modes are switched on is unchanged
    *
    * @param useDisaggregateTransitModes true for the disaggregated default MATSim modes, false for pt
    */

@@ -15,31 +15,26 @@ import org.goplanit.utils.zoning.connectoid.ZoneConnectoidType;
 import org.goplanit.zoning.Zoning;
 
 /**
- * Class that support producing additional files for MATSim that allow for simplified PT modelling, namely:
+ * Writes additional files for simplified PT modelling in MATSim, in the output directory of the zoning writer:
  * <ul>
- *   <li> lightweight full teleportation through MatrixBasedPtRouter contrib</li>
- *   <li> partial teleportation through ptMatrix core support replacing only pt vehicle simulation
- *   with teleportation</li>
+ *   <li>full teleportation through the MatrixBasedPtRouter contrib, the lightweight option</li>
+ *   <li>partial teleportation through the ptMatrix support of MATSim core, replacing only the pt vehicle
+ *   simulation</li>
  * </ul>
- *
  * <p>
- *   For the lightweight MatrixBasedPtRouter, we can generate a simplified stop facilities csv: `ptStops.csv`
- *   This does not require correct access/egress options nor those portions being presen, the entire pt journey
- *   is teleported based on (currently assumed by MATSim generated free flow * factor based matrix.
- *   More information on the lightweight MATSim matrix based router can be found
- *   <a href="https://github.com/matsim-org/matsim-libs/tree/master/contribs/matrixbasedptrouter">here</a>.
+ *   For the MatrixBasedPtRouter this writes a simplified stop facilities csv, {@code ptStops.csv}. Access/egress need
+ *   not be correct or even present, as the entire pt journey is teleported, currently based on a free flow times a
+ *   factor matrix that MATSim generates. See the matrix based router's
+ *   <a href="https://github.com/matsim-org/matsim-libs/tree/master/contribs/matrixbasedptrouter">page</a>.
  * </p>
  * <p>
- *   For the "better" alternative, we relay on a proper stop facility definition in XML form (to be generated through
- *   the normal supporting PlanitMATSim pt writer as per usual. However, to allow for the stop to stop to be teleported
- *   you need to provide a csv based "matrix" for travel time and distance between stops. This can be generated here
- *   (todo: not yet implemented).
- *   NOTE: In this setup the lightweight csv on stop facilities is not used so it does not need to be generated
+ *   Partial teleportation, the better option, uses the full stop facilities in XML that the PLANit MATSim pt writer
+ *   writes as usual, plus a csv "matrix" of travel time and distance between stops so stop to stop legs can be
+ *   teleported.
+ *   That matrix is not yet written here, and this setup does not use {@code ptStops.csv}.
  * </p>
- * Files are generated in the designated output directory of the zoning writer
  *
  * @author markr
- *
  */
 class MatsimPtMatrixBasedRouterWriter {
 

@@ -43,8 +43,7 @@ public class TripModeChainCollapsingTests {
       PredefinedModeType.CAR, PredefinedModeType.BUS, PredefinedModeType.TRAIN, PredefinedModeType.PEDESTRIAN};
 
   /**
-   * Active multi-stage configuration rule matrices tracking valid matching chains
-   * utilizing the structured From / Main / To layout.
+   * The collapse rules of the tests, each a main mode with its from and to connector modes.
    */
   private static final List<ModeChainCollapseRule> TRANSIT_RULES = List.of(
       new ModeChainCollapseRule(
@@ -91,8 +90,7 @@ public class TripModeChainCollapsingTests {
   }
 
   /**
-   * Constructs the zone structures in-memory to support test state execution profiles, on a network with the
-   * {@link #MODE_TYPES} and one layer
+   * Create the zones the tests use, on a network with the {@link #MODE_TYPES} and one layer
    *
    * @param network the active macroscopic network model the demands use
    * @param zoning the active zoning container linked to the graph
@@ -120,8 +118,8 @@ public class TripModeChainCollapsingTests {
 
 
   /**
-   * VALID SETUP: Checks that a perfect matching sequence (walk -> bus -> walk)
-   * collapses cleanly into a single AggregateTripView inside the wrapped AggregateTourView.
+   * A chain matching a rule exactly, walk -> bus -> walk, collapses into a single AggregateTripView inside the
+   * AggregateTourView.
    */
   @Test
   public void testValidStandardChainCollapsesCorrectly() {
@@ -190,9 +188,8 @@ public class TripModeChainCollapsingTests {
   }
 
   /**
-   * EDGE CASE: Direction Switching mid-chain.
-   * If legs match the mode pattern but switch directions (e.g. OUTBOUND walk followed by INBOUND bus),
-   * they must NOT collapse together.
+   * Trips matching the mode pattern but switching direction, such as an outbound walk followed by an inbound bus, are
+   * not collapsed together.
    */
   @Test
   public void testEdgeCaseDirectionSwitchPreventsCollapse() {
@@ -244,10 +241,8 @@ public class TripModeChainCollapsingTests {
 
 
   /**
-   * EDGE CASE: Partial Sequence Match Evaluation.
-   * Verifies that if an agent performs a sequence that doesn't completely satisfy
-   * a 3-stage rule (e.g., walk -> train, missing the trailing egress pedestrian leg),
-   * it fails to match the strict TRANSIT_RULES and passes through un-collapsed.
+   * A chain only partly matching a three trip rule, such as walk -> train without the walk after it, does not match
+   * the {@link #TRANSIT_RULES} and is not collapsed.
    */
   @Test
   public void testEdgeCasePartialSequenceMatchesShortRule() {
@@ -297,9 +292,7 @@ public class TripModeChainCollapsingTests {
   }
 
   /**
-   * INVALID CONTEXT: Component Mutator Safety Violation.
-   * Verifies that both the AggregateTripView and AggregateTourView are strictly
-   * read-only and throw exceptions if external modules try to modify properties on the fly.
+   * AggregateTripView and AggregateTourView are read-only: changing them throws an exception.
    */
   @Test
   public void testInvalidContextMutationThrowsException() {
@@ -332,9 +325,7 @@ public class TripModeChainCollapsingTests {
 
 
   /**
-   * INVALID CONTEXT: Malformed Constructor Configurations.
-   * Asserts defensive exception behavior against invalid rule parameters
-   * or empty trip list injections into the composite view layers.
+   * Invalid rule arguments, and an empty trip list given to a view, throw an exception.
    */
   @Test
   public void testInvalidContextMalformedConstructorAssertions() {
@@ -362,9 +353,8 @@ public class TripModeChainCollapsingTests {
   }
 
   /**
-   * EDGE CASE: Overlapping Chains
-   * Verifies that given an overlapping sequence (walk -> taxi -> walk -> bus)
-   * results in an output containing exactly 2 aggregate leafs TAXI->BUS with the shared walk in both aggregates
+   * Overlapping chains, walk -> taxi -> walk -> bus, give exactly two aggregates, TAXI and BUS, both holding the shared
+   * walk.
    */
   @Test
   public void testEdgeCaseStrictThreeStageOverlapPreservesRemainingBus() {
@@ -443,11 +433,9 @@ public class TripModeChainCollapsingTests {
   }
 
   /**
-   * RECURSIVE MULTI-COLLAPSE: Complex multi-transfer sequence.
-   * Verifies that given a complex transit chain (walk1 -> bus1 -> walk2 -> train -> walk3 -> bus2 -> walk4),
-   * the backward-peeking engine successfully borrows swallowed intermediate connectors on the fly.
-   * This reduces the entire 7-stage chain into exactly 3 consecutive AggregateTripView elements
-   * (BUS -> TRAIN -> BUS) using only clean, isolated 3-stage rule definitions.
+   * A chain with transfers, walk1 -> bus1 -> walk2 -> train -> walk3 -> bus2 -> walk4, collapses into exactly three
+   * AggregateTripViews, BUS -> TRAIN -> BUS, with three trip rules only: a walk between two transit trips is in both
+   * their aggregates.
    */
   @Test
   public void testComplexMultiTransferChainWithBackwardPeeking() {
@@ -542,9 +530,7 @@ public class TripModeChainCollapsingTests {
   }
 
   /**
-   * INVALID CONTEXT: Tour Mutator Safety Violation.
-   * Verifies that the AggregateTourView is strictly read-only and throws exceptions
-   * if external modules try to modify properties on the fly.
+   * AggregateTourView is read-only: changing it throws an exception.
    */
   @Test
   public void testInvalidContextTourMutationThrowsException() {
@@ -570,10 +556,8 @@ public class TripModeChainCollapsingTests {
   }
 
   /**
-   * CONDITIONAL MISSING CONNECTORS: Allowed from-missing if to-present.
-   * Verifies that a rule configured with allowedFromMissingIfToPresent = true successfully collapses
-   * a transit trip chain even when the preceding access connector is completely absent, provided
-   * that the succeeding egress connector is present.
+   * A rule with allowedFromMissingIfToPresent collapses a transit chain without an access connector, provided the
+   * egress connector is present.
    */
   @Test
   public void testAllowedFromMissingIfToPresentCollapseRule() {
@@ -638,10 +622,8 @@ public class TripModeChainCollapsingTests {
   }
 
   /**
-   * CONDITIONAL MISSING CONNECTORS: Allowed to-missing if from-present.
-   * Verifies that a rule configured with allowedToMissingIfFromPresent = true successfully collapses
-   * a transit trip chain even when the succeeding egress connector is completely absent, provided
-   * that the preceding access connector is present.
+   * A rule with allowedToMissingIfFromPresent collapses a transit chain without an egress connector, provided the
+   * access connector is present.
    */
   @Test
   public void testAllowedToMissingIfFromPresentCollapseRule() {
