@@ -99,7 +99,7 @@ public class MatsimSettingsFilesTest {
       Function<List<SettingsSource>, ?> fromYaml, String keys, String unknownKey) {
     var problem = SettingsFileAssertionUtils.assertThrowsOneSettingsProblem(SettingsProblemKind.UNKNOWN_KEY,
         () -> fromYaml.apply(List.of(text(keys))));
-    assertEquals(unknownKey, problem.getKeyPath());
+    assertEquals(unknownKey, problem.getSubject());
   }
 
   /**
@@ -352,7 +352,7 @@ public class MatsimSettingsFilesTest {
     for (var keys : List.of("modeMappings: {CUSTOM: car}\n", "modeMappings: {CAR: ''}\n")) {
       var problem = SettingsFileAssertionUtils.assertThrowsOneSettingsProblem(SettingsProblemKind.VALUE_REFUSED,
           () -> MatsimWriterSettingsFactory.createNetworkWriterSettingsFromYaml(List.of(text(keys))));
-      assertEquals("modeMappings", problem.getKeyPath(), keys);
+      assertEquals("modeMappings", problem.getSubject(), keys);
     }
   }
 
