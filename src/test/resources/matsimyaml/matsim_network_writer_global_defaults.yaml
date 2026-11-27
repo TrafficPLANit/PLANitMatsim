@@ -1,0 +1,30 @@
+# The kind of these settings and the version of their keys
+planitMatsimWriterSettings: 1
+# --- standard ---
+# The country written for, by its full English name, such as Australia, whose projected coordinate reference system is
+# written in when destinationCrs is not given
+country: global
+# The coordinate reference system to write in, by its code, such as EPSG:28356; when not given, that of the country,
+# else that of the data read
+# destinationCrs:
+# The folder to write to, relative to this settings file
+# outputDirectory:
+# The name of the file to write, in the output directory, such as roads.xml
+fileName: output_network
+# Write the MATSim files gzipped, adding .gz to their names
+writeAsGZip: true
+# The PLANit modes written to MATSim, each with the MATSim mode it is written as, such as BUS: pt; a mode not listed is
+# not written
+modeMappings: {BUS: pt, CAR: car, FERRY: pt, LIGHTRAIL: pt, TRAIN: pt}
+# --- uncommon ---
+# The pattern numbers are written with, such as #.###, as Java's DecimalFormat reads it
+decimalFormat: '#0.00######'
+# Also write a file with the detailed geometry of each link, taken from its PLANit geometry
+generateDetailedLinkGeometryFile: false
+# The shortest length written for a MATSim link, in metres
+minimumLinkLengthMeters: 1.0
+# Reduce the capacity of each MATSim link, the rate at which vehicles can leave it, by the effective capacity factor of
+# its link segment at an intersection, such as 3,600 pcu/h with a green ratio of 0.44 written as 1,584 pcu/h
+reduceLinkExitCapacityByEffectiveCapacityFactor: false
+# Limit the speed written for each link to the lowest maximum speed of the modes allowed on it, when that is lower
+restrictLinkSpeedBySupportedModes: false

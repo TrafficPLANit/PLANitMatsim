@@ -1,0 +1,4 @@
+planitMatsimWriterSettings: 1
+network: matsim_network_writer_every_key_not_default.yaml
+zoning: matsim_zoning_writer_every_key_not_default.yaml
+ptServices: matsim_pt_services_writer_every_key_not_default.yaml

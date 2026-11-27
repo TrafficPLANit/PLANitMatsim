@@ -1,0 +1,28 @@
+# The kind of these settings and the version of their keys
+planitMatsimWriterSettings: 1
+# --- standard ---
+# The country written for, by its full English name, such as Australia, whose projected coordinate reference system is
+# written in when destinationCrs is not given
+country: Australia
+# The coordinate reference system to write in, by its code, such as EPSG:28356; when not given, that of the country,
+# else that of the data read
+destinationCrs: EPSG:28356
+# The folder to write to, relative to this settings file
+outputDirectory: out
+# The name of the file to write, in the output directory, such as roads.xml
+fileName: stops
+# Write the MATSim files gzipped, adding .gz to their names
+writeAsGZip: false
+# Write the access to each stop as MATSim nodes and links; without it, stops not on the road network cannot be reached
+# on foot in MATSim
+writeTransferZoneAccess: false
+# --- uncommon ---
+# The pattern numbers are written with, such as #.###, as Java's DecimalFormat reads it
+decimalFormat: '#0.###'
+# Write the files MATSim's matrix based public transport router needs
+generateMatrixBasedPtRouterFiles: false
+# Write every stop facility as blocking, so a vehicle stopping there holds up the traffic behind it
+ptBlockingAtStopFacility: true
+# The free speed written on the links giving access to the stops, in km/h, whatever the modes allowed, as these links
+# stand for walking to and from a stop
+transferZoneAccessSpeedKmH: 4.0

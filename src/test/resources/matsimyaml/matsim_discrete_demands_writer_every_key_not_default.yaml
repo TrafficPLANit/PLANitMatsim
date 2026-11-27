@@ -1,0 +1,37 @@
+# The kind of these settings and the version of their keys
+planitMatsimWriterSettings: 1
+# --- standard ---
+# The country written for, by its full English name, such as Australia, whose projected coordinate reference system is
+# written in when destinationCrs is not given
+country: Australia
+# The coordinate reference system to write in, by its code, such as EPSG:28356; when not given, that of the country,
+# else that of the data read
+destinationCrs: EPSG:28356
+# The folder to write to, relative to this settings file
+outputDirectory: out
+# The name of the file to write, in the output directory, such as roads.xml
+fileName: plans
+# Write the MATSim files gzipped, adding .gz to their names
+writeAsGZip: false
+# The PLANit modes written to MATSim, each with the MATSim mode it is written as, such as BUS: pt; a mode not listed is
+# not written
+modeMappings: {CAR: car, PEDESTRIAN: walk, TRAIN: rail}
+# How each activity is placed in its zone: on a link of the zone, drawn by link length, or on the centroid of the zone
+# Values: ZONE_LINKS_DISTANCE_WEIGHTED, ZONE_CENTROID
+locationGeneratorType: ZONE_CENTROID
+# True switches to the disaggregated default MATSim modes (bus, train) for modes without a MATSim mode given explicitly,
+# and writes each public transport trip as a leg of its own, with an interaction activity between legs; false lets the
+# mode collapse rules apply, when collapseModeChains is on
+useDisaggregateTransitModes: true
+# --- uncommon ---
+# The pattern numbers are written with, such as #.###, as Java's DecimalFormat reads it
+decimalFormat: '#0.###'
+# Collapse chains of trips by the mode collapse rules, such as a walk to the station, the train and a walk on written as
+# one train leg; applies only when useDisaggregateTransitModes is false
+collapseModeChains: true
+# The mode collapse rules by main PLANit mode, replacing the defaults, such as TRAIN: {fromConnectors: [PEDESTRIAN],
+# toConnectors: [PEDESTRIAN]}: fromConnectors and toConnectors give, in order, the modes of the trips before and after a
+# trip by the main mode, merged into its leg; allowedFromMissingIfToPresent and allowedToMissingIfFromPresent let the
+# trips before, or after, be missing when the others are there; {} leaves none
+modeCollapseRules:
+  TRAM: {fromConnectors: [PEDESTRIAN, BICYCLE], toConnectors: [PEDESTRIAN], allowedFromMissingIfToPresent: true, allowedToMissingIfFromPresent: true}
